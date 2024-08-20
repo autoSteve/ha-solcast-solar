@@ -1,6 +1,6 @@
 {
   "domain": "solcast_solar",
-  "name": "Solcast PV Forecast",
+  "name": "Solcast PV Solar",
   "after_dependencies": ["http"],
   "codeowners": ["@BJReplay", "@autoSteve"],
   "config_flow": true,
