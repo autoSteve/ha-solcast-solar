@@ -30,6 +30,8 @@ from homeassistant.components.solcast_solar.const import (
     BRK_HOURLY,
     BRK_SITE,
     BRK_SITE_DETAILED,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     CUSTOM_HOUR_SENSOR,
     DOMAIN,
     EVENT_END_DATETIME,
@@ -441,7 +443,7 @@ async def test_schema_upgrade(
 ) -> None:
     """Test schema upgrade."""
 
-    config_dir = hass.config.config_dir
+    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
 
     options = copy.deepcopy(DEFAULT_INPUT1)
     options[CONF_API_KEY] = "2"
@@ -553,49 +555,51 @@ async def test_integration(
 ) -> None:
     """Test integration init."""
 
-    config_dir = hass.config.config_dir
-    Path(f"{hass.config.config_dir}/solcast-advanced.json").write_text(json.dumps({"entity_logging": True}), encoding="utf-8")
-
-    # Test startup
-    entry: ConfigEntry = await async_init_integration(hass, options)
-
-    if options == BAD_INPUT:
-        assert entry.state is ConfigEntryState.SETUP_ERROR
-        assert hass.data[DOMAIN].get("presumed_dead", True) is True
-        assert "Dampening factors corrupt or not found, setting to 1.0" in caplog.text
-        assert "Get sites failed, last call result: 403/Forbidden" in caplog.text
-        assert "API key is invalid" in caplog.text
-        return
-
-    if options == DEFAULT_INPUT_NO_SITES:
-        assert entry.state is ConfigEntryState.SETUP_ERROR
-        assert "HTTP session returned status 200/Success" in caplog.text
-        assert "No sites for the API key ******_sites are configured at solcast.com" in caplog.text
-        assert "No sites found for API key" in caplog.text
-        return
-
-    assert entry.state is ConfigEntryState.LOADED
-    assert hass.data[DOMAIN].get("presumed_dead", True) is False
-
-    # Enable the dampening entity
-    dampening_entity = "sensor.solcast_pv_forecast_dampening"
-    er.async_get(hass).async_update_entity(dampening_entity, disabled_by=None)
-    await hass.async_block_till_done()
-
-    coordinator: SolcastUpdateCoordinator | None
-    if (coordinator := entry.runtime_data.coordinator) is None:
-        pytest.fail("No coordinator")
-    solcast: SolcastApi | None = patch_solcast_api(coordinator.solcast)
-    granular_dampening_file = Path(f"{config_dir}/solcast-dampening.json")
-    assert granular_dampening_file.is_file() is False
-
-    coordinator, solcast = await _reload(hass, entry)
-    if coordinator is None or solcast is None:
-        pytest.fail("No coordinator or solcast")
-
-    coordinator.set_next_update()
-
     try:
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+        Path(f"{config_dir}/solcast-advanced.json").write_text(json.dumps({"entity_logging": True}), encoding="utf-8")
+
+        # Test startup
+        entry: ConfigEntry = await async_init_integration(hass, options)
+
+        if options == BAD_INPUT:
+            assert entry.state is ConfigEntryState.SETUP_ERROR
+            assert hass.data[DOMAIN].get("presumed_dead", True) is True
+            assert "Dampening factors corrupt or not found, setting to 1.0" in caplog.text
+            assert "Get sites failed, last call result: 403/Forbidden" in caplog.text
+            assert "API key is invalid" in caplog.text
+            return
+
+        if options == DEFAULT_INPUT_NO_SITES:
+            assert entry.state is ConfigEntryState.SETUP_ERROR
+            assert "HTTP session returned status 200/Success" in caplog.text
+            assert "No sites for the API key ******_sites are configured at solcast.com" in caplog.text
+            assert "No sites found for API key" in caplog.text
+            return
+
+        assert entry.state is ConfigEntryState.LOADED
+        assert hass.data[DOMAIN].get("presumed_dead", True) is False
+
+        # Enable the dampening entity
+        dampening_entity = "sensor.solcast_pv_forecast_dampening"
+        er.async_get(hass).async_update_entity(dampening_entity, disabled_by=None)
+        await hass.async_block_till_done()
+
+        coordinator: SolcastUpdateCoordinator | None
+        if (coordinator := entry.runtime_data.coordinator) is None:
+            pytest.fail("No coordinator")
+        solcast: SolcastApi | None = patch_solcast_api(coordinator.solcast)
+        granular_dampening_file = Path(f"{config_dir}/solcast-dampening.json")
+        assert granular_dampening_file.is_file() is False
+
+        coordinator, solcast = await _reload(hass, entry)
+        if coordinator is None or solcast is None:
+            pytest.fail("No coordinator or solcast")
+
+        coordinator.set_next_update()
+
         assert solcast.sites_status is SitesStatus.OK
         assert solcast._loaded_data is True  # pyright: ignore[reportPrivateUsage]
         assert "Dampening factors corrupt or not found, setting to 1.0" not in caplog.text
@@ -802,8 +806,10 @@ async def test_remaining_actions(
     """Test remaining actions."""
 
     try:
-        config_dir = hass.config.config_dir
-        Path(f"{hass.config.config_dir}/solcast-advanced.json").write_text(
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+        Path(f"{config_dir}/solcast-advanced.json").write_text(
             json.dumps({"entity_logging": True, "forecast_day_entities": 10}), encoding="utf-8"
         )
 
@@ -1113,15 +1119,17 @@ async def test_scenarios(
 ) -> None:
     """Test various integration scenarios."""
 
-    config_dir = hass.config.config_dir
-
-    options = copy.deepcopy(DEFAULT_INPUT1)
-    options[HARD_LIMIT_API] = "6.0"
-    entry = await async_init_integration(hass, options)
-    coordinator = entry.runtime_data.coordinator
-    solcast = patch_solcast_api(coordinator.solcast)
-
     try:
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+
+        options = copy.deepcopy(DEFAULT_INPUT1)
+        options[HARD_LIMIT_API] = "6.0"
+        entry = await async_init_integration(hass, options)
+        coordinator = entry.runtime_data.coordinator
+        solcast = patch_solcast_api(coordinator.solcast)
+
         # Test bad serialise data while an entry exists
         _LOGGER.debug("Testing bad serialise data")
         async with aiohttp.ClientSession() as session:
@@ -1435,16 +1443,17 @@ async def test_estimated_actuals(
 ) -> None:
     """Test various integration scenarios."""
 
-    config_dir = hass.config.config_dir
-
-    options = copy.deepcopy(DEFAULT_INPUT1)
-    options[GET_ACTUALS] = True
-    options[USE_ACTUALS] = 1
-    entry = await async_init_integration(hass, options)
-    coordinator = entry.runtime_data.coordinator
-    solcast = patch_solcast_api(coordinator.solcast)
-
     try:
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+        options = copy.deepcopy(DEFAULT_INPUT1)
+        options[GET_ACTUALS] = True
+        options[USE_ACTUALS] = 1
+        entry = await async_init_integration(hass, options)
+        coordinator = entry.runtime_data.coordinator
+        solcast = patch_solcast_api(coordinator.solcast)
+
         # Assert good start, that actuals are enabled, and that the cache is saved
         _LOGGER.debug("Testing good start happened")
         assert hass.data[DOMAIN].get("presumed_dead", True) is False
@@ -1552,5 +1561,28 @@ async def test_estimated_actuals(
             await _exec_update_actuals(hass, coordinator, solcast, caplog, "force_update_estimates")
         assert "Estimated actuals not enabled" in caplog.text
 
+    finally:
+        assert await async_cleanup_integration_tests(hass)
+
+
+async def test_config_folder_migration(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test migration of config to a discrete folder."""
+
+    try:
+        Path(f"{hass.config.config_dir}/solcast-test.json").write_text(  # Create old config file
+            json.dumps({"last_updated": dt.now(datetime.UTC).isoformat(), "siteinfo": {}}), encoding="utf-8"
+        )
+        options = copy.deepcopy(DEFAULT_INPUT1)
+        entry = await async_init_integration(hass, options)  # This will trigger migration
+        config_file_old = Path(f"{hass.config.config_dir}/solcast-test.json")
+        config_file_new = Path(f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}/solcast-test.json")
+        assert not config_file_old.is_file()
+        assert config_file_new.is_file()
+        assert entry.state is ConfigEntryState.LOADED
+        _no_exception(caplog)
     finally:
         assert await async_cleanup_integration_tests(hass)

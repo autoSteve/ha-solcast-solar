@@ -43,6 +43,8 @@ from .const import (
     BRK_HOURLY,
     BRK_SITE,
     BRK_SITE_DETAILED,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     CUSTOM_HOUR_SENSOR,
     DAMP_FACTOR,
     DATE_FORMAT,
@@ -163,7 +165,11 @@ async def __get_options(hass: HomeAssistant, entry: ConfigEntry) -> ConnectionOp
         entry.options[CONF_API_KEY],
         entry.options.get(API_QUOTA, 10),
         SOLCAST_URL,
-        hass.config.path(f"{hass.config.config_dir}/solcast.json"),
+        hass.config.path(
+            f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}/solcast.json"
+            if CONFIG_FOLDER_DISCRETE
+            else f"{hass.config.config_dir}/solcast.json"
+        ),
         await __get_time_zone(hass),
         entry.options.get(AUTO_UPDATE, AutoUpdate.NONE),
         dampening_option,
@@ -955,7 +961,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             default_list: list[str] = []
             for api_key in new_options[CONF_API_KEY].split(","):
-                api_cache_filename = f"{hass.config.config_dir}/solcast-usage{'' if len(new_options[CONF_API_KEY].split(',')) < 2 else '-' + api_key.strip()}.json"
+                api_cache_filename = (
+                    f"{f'{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}' if CONFIG_FOLDER_DISCRETE else hass.config.config_dir}/"
+                    f"solcast-usage{'' if len(new_options[CONF_API_KEY].split(',')) < 2 else '-' + api_key.strip()}.json"
+                )
                 async with aiofiles.open(api_cache_filename) as f:
                     usage = json.loads(await f.read())
                 default_list.append(str(usage["daily_limit"]))

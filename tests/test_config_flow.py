@@ -30,6 +30,8 @@ from homeassistant.components.solcast_solar.const import (
     BRK_HOURLY,
     BRK_SITE,
     BRK_SITE_DETAILED,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     CUSTOM_HOUR_SENSOR,
     DOMAIN,
     EXCLUDE_SITES,
@@ -666,7 +668,7 @@ async def test_entry_options_upgrade(
         "const_disableautopoll": False,
     }
     try:
-        config_dir = hass.config.config_dir
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
         entry = await async_init_integration(hass, copy.deepcopy(V3OPTIONS), version=START_VERSION)
         assert hass.data[DOMAIN].get("presumed_dead", True) is False
 
@@ -795,7 +797,7 @@ async def test_advanced_options(
 
     LEAST = 1
     try:
-        config_dir = hass.config.config_dir
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
 
         async def wait():

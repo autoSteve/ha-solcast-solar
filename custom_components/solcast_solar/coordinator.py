@@ -37,6 +37,8 @@ from homeassistant.helpers.sun import get_astral_event_next
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     DATE_FORMAT,
     DOMAIN,
     FORECAST_DAY_SENSORS,
@@ -227,7 +229,13 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
             event_handler = self.StartEventHandler(self, task, file_path)
             observer = Observer()
-            observer.schedule(event_handler, path=self.hass.config.config_dir, recursive=False)
+            observer.schedule(
+                event_handler,
+                path=f"{self.hass.config.config_dir}/{CONFIG_DISCRETE_NAME}"
+                if CONFIG_FOLDER_DISCRETE
+                else f"{self.hass.config.config_dir}",
+                recursive=False,
+            )
             observer.start()
 
             try:

@@ -46,6 +46,8 @@ from .const import (
     BRK_HOURLY,
     BRK_SITE,
     BRK_SITE_DETAILED,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     CUSTOM_HOUR_SENSOR,
     DATE_FORMAT,
     DATE_MONTH_DAY,
@@ -253,8 +255,22 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._tz = options.tz
         self._use_forecast_confidence = f"pv_{options.key_estimate}"
 
-        self._config_dir = hass.config.config_dir
+        self._config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        (Path(self._config_dir).mkdir(parents=False, exist_ok=True)) if CONFIG_FOLDER_DISCRETE else None
         _LOGGER.debug("Configuration directory is %s", self._config_dir)
+        self.migrate_config_files()
+
+    def migrate_config_files(self) -> None:
+        """Migrate config files to discrete folder if required."""
+
+        source_path = Path(self._config_dir) / ".." if CONFIG_FOLDER_DISCRETE else Path(self._config_dir) / "solcast_solar"
+        if source_path.exists():
+            for file in source_path.glob("solcast*.json"):
+                target_path = Path(self._config_dir) / file.name
+                _LOGGER.debug("Migrating config directory file %s to %s", file, target_path)
+                file.replace(target_path)
+        with contextlib.suppress(OSError):
+            ((Path(self._config_dir) / "solcast_solar").rmdir()) if not CONFIG_FOLDER_DISCRETE else None
 
     async def tasks_cancel(self):
         """Cancel all tasks."""
