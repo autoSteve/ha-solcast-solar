@@ -283,7 +283,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
             try:
                 while not self.hass.is_stopping and self.tasks and self.watchdog[task]["event"] != FileEvent.DELETE:
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.5)
                     if (
                         self.watchdog[task]["event"] == FileEvent.UPDATE
                         and self.solcast.granular_dampening_mtime != Path(self._file_dampening).stat().st_mtime
@@ -329,7 +329,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
             try:
                 while not self.hass.is_stopping and self.tasks and self.watchdog[task]["event"] != FileEvent.DELETE:
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.5)
                     if self.watchdog[task]["event"] == FileEvent.UPDATE:
                         self.watchdog[task]["event"] = FileEvent.NO_EVENT
                         change = await self.solcast.read_advanced_options()
@@ -367,7 +367,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
             try:
                 while not self.hass.is_stopping and dt.now(self.solcast.options.tz) < end_date:
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1)
                     if self.watchdog[task]["event"] == FileEvent.CREATE and Path(_file_dampening_legacy).exists():
                         Path(_file_dampening_legacy).rename(self._file_dampening)
                         _LOGGER.warning(
