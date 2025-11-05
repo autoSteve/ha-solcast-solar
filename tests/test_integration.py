@@ -10,6 +10,7 @@ import json
 import logging
 import os
 from pathlib import Path
+import re
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -701,9 +702,19 @@ async def test_integration(
                 "3333-3333-3333-3333": [0.9] * 48,
             }
         )
-        granular_dampening_file.write_text(json.dumps(granular_dampening), encoding="utf-8")
+        if dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz) and CONFIG_FOLDER_DISCRETE:
+            legacy_dampening_file = Path(f"{config_dir.replace(f'/{CONFIG_DISCRETE_NAME}', '')}/solcast-dampening.json")
+            legacy_dampening_file.write_text(json.dumps(granular_dampening), encoding="utf-8")
+            _LOGGER.debug("Write legacy dampening file %s for auto-move test", legacy_dampening_file)
+        else:
+            granular_dampening_file.write_text(json.dumps(granular_dampening), encoding="utf-8")
+            _LOGGER.debug("Write dampening file %s for test", granular_dampening_file)
+        await _wait_for(caplog, "Running task watchdog_dampening")
         assert granular_dampening_file.is_file()
-        await _wait_for(caplog, "Running task watchdog")
+        if dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz):
+            assert "Auto-moving will cease 1st June 2026" in caplog.text
+        else:
+            assert "Auto-moving will cease 1st June 2026" not in caplog.text
 
         # Test update beyond ten seconds of prior update, also with stale usage cache and dodgy dampening file
         session_reset_usage()
@@ -1583,6 +1594,9 @@ async def test_config_folder_migration(
         assert not config_file_old.is_file()
         assert config_file_new.is_file()
         assert entry.state is ConfigEntryState.LOADED
+        assert re.search(
+            r"INFO.+Migrating config directory file.+config/solcast-test.json to .+config/solcast_solar/solcast-test.json", caplog.text
+        )
         _no_exception(caplog)
     finally:
         assert await async_cleanup_integration_tests(hass)

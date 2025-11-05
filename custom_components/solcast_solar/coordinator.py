@@ -80,6 +80,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
         """
         self.watchdog: dict[str, dict[str, Any]] = {
             "watchdog_dampening": {"event": FileEvent.NO_EVENT},
+            "watchdog_dampening_legacy": {"event": FileEvent.NO_EVENT},
             "watchdog_advanced": {"event": FileEvent.NO_EVENT},
         }
         self.divisions: int = 0
@@ -175,6 +176,8 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             self.tasks["watchdog_dampening_start"] = (
                 asyncio.create_task(self.watch_for_file("watchdog_dampening", self._file_dampening, self.watch_dampening_file))
             ).cancel
+            if CONFIG_FOLDER_DISCRETE:
+                self.tasks["watchdog_dampening_legacy"] = (asyncio.create_task(self.watch_for_dampening_legacy_location())).cancel
         else:
             _LOGGER.debug("Not monitoring dampening file, auto-dampening is enabled")
         for task in sorted(self.tasks):
@@ -194,19 +197,20 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
     class StartEventHandler(FileSystemEventHandler):
         """Handle start file monitoring."""
 
-        def __init__(self, coordinator: SolcastUpdateCoordinator, task: str, path: str) -> None:
+        def __init__(self, coordinator: SolcastUpdateCoordinator, task: str, path: str, direct_task: str = "") -> None:
             """Init."""
 
             self._coordinator = coordinator
             self._task = task
+            self._direct_task = direct_task
             self._path = path
             super().__init__()
 
         def on_created(self, event: DirCreatedEvent | FileCreatedEvent):
             """File has been created."""
-            if isinstance(event, FileCreatedEvent) and self._coordinator.tasks.get(self._task) is None:
+            if isinstance(event, FileCreatedEvent) and (self._coordinator.tasks.get(self._task) is None or self._direct_task):
                 if event.src_path == self._path:
-                    self._coordinator.watchdog[self._task]["event"] = FileEvent.CREATE
+                    self._coordinator.watchdog[self._task if not self._direct_task else self._direct_task]["event"] = FileEvent.CREATE
 
         def on_moved(self, event: DirMovedEvent | FileMovedEvent) -> None:
             """File has been moved/renamed away from self._path."""
@@ -227,13 +231,10 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 self.tasks[task] = (asyncio.create_task(handler())).cancel
                 _LOGGER.debug("Running task %s", task)
 
-            event_handler = self.StartEventHandler(self, task, file_path)
             observer = Observer()
             observer.schedule(
-                event_handler,
-                path=f"{self.hass.config.config_dir}/{CONFIG_DISCRETE_NAME}"
-                if CONFIG_FOLDER_DISCRETE
-                else f"{self.hass.config.config_dir}",
+                self.StartEventHandler(self, task, file_path),
+                path=f"{self.hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else self.hass.config.config_dir,
                 recursive=False,
             )
             observer.start()
@@ -282,7 +283,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
             try:
                 while not self.hass.is_stopping and self.tasks and self.watchdog[task]["event"] != FileEvent.DELETE:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
                     if (
                         self.watchdog[task]["event"] == FileEvent.UPDATE
                         and self.solcast.granular_dampening_mtime != Path(self._file_dampening).stat().st_mtime
@@ -328,7 +329,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
             try:
                 while not self.hass.is_stopping and self.tasks and self.watchdog[task]["event"] != FileEvent.DELETE:
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)
                     if self.watchdog[task]["event"] == FileEvent.UPDATE:
                         self.watchdog[task]["event"] = FileEvent.NO_EVENT
                         change = await self.solcast.read_advanced_options()
@@ -347,6 +348,41 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 self.tasks[task]()  # Cancel the task
                 self.tasks.pop(task)
                 _LOGGER.debug("Cancelled task %s", task)
+
+    async def watch_for_dampening_legacy_location(self):
+        """Watch for dampening file modification in the legacy config location."""
+
+        task = "watchdog_dampening_legacy"
+        _file_dampening_legacy = self._file_dampening.replace("/solcast_solar", "")
+
+        end_date = dt(2026, 6, 1, tzinfo=self.solcast.options.tz)
+        try:
+            observer = Observer()
+            observer.schedule(
+                self.StartEventHandler(self, "blah", _file_dampening_legacy, direct_task=task),
+                path=self.hass.config.config_dir,
+                recursive=False,
+            )
+            observer.start()
+
+            try:
+                while not self.hass.is_stopping and dt.now(self.solcast.options.tz) < end_date:
+                    await asyncio.sleep(0.5)
+                    if self.watchdog[task]["event"] == FileEvent.CREATE and Path(_file_dampening_legacy).exists():
+                        Path(_file_dampening_legacy).rename(self._file_dampening)
+                        _LOGGER.warning(
+                            "Moved dampening file %s from legacy config to %s; Auto-moving will cease 1st June 2026",
+                            _file_dampening_legacy,
+                            self._file_dampening,
+                        )
+                        self.watchdog[task]["event"] = FileEvent.NO_EVENT
+            finally:
+                observer.stop()
+                observer.join()
+        finally:
+            self.watchdog[task]["event"] = FileEvent.NO_EVENT
+            _LOGGER.debug("Cancelled task %s", task) if self.tasks.get(task) is not None else None
+            self.tasks.pop(task) if self.tasks.get(task) is not None else None
 
     async def update_integration_listeners(self, called_at: dt | None = None) -> None:
         """Get updated sensor values."""
