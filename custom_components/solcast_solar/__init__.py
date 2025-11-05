@@ -960,10 +960,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def __v9(hass: HomeAssistant, new_options: dict[str, Any]) -> None:
         try:
             default_list: list[str] = []
+            config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
             for api_key in new_options[CONF_API_KEY].split(","):
                 api_cache_filename = (
-                    f"{f'{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}' if CONFIG_FOLDER_DISCRETE else hass.config.config_dir}/"
-                    f"solcast-usage{'' if len(new_options[CONF_API_KEY].split(',')) < 2 else '-' + api_key.strip()}.json"
+                    f"{config_dir}/solcast-usage{'' if len(new_options[CONF_API_KEY].split(',')) < 2 else '-' + api_key.strip()}.json"
                 )
                 async with aiofiles.open(api_cache_filename) as f:
                     usage = json.loads(await f.read())

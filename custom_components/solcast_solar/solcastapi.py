@@ -267,7 +267,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         if source_path.exists():
             for file in source_path.glob("solcast*.json"):
                 target_path = Path(self._config_dir) / file.name
-                _LOGGER.debug("Migrating config directory file %s to %s", file, target_path)
+                _LOGGER.info("Migrating config directory file %s to %s", file.resolve(), target_path)
                 file.replace(target_path)
         with contextlib.suppress(OSError):
             ((Path(self._config_dir) / "solcast_solar").rmdir()) if not CONFIG_FOLDER_DISCRETE else None
