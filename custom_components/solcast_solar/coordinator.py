@@ -371,7 +371,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     if self.watchdog[task]["event"] == FileEvent.CREATE and Path(_file_dampening_legacy).exists():
                         Path(_file_dampening_legacy).rename(self._file_dampening)
                         _LOGGER.warning(
-                            "Moved dampening file %s from legacy config to %s; Auto-moving will cease 1st June 2026",
+                            "Moved dampening file %s from legacy config to %s, auto-moving will cease 1st June 2026",
                             _file_dampening_legacy,
                             self._file_dampening,
                         )

@@ -702,7 +702,7 @@ async def test_integration(
                 "3333-3333-3333-3333": [0.9] * 48,
             }
         )
-        if dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz) and CONFIG_FOLDER_DISCRETE:
+        if options == DEFAULT_INPUT1 and dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz) and CONFIG_FOLDER_DISCRETE:
             legacy_dampening_file = Path(f"{config_dir.replace(f'/{CONFIG_DISCRETE_NAME}', '')}/solcast-dampening.json")
             legacy_dampening_file.write_text(json.dumps(granular_dampening), encoding="utf-8")
             _LOGGER.debug("Write legacy dampening file %s for auto-move test", legacy_dampening_file)
@@ -711,10 +711,11 @@ async def test_integration(
             _LOGGER.debug("Write dampening file %s for test", granular_dampening_file)
         await _wait_for(caplog, "Running task watchdog_dampening")
         assert granular_dampening_file.is_file()
-        if dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz):
-            assert "Auto-moving will cease 1st June 2026" in caplog.text
-        else:
-            assert "Auto-moving will cease 1st June 2026" not in caplog.text
+        if CONFIG_FOLDER_DISCRETE:
+            if options == DEFAULT_INPUT1 and dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz):
+                assert "auto-moving will cease 1st June 2026" in caplog.text
+            else:
+                assert "auto-moving will cease 1st June 2026" not in caplog.text
 
         # Test update beyond ten seconds of prior update, also with stale usage cache and dodgy dampening file
         session_reset_usage()
