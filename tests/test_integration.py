@@ -694,7 +694,10 @@ async def test_integration(
 
         # Create a granular dampening file to be read
         granular_dampening = (
-            {"1111-1111-1111-1111": [0.8] * 48, "2222-2222-2222-2222": [0.9] * 48}
+            {
+                "1111-1111-1111-1111": [0.8] * 48,
+                "2222-2222-2222-2222": [0.9] * 48,
+            }
             if options == DEFAULT_INPUT1
             else {
                 "1111-1111-1111-1111": [0.7] * 24,  # Intentionally dodgy
@@ -702,8 +705,9 @@ async def test_integration(
                 "3333-3333-3333-3333": [0.9] * 48,
             }
         )
+        # Create in the legacy location for auto-move test if CONFIG_FOLDER_DISCRETE is True and it is before June 2026
         if options == DEFAULT_INPUT1 and dt.now(solcast.options.tz) < dt(2026, 6, 1, tzinfo=solcast.options.tz) and CONFIG_FOLDER_DISCRETE:
-            legacy_dampening_file = Path(f"{config_dir.replace(f'/{CONFIG_DISCRETE_NAME}', '')}/solcast-dampening.json")
+            legacy_dampening_file = Path(f"{config_dir.replace(f'/{CONFIG_DISCRETE_NAME}', '')}/{granular_dampening_file.name}")
             legacy_dampening_file.write_text(json.dumps(granular_dampening), encoding="utf-8")
             _LOGGER.debug("Write legacy dampening file %s for auto-move test", legacy_dampening_file)
         else:

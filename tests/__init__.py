@@ -610,7 +610,7 @@ async def async_init_integration(
 async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
-    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else f"{hass.config.config_dir}"
+    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
 
     def list_files() -> list[str]:
         return [str(cache) for cache in Path(config_dir).glob("solcast*.json")]
@@ -633,7 +633,7 @@ async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -
 async def async_cleanup_integration_tests(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
-    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else f"{hass.config.config_dir}"
+    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
 
     def list_files() -> list[str]:
         return [str(cache) for cache in Path(config_dir).glob("solcast*.json")]
