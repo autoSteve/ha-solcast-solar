@@ -3937,7 +3937,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     site_actuals: dict[dt, dict[str, dt | float]] = {}
 
                     if api_key is not None:
-                        for actual in siteinfo["forecasts"]:
+                        for actual_count, actual in enumerate(siteinfo["forecasts"]):
                             period_start = actual["period_start"]
                             period_start_local = period_start.astimezone(self._tz)
 
@@ -3967,12 +3967,18 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                             "period_start": period_start,
                                             "pv_estimate": site_actuals[period_start]["pv_estimate"],
                                         }
+
+                            # Prevent blocking
+                            if actual_count % 100 == 0:
+                                await asyncio.sleep(0)
+
                         if log_dictionary_length:
                             _LOGGER.debug(
                                 "Estimated actuals dictionary length for %s is %s",
                                 resource_id,
                                 len(self._data_actuals["siteinfo"][resource_id]["forecasts"]),
                             )
+
                 return sorted(actuals.values(), key=itemgetter("period_start"))
             except Exception as e:  # noqa: BLE001
                 _LOGGER.error("Exception in build_data_actuals(): %s: %s", e, traceback.format_exc())
@@ -4077,12 +4083,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         periods: list[dt] = [
                             earliest + timedelta(minutes=30 * x) for x in range(int((latest - earliest).total_seconds() / 1800))
                         ]
-                        for pv_estimate in [
-                            "pv_estimate",
-                            "pv_estimate10",
-                            "pv_estimate90",
-                        ]:
-                            sites_hard_limit[api_key][pv_estimate] = {}
+                        sites_hard_limit[api_key] = {est: {} for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")}
                         for period in periods:
                             for pv_estimate in [
                                 "pv_estimate",
@@ -4103,19 +4104,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     )
                 elif multi_key:
                     for api_key in self.options.api_key.split(","):
-                        for pv_estimate in [
-                            "pv_estimate",
-                            "pv_estimate10",
-                            "pv_estimate90",
-                        ]:
-                            sites_hard_limit[api_key][pv_estimate] = {}
+                        sites_hard_limit[api_key] = {est: {} for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")}
                 else:
-                    for pv_estimate in [
-                        "pv_estimate",
-                        "pv_estimate10",
-                        "pv_estimate90",
-                    ]:
-                        sites_hard_limit["all"][pv_estimate] = {}
+                    sites_hard_limit["all"] = {est: {} for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")}
 
                 # Build per-site and total forecasts with proportionate hard limit applied.
                 for resource_id, siteinfo in data.get("siteinfo", {}).items():
@@ -4125,7 +4116,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     site_forecasts: dict[dt, dict[str, dt | float]] = {}
 
                     if api_key is not None:
-                        for forecast in siteinfo["forecasts"]:
+                        for forecast_count, forecast in enumerate(siteinfo["forecasts"]):
                             period_start = forecast["period_start"]
                             period_start_local = period_start.astimezone(self._tz)
 
@@ -4133,69 +4124,55 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 # Record the individual site forecast.
                                 site_forecasts[period_start] = {
                                     "period_start": period_start,
-                                    "pv_estimate": round(
+                                } | {
+                                    est: round(
                                         min(
-                                            forecast["pv_estimate"],
-                                            sites_hard_limit[api_key]["pv_estimate"].get(period_start, {}).get(resource_id, 100),
+                                            forecast[est],
+                                            sites_hard_limit[api_key][est].get(period_start, {}).get(resource_id, 100),
                                         ),
                                         4,
-                                    ),
-                                    "pv_estimate10": round(
-                                        min(
-                                            forecast["pv_estimate10"],
-                                            sites_hard_limit[api_key]["pv_estimate10"].get(period_start, {}).get(resource_id, 100),
-                                        ),
-                                        4,
-                                    ),
-                                    "pv_estimate90": round(
-                                        min(
-                                            forecast["pv_estimate90"],
-                                            sites_hard_limit[api_key]["pv_estimate90"].get(period_start, {}).get(resource_id, 100),
-                                        ),
-                                        4,
-                                    ),
+                                    )
+                                    for est in ["pv_estimate", "pv_estimate10", "pv_estimate90"]
                                 }
 
-                                if update_tally and period_start_local.date() == today:
-                                    if tally is None:
-                                        tally = 0.0
-                                    tally += (
-                                        min(
-                                            forecast[self._use_forecast_confidence],
-                                            sites_hard_limit[api_key][self._use_forecast_confidence]
-                                            .get(period_start, {})
-                                            .get(resource_id, 100),
-                                        )
-                                        * 0.5
-                                    )
-
-                                # If the forecast is for today, and the site is not excluded, add to the total.
                                 if resource_id not in self.options.exclude_sites:
+                                    # If the forecast is for today, and the site is not excluded, add to the total.
+                                    if update_tally and period_start_local.date() == today:
+                                        if tally is None:
+                                            tally = 0.0
+                                        tally += (
+                                            min(
+                                                forecast[self._use_forecast_confidence],
+                                                sites_hard_limit[api_key][self._use_forecast_confidence]
+                                                .get(period_start, {})
+                                                .get(resource_id, 100),
+                                            )
+                                            * 0.5
+                                        )
+
                                     extant: dict[str, Any] | None = forecasts.get(period_start)
                                     if extant is not None:
-                                        extant["pv_estimate"] = round(
-                                            extant["pv_estimate"] + site_forecasts[period_start]["pv_estimate"],
-                                            4,
-                                        )
-                                        extant["pv_estimate10"] = round(
-                                            extant["pv_estimate10"] + site_forecasts[period_start]["pv_estimate10"],
-                                            4,
-                                        )
-                                        extant["pv_estimate90"] = round(
-                                            extant["pv_estimate90"] + site_forecasts[period_start]["pv_estimate90"],
-                                            4,
-                                        )
+                                        for est in ["pv_estimate", "pv_estimate10", "pv_estimate90"]:
+                                            extant[est] = round(
+                                                extant[est] + site_forecasts[period_start][est],
+                                                4,
+                                            )
                                     else:
                                         forecasts[period_start] = {
                                             "period_start": period_start,
-                                            "pv_estimate": site_forecasts[period_start]["pv_estimate"],
-                                            "pv_estimate10": site_forecasts[period_start]["pv_estimate10"],
-                                            "pv_estimate90": site_forecasts[period_start]["pv_estimate90"],
+                                        } | {
+                                            est: site_forecasts[period_start][est]
+                                            for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")
                                         }
                                         if update_tally and self.options.auto_dampen and period_start >= self.get_day_start_utc():
                                             forecasts[period_start]["dampening_factor"] = round(
                                                 self._auto_dampening_factors[period_start], 4
                                             )
+
+                            # Yield to event loop and prevent blocking
+                            if forecast_count % 100 == 0:
+                                await asyncio.sleep(0)
+
                         site_data_forecasts[resource_id] = sorted(site_forecasts.values(), key=itemgetter("period_start"))
                         if update_tally:
                             rounded_tally: Any = round(tally, 4) if tally is not None else 0.0
@@ -4208,6 +4185,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 len(forecasts),
                                 len(self._data_undampened["siteinfo"][resource_id]["forecasts"]),
                             )
+
                 if update_tally:
                     self._data_forecasts = sorted(forecasts.values(), key=itemgetter("period_start"))
                 else:
