@@ -1,6 +1,6 @@
 # Advanced options
 
-It is possible to alter the behaviour of some integration functions by creating a file called `solcast-advanced.json` in the Home Assistant configuration directory.
+It is possible to alter the behaviour of some integration functions by creating a file called `solcast-advanced.json` in the Home Assistant configuration directory `solcast_solar` subdirectory.
 
 This file has a JSON structure of a dictionary containing key/value pairs.
 
@@ -80,7 +80,7 @@ Possible values: integer `1`..`21` (default `2`)
 
 Dampening modelling will skip intervals where there are a low number of matching generation samples for intervals. This is defaulted at two to get a "peak" generation value, but a value of one is also allowed for experimentation.
 
-Do not set this value higher than the number of past days considered for automated dampening.
+Do not set this value higher than the minimum matching intervals or the number of past days considered for automated dampening.
 
 **Key: "automated_dampening_minimum_matching_intervals"**
 
@@ -88,13 +88,13 @@ Possible values: integer `1`..`21` (default `2`)
 
 Dampening modelling will skip intervals where there are a low number of matching past intervals. A low number of matches are generally seen at the beginning and end of each day, and these are ignored by default.
 
-Do not set this value higher than the number of past days considered for automated dampening.
+Do not set this value lower than the minimum matching generation, or higher than the number of past days considered for automated dampening.
 
 **Key: "automated_dampening_model_days"**
 
 Possible values: integer `2`..`21` (default `14`)
 
-The number of days of past estimated actual and generation to use for modelling future dampening.
+The maximum number of days of past estimated actuals and generation to use for modelling future dampening.
 
 **Key: "automated_dampening_no_delta_corrections"**
 
@@ -106,9 +106,9 @@ If delta logarithmic adjustment of dampening factors is not desired then this op
 
 Possible values: boolean `true`/`false` (default `false`)
 
-Whenever export limiting of generation is seen (either by export limit detection, or manual limiting by using the entity `solcast_suppress_auto_dampening`) then all intervals of generation will be ignored over the period defined by "automated_dampening_model_days", which is `14` by default.
+Default limiting behaviour is that whenever export limiting of generation is seen (either by export limit detection, or manual limiting by using the entity `solcast_suppress_auto_dampening`) then all intervals of generation will be ignored over the period defined by `automated_dampening_model_days`, which is `14` by default.
 
-Said another way, if there is limiting detected for any interval on any day, then that interval will be ignored for every day of the past fourteen days.
+Said another way, the default behaviour is that if there is limiting detected for any interval on any day, then that interval will be ignored for every day of the past fourteen days.
 
 Set this option to `true` to prevent this behaviour.
 
@@ -116,9 +116,9 @@ Set this option to `true` to prevent this behaviour.
 
 Possible values: float `0.0`..`1.0` (default `0.9`)
 
-Estimated actual peaks are compared to find a similar number of "matching" peaks from which to compare maximum generation. By default this is intervals within 0.9 * peak that are considered.
+Estimated actual peaks are compared to find a similar number of "matching" peaks from which to compare maximum generation. By default this is intervals within `0.9 * peak` that are considered.
 
-This setting is variable by using this option.
+This option varies what is considered a similar interval from all modelled days.
 
 ## Estimated actuals
 
@@ -142,11 +142,15 @@ The number of forecast day entities to create (plus one). By default seven entit
 
 An integration reload is required to vary the number of entities. New entities created will be disabled by default, and if this option is reduced then entities will be cleaned up.
 
+Do not set this value higher than the number of forecast future days.
+
 **Key: "forecast_future_days"**
 
 Possible values: integer `8`..`14` (default `14`)
 
 The number of days of forecasts to request from Solcast. Setting this lower than 14 will not remove forecasts already retrieved.
+
+Consider the setting of `forecast_day_entities` when lowering this option.
 
 **Key: "forecast_history_max_days"**
 
