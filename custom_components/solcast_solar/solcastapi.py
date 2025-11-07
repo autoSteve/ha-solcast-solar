@@ -2988,12 +2988,12 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 if len(matching) >= self.advanced_options["automated_dampening_minimum_matching_intervals"]:
                     if peak < self._peak_intervals[interval]:
                         if len(generation_samples) >= self.advanced_options["automated_dampening_minimum_matching_generation"]:
-                            factor = (peak / self._peak_intervals[interval]) if self._peak_intervals[interval] != 0 else 0.0
-                            if factor >= self.advanced_options["automated_dampening_insignificant_factor"]:
+                            factor = (peak / self._peak_intervals[interval]) if self._peak_intervals[interval] != 0 else 1.0
+                            if factor >= self.advanced_options["automated_dampening_insignificant_factor"] and factor != 1.0:
                                 msg = f"Ignoring insignificant factor for {interval_time} of {factor:.3f}"
                             else:
                                 msg = f"Auto-dampen factor for {interval_time} is {factor:.3f}"
-                                dampening[interval] = round(factor, 3)
+                            dampening[interval] = round(factor, 3)
                         else:
                             msg = f"Not enough reliable generation samples for {interval_time} to determine dampening ({len(generation_samples)})"
                     else:
@@ -3329,26 +3329,20 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                             factor, min(1, factor + ((1 - factor) * (math.log(self._peak_intervals[interval]) - math.log(interval_pv50))))
                         )
                         interval_time = period_start.astimezone(self._tz).strftime(DATE_FORMAT)
-                        if factor >= self.advanced_options["automated_dampening_insignificant_factor_adjusted"]:
-                            if record_adjustment and period_start.astimezone(self._tz).date() == dt.now(self._tz).date():
-                                _LOGGER.debug(
-                                    "Ignoring insignificant adjusted factor for %s of %.3f (was %.3f, peak %.3f, interval pv50 %.3f)",
-                                    interval_time,
-                                    factor,
-                                    factor_pre_adjustment,
-                                    self._peak_intervals[interval],
-                                    interval_pv50,
-                                )
-                            factor = 1.0
                         if record_adjustment and period_start.astimezone(self._tz).date() == dt.now(self._tz).date():
                             _LOGGER.debug(
-                                "Adjusted granular dampening factor for %s is %.3f (was %.3f, peak %.3f, interval pv50 %.3f)",
+                                "%sdjusted granular dampening factor for %s, %.3f (was %.3f, peak %.3f, interval pv50 %.3f)",
+                                "A"
+                                if factor == 1.0 or factor < self.advanced_options["automated_dampening_insignificant_factor_adjusted"]
+                                else "Ignoring insignificant a",
                                 interval_time,
                                 factor,
                                 factor_pre_adjustment,
                                 self._peak_intervals[interval],
                                 interval_pv50,
                             )
+                        if factor >= self.advanced_options["automated_dampening_insignificant_factor_adjusted"]:
+                            factor = 1.0
 
         return factor
 

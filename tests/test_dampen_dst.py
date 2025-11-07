@@ -120,7 +120,7 @@ async def test_auto_dampen_dst_transition(
             await hass.async_block_till_done()
             if "Applying future dampening" in caplog.text:
                 break
-        assert f"Adjusted granular dampening factor for 2025-10-04 09:00:00 is {expected_value}" in caplog.text
+        assert f"Adjusted granular dampening factor for 2025-10-04 09:00:00, {expected_value}" in caplog.text
         assert f"Auto-dampen factor for 09:00 is {expected_value}" in caplog.text
         caplog.clear()
         await five_minute_bump(hass, freezer, caplog)
@@ -144,7 +144,7 @@ async def test_auto_dampen_dst_transition(
             if "Applying future dampening" in caplog.text:
                 break
         assert f"Auto-dampen factor for 10:00 is {expected_value}" in caplog.text
-        assert f"Adjusted granular dampening factor for 2025-10-05 10:00:00 is {expected_value}" in caplog.text
+        assert f"Adjusted granular dampening factor for 2025-10-05 10:00:00, {expected_value}" in caplog.text
         caplog.clear()
         await five_minute_bump(hass, freezer, caplog)
         if (state := hass.states.get(dampening_entity)) is not None:
@@ -224,7 +224,7 @@ async def test_auto_dampen_dst_transition_back(
             await hass.async_block_till_done()
             if "Applying future dampening" in caplog.text:
                 break
-        assert f"Adjusted granular dampening factor for 2026-04-04 10:00:00 is {expected_value}" in caplog.text
+        assert f"Adjusted granular dampening factor for 2026-04-04 10:00:00, {expected_value}" in caplog.text
         caplog.clear()
         await five_minute_bump(hass, freezer, caplog)
         if (state := hass.states.get(dampening_entity)) is not None:
@@ -246,7 +246,7 @@ async def test_auto_dampen_dst_transition_back(
             await hass.async_block_till_done()
             if "Applying future dampening" in caplog.text:
                 break
-        assert f"Adjusted granular dampening factor for 2026-04-05 09:00:00 is {expected_value}" in caplog.text
+        assert f"Adjusted granular dampening factor for 2026-04-05 09:00:00, {expected_value}" in caplog.text
         caplog.clear()
         await five_minute_bump(hass, freezer, caplog)
         if (state := hass.states.get(dampening_entity)) is not None:

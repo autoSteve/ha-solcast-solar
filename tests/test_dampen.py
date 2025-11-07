@@ -213,7 +213,7 @@ async def test_auto_dampen(
         assert "Auto-dampen factor for 08:30 is 0.807" in caplog.text
         # assert "Auto-dampen factor for 11:00" not in caplog.text
         assert "Ignoring insignificant factor for 10:30" in caplog.text
-        assert re.search(r"Ignoring insignificant adjusted factor.+11:00:00.+0\.990.+0\.988", caplog.text)
+        assert re.search(r"Ignoring insignificant adjusted granular dampening factor.+11:00:00.+0\.990.+0\.988", caplog.text)
         assert "Ignoring excessive PV generation" not in caplog.text
 
         # Reload to load saved generation data
