@@ -424,7 +424,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             if not record["export_limiting"]:
                 generation_day[
                     record["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
-                ] += record["generation"] / 2  # 30 minute intervals
+                ] += record["generation"]
 
         estimates = ("pv_estimate", "pv_estimate10", "pv_estimate90")
 
