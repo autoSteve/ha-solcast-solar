@@ -1245,6 +1245,7 @@ v4.4.8
 * Add advanced auto-dampen option 'similar peak' by @autoSteve
 * Add advanced estimated actuals 'fetch delay' by @autoSteve
 * Modify advanced auto-dampen option 'minimum matching intervals' to accept `1` by @autoSteve
+* Attribute consistency as local time zone for datetime values by @autoSteve
 
 Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.4.7...v4.4.8
 
