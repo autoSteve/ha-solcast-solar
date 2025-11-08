@@ -1774,7 +1774,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             dt | None: The last successful forecast fetch.
 
         """
-        return self._data.get("last_updated")
+        return self._data["last_updated"].astimezone(self._tz) if self._data.get("last_updated") is not None else None
 
     def get_dampen(self) -> bool:
         """Return whether dampening is enabled.
@@ -1834,7 +1834,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         """Return whether a given date is daylight savings time, or for zones using Winter time whether standard time."""
         result = False
         if dt_obj is not None:
-            delta = timedelta(hours=1) if str(self.options.tz) not in WINTER_TIME else timedelta(hours=0)
+            delta = timedelta(hours=1) if str(self._tz) not in WINTER_TIME else timedelta(hours=0)
             result = dt_obj.astimezone(self._tz).dst() == delta
         return result
 
@@ -2102,7 +2102,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         start_utc = self.get_day_start_utc(future=n_day)
         end_utc = self.get_day_start_utc(future=n_day + 1)
         result = self.__get_max_forecast_pv_estimate(start_utc, end_utc, site=site, forecast_confidence=forecast_confidence)
-        return result["period_start"] if result is not None else None
+        return result["period_start"].astimezone(self._tz) if result is not None else None
 
     def get_forecast_remaining_today(self, n: int = 0, site: str | None = None, forecast_confidence: str | None = None) -> float | None:
         """Return remaining forecasted production for today.
@@ -2703,10 +2703,10 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                         "Ignoring excessive PV generation jump of %.3f kWh, time delta %d seconds, at %s from entity: %s; Invalidating intervals %s and %s",
                                         kWh,
                                         time_delta,
-                                        report_time.astimezone(self.options.tz).strftime("%Y-%m-%d %H:%M:%S"),
+                                        report_time.astimezone(self._tz).strftime("%Y-%m-%d %H:%M:%S"),
                                         entity,
-                                        (interval - timedelta(minutes=30)).astimezone(self.options.tz).strftime("%H:%M"),
-                                        interval.astimezone(self.options.tz).strftime("%H:%M"),
+                                        (interval - timedelta(minutes=30)).astimezone(self._tz).strftime("%H:%M"),
+                                        interval.astimezone(self._tz).strftime("%H:%M"),
                                     )
                             else:
                                 generation_intervals[interval] += kWh
@@ -2764,18 +2764,18 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                     entity_state.pop(interval + timedelta(minutes=30))
                             _LOGGER.debug(
                                 "Interval %s state change %s at %s",
-                                interval.astimezone(self.options.tz).strftime("%Y-%m-%d %H:%M"),
+                                interval.astimezone(self._tz).strftime("%Y-%m-%d %H:%M"),
                                 entity_state[interval],
-                                e.last_updated.astimezone(self.options.tz).strftime("%Y-%m-%d %H:%M"),
+                                e.last_updated.astimezone(self._tz).strftime("%Y-%m-%d %H:%M"),
                             )
                         elif state:
                             state = False
                             entity_state[interval + timedelta(minutes=30)] = False
                             _LOGGER.debug(
                                 "Interval %s state change %s at %s",
-                                (interval + timedelta(minutes=30)).astimezone(self.options.tz).strftime("%Y-%m-%d %H:%M"),
+                                (interval + timedelta(minutes=30)).astimezone(self._tz).strftime("%Y-%m-%d %H:%M"),
                                 entity_state[interval + timedelta(minutes=30)],
-                                e.last_updated.astimezone(self.options.tz).strftime("%Y-%m-%d %H:%M"),
+                                e.last_updated.astimezone(self._tz).strftime("%Y-%m-%d %H:%M"),
                             )
                     state = False
                     for interval in export_limiting:
@@ -2784,7 +2784,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         export_limiting[interval] = state
                         if state:
                             _LOGGER.debug(
-                                "Auto-dampen suppressed for interval %s", interval.astimezone(self.options.tz).strftime("%Y-%m-%d %H:%M")
+                                "Auto-dampen suppressed for interval %s", interval.astimezone(self._tz).strftime("%Y-%m-%d %H:%M")
                             )
 
             # Detect site export limiting

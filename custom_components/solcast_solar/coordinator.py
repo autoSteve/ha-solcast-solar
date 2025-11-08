@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from datetime import UTC, datetime as dt, timedelta
+from datetime import datetime as dt, timedelta
 from enum import Enum
 import logging
 from operator import itemgetter
@@ -352,37 +352,38 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
     async def watch_for_dampening_legacy_location(self):
         """Watch for dampening file modification in the legacy config location."""
 
-        task = "watchdog_dampening_legacy"
-        _file_dampening_legacy = self._file_dampening.replace("/solcast_solar", "")
-
         end_date = dt(2026, 6, 1, tzinfo=self.solcast.options.tz)
-        try:
-            observer = Observer()
-            observer.schedule(
-                self.StartEventHandler(self, "blah", _file_dampening_legacy, direct_task=task),
-                path=self.hass.config.config_dir,
-                recursive=False,
-            )
-            observer.start()
+        if dt.now(self.solcast.options.tz) < end_date:
+            task = "watchdog_dampening_legacy"
+            _file_dampening_legacy = self._file_dampening.replace("/solcast_solar", "")
 
             try:
-                while not self.hass.is_stopping and dt.now(self.solcast.options.tz) < end_date:
-                    await asyncio.sleep(1)
-                    if self.watchdog[task]["event"] == FileEvent.CREATE and Path(_file_dampening_legacy).exists():
-                        Path(_file_dampening_legacy).rename(self._file_dampening)
-                        _LOGGER.warning(
-                            "Moved dampening file %s from legacy config to %s, auto-moving will cease 1st June 2026",
-                            _file_dampening_legacy,
-                            self._file_dampening,
-                        )
-                        self.watchdog[task]["event"] = FileEvent.NO_EVENT
+                observer = Observer()
+                observer.schedule(
+                    self.StartEventHandler(self, "blah", _file_dampening_legacy, direct_task=task),
+                    path=self.hass.config.config_dir,
+                    recursive=False,
+                )
+                observer.start()
+
+                try:
+                    while not self.hass.is_stopping and dt.now(self.solcast.options.tz) < end_date:
+                        await asyncio.sleep(1)
+                        if self.watchdog[task]["event"] == FileEvent.CREATE and Path(_file_dampening_legacy).exists():
+                            Path(_file_dampening_legacy).rename(self._file_dampening)
+                            _LOGGER.warning(
+                                "Moved dampening file %s from legacy config to %s, auto-moving will cease 1st June 2026",
+                                _file_dampening_legacy,
+                                self._file_dampening,
+                            )
+                            self.watchdog[task]["event"] = FileEvent.NO_EVENT
+                finally:
+                    observer.stop()
+                    observer.join()
             finally:
-                observer.stop()
-                observer.join()
-        finally:
-            self.watchdog[task]["event"] = FileEvent.NO_EVENT
-            _LOGGER.debug("Cancelled task %s", task) if self.tasks.get(task) is not None else None
-            self.tasks.pop(task) if self.tasks.get(task) is not None else None
+                self.watchdog[task]["event"] = FileEvent.NO_EVENT
+                _LOGGER.debug("Cancelled task %s", task) if self.tasks.get(task) is not None else None
+                self.tasks.pop(task) if self.tasks.get(task) is not None else None
 
     async def update_integration_listeners(self, called_at: dt | None = None) -> None:
         """Get updated sensor values."""
@@ -632,15 +633,15 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
         """Return attributes for the last updated sensor."""
 
         base: dict[str, int | dt] = {
-            "last_attempt": self.solcast.get_last_attempt(),
+            "last_attempt": self.solcast.get_last_attempt().astimezone(self.solcast.options.tz),
             "failure_count_today": self.solcast.get_failures_last_24h(),
             "failure_count_7_day": self.solcast.get_failures_last_7d(),
         }
         if self.solcast.options.auto_update != AutoUpdate.NONE:
             return base | {
-                "next_auto_update": self._intervals[0],
+                "next_auto_update": self._intervals[0].astimezone(self.solcast.options.tz),
                 "auto_update_divisions": self.divisions,
-                "auto_update_queue": self._intervals[:48],
+                "auto_update_queue": [i.astimezone(self.solcast.options.tz) for i in self._intervals[:48]],
             }
         return base
 
@@ -847,7 +848,11 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             if self.solcast.entry_options[SITE_DAMP]:
                 # Granular dampening
                 ret["integration_automated"] = self.solcast.options.auto_dampen
-                ret["last_updated"] = dt.fromtimestamp(self.solcast.granular_dampening_mtime).replace(microsecond=0).astimezone(UTC)
+                ret["last_updated"] = (
+                    dt.fromtimestamp(self.solcast.granular_dampening_mtime).replace(microsecond=0).astimezone(self.solcast.options.tz)
+                    if self.solcast.granular_dampening_mtime
+                    else None
+                )
                 if self.solcast.options.auto_dampen:
                     factors: dict[str, dict[str, Any]] = {}
                     dst = False
