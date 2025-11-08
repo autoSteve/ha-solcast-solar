@@ -429,13 +429,22 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         return estimate_set
 
     def get_data(self) -> dict[str, Any]:
-        """Return the data dictionary.
+        """Return the dampened data dictionary.
 
         Returns:
             list: Dampened forecast detail list of the sum of all site forecasts.
 
         """
         return self._data
+
+    def get_data_generation(self) -> dict[str, Any]:
+        """Return the generation dictionary.
+
+        Returns:
+            list: Generation forecast detail list of the sum of all site forecasts.
+
+        """
+        return self._data_generation
 
     def is_stale_data(self) -> bool:
         """Return whether the forecast was last updated some time ago (i.e. is stale).
@@ -1718,7 +1727,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         start_index, end_index = self.__get_list_slice(data_forecasts, args[0], args[1], search_past=True)
         if start_index == 0 and end_index == 0:
             # Range could not be found
-            raise ValueError("Range is invalid")
+            raise ValueError(
+                f"Range is invalid {args[0]} to {args[1]}, earliest forecast is {data_forecasts[0]['period_start']}, latest forecast is {data_forecasts[-1]['period_start']}"
+            )
         forecast_slice = data_forecasts[start_index:end_index]
 
         return tuple({**data, "period_start": data["period_start"].astimezone(self._tz)} for data in forecast_slice)

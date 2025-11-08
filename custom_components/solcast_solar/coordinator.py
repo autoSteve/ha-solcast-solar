@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 import contextlib
 from datetime import datetime as dt, timedelta
 from enum import Enum
 import logging
+import math
 from operator import itemgetter
 from pathlib import Path
 from random import randint
@@ -184,6 +186,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Running task %s", task)
 
         await self.__check_estimated_actuals_fetch()
+        await self.__calculate_accuracy_metrics()
 
         return True
 
@@ -410,6 +413,58 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
         await self.solcast.cleanup_issues()
         self.async_update_listeners()
+
+    async def __calculate_accuracy_metrics(self) -> None:
+        """Calculate accuracy metrics for forecasts vs actuals."""
+        generation: defaultdict[dt, dict[str, Any]] = defaultdict(dict[str, Any])
+        generation_day: defaultdict[dt, float] = defaultdict(float)
+        data_generation = self.solcast.get_data_generation()
+        for record in data_generation.get("generation", []):
+            generation[record["period_start"]] = {"generation": record["generation"], "export_limiting": record["export_limiting"]}
+            if not record["export_limiting"]:
+                generation_day[
+                    record["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
+                ] += record["generation"] / 2  # 30 minute intervals
+
+        estimates = ("pv_estimate", "pv_estimate10", "pv_estimate90")
+
+        async def calculate_rmse(undampened: bool = False) -> list[float]:
+            """Calculate root mean squared error metric."""
+            try:
+                result: list[float] = []
+                forecasts = await self.solcast.get_forecast_list(
+                    self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
+                    self.solcast.get_day_start_utc(),
+                    "all",
+                    undampened,
+                )
+                forecast_day: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
+                delta_squared: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
+                for forecast in forecasts:
+                    if not generation.get(forecast["period_start"]):
+                        continue
+                    for estimate in estimates:
+                        if not generation[forecast["period_start"]]["export_limiting"]:
+                            forecast_day[estimate][
+                                forecast["period_start"]
+                                .astimezone(self.solcast.options.tz)
+                                .replace(hour=0, minute=0, second=0, microsecond=0)
+                            ] += forecast[estimate] / 2  # 30 minute intervals
+                for estimate in estimates:
+                    for day, forecast in forecast_day[estimate].items():
+                        delta_squared[estimate][day] = abs(generation_day[day] - forecast) ** 2
+                    mean = sum(delta_squared[estimate].values()) / len(delta_squared[estimate]) if len(delta_squared[estimate]) > 0 else 0.0
+                    root_mean_squared_error = math.sqrt(mean)
+                    result.append(root_mean_squared_error)
+            except ValueError as e:
+                _LOGGER.debug("Could not calculate RMSE: %s", e)
+                result = [0.0, 0.0, 0.0]
+            return result
+
+        rmse_dampened = await calculate_rmse(undampened=False)
+        rmse_undampened = await calculate_rmse(undampened=True)
+        for est, estimate in enumerate(estimates):
+            _LOGGER.debug("RMSE %s: %.2f kWh, (%.2f kWh undampened)", estimate, rmse_dampened[est], rmse_undampened[est])
 
     async def __check_estimated_actuals_fetch(self) -> None:
         """Check if estimated actuals fetch was missed and schedule it."""
