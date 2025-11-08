@@ -2991,6 +2991,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                             factor = (peak / self._peak_intervals[interval]) if self._peak_intervals[interval] != 0 else 1.0
                             if self.advanced_options["automated_dampening_insignificant_factor"] <= factor < 1.0:
                                 msg = f"Ignoring insignificant factor for {interval_time} of {factor:.3f}"
+                                factor = 1.0
                             else:
                                 msg = f"Auto-dampen factor for {interval_time} is {factor:.3f}"
                             dampening[interval] = round(factor, 3)
@@ -3321,14 +3322,14 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 and interval_pv50 > 0
                 and factor < 1.0
             ):
+                interval_time = period_start.astimezone(self._tz).strftime(DATE_FORMAT)
+                factor_pre_adjustment = factor
                 match self.advanced_options["automated_dampening_delta_adjustment_model"]:
                     case _:
                         # Adjust the factor based on forecast vs. peak interval delta-logarithmically.
-                        factor_pre_adjustment = factor
                         factor = max(
                             factor, min(1, factor + ((1 - factor) * (math.log(self._peak_intervals[interval]) - math.log(interval_pv50))))
                         )
-                        interval_time = period_start.astimezone(self._tz).strftime(DATE_FORMAT)
                         if record_adjustment and period_start.astimezone(self._tz).date() == dt.now(self._tz).date():
                             _LOGGER.debug(
                                 "%sdjusted granular dampening factor for %s, %.3f (was %.3f, peak %.3f, interval pv50 %.3f)",
