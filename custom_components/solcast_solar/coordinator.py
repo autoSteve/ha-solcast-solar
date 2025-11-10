@@ -128,7 +128,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             "dampen": [{"method": self.solcast.get_dampen}],
         }
         days = ["total_kwh_forecast_today", "total_kwh_forecast_tomorrow"] + [
-            f"total_kwh_forecast_d{r}" for r in range(3, FORECAST_DAY_SENSORS)
+            f"total_kwh_forecast_d{r}" for r in range(3, self.advanced_day_entities)
         ]
         self.__get_value |= {
             day: [
