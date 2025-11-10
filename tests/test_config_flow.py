@@ -930,11 +930,13 @@ async def test_advanced_options(
         data_file.write_text(json.dumps(data_file_1), encoding="utf-8")
         await wait()
         caplog.clear()
-        er.async_get(hass).async_update_entity("sensor.solcast_pv_forecast_forecast_day_13", disabled_by=None)
+        entity = "sensor.solcast_pv_forecast_forecast_day_13"
+        er.async_get(hass).async_update_entity(entity, disabled_by=None)
         await wait_for("Reloading configuration entries because disabled_by changed")
         await wait_for("Not adding entity Forecast Day 12 because it's disabled")
-        entity_state = hass.states.get("sensor.solcast_pv_forecast_forecast_day_13")
-        assert entity_state is not None and entity_state.state == "42.552"
+        entity_state = hass.states.get(entity)
+        assert entity_state is not None
+        assert entity_state.state == "42.552"
 
         await hass.config_entries.async_unload(entry.entry_id)
         await wait()
