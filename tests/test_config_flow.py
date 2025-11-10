@@ -1,5 +1,6 @@
 """Test the Solcast Solar config flow."""
 
+import asyncio
 import copy
 import json
 import logging
@@ -52,6 +53,7 @@ from homeassistant.components.solcast_solar.util import HistoryType
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 
 from . import (
     DEFAULT_INPUT1,
@@ -925,8 +927,23 @@ async def test_advanced_options(
         await wait()
         assert "JSONDecodeError, advanced options ignored" in caplog.text
 
+        data_file_1["reload_on_advanced_change"] = True
+        data_file_1["forecast_day_entities"] = 14
         data_file.write_text(json.dumps(data_file_1), encoding="utf-8")
         await wait()
+        caplog.clear()
+        er.async_get(hass).async_update_entity("sensor.solcast_pv_forecast_forecast_day_13", disabled_by=None)
+        async with asyncio.timeout(300):
+            while "Reloading configuration entries because disabled_by changed" not in caplog.text:
+                freezer.tick(0.01)
+                await hass.async_block_till_done()
+        async with asyncio.timeout(300):
+            while "Not adding entity Forecast Day 12 because it's disabled" not in caplog.text:
+                freezer.tick(0.01)
+                await hass.async_block_till_done()
+
+        entity_state = hass.states.get("sensor.solcast_pv_forecast_forecast_day_13")
+        assert entity_state is not None and entity_state.state == "42.552"
         await hass.config_entries.async_unload(entry.entry_id)
         await wait()
         assert "Cancelling coordinator task watchdog_advanced_start" in caplog.text

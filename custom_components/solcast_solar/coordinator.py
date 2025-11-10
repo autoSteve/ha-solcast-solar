@@ -43,7 +43,6 @@ from .const import (
     DATE_FORMAT,
     DATE_ONLY_FORMAT,
     DOMAIN,
-    FORECAST_DAY_SENSORS,
     GET_ACTUALS,
     SITE_DAMP,
     TIME_FORMAT,
