@@ -21,6 +21,7 @@ from homeassistant.components.solcast_solar.config_flow import (
     SolcastSolarOptionFlowHandler,
 )
 from homeassistant.components.solcast_solar.const import (
+    ADVANCED_OPTIONS,
     API_QUOTA,
     AUTO_DAMPEN,
     AUTO_UPDATE,
@@ -807,6 +808,12 @@ async def test_advanced_options(
                 freezer.tick(0.1)
                 await hass.async_block_till_done()
 
+        async def wait_for(text: str):
+            async with asyncio.timeout(300):
+                while text not in caplog.text:
+                    freezer.tick(0.01)
+                    await hass.async_block_till_done()
+
         data_file = Path(f"{config_dir}/solcast-advanced.json")
 
         caplog.clear()
@@ -837,7 +844,7 @@ async def test_advanced_options(
             "automated_dampening_model_days": 14,
             "automated_dampening_generation_history_load_days": 7,
             "automated_dampening_similar_peak": 0.90,
-            "entity_logging": True,
+            "entity_logging": True,  # The odd-man-out, detected as removed later and set to default
             "estimated_actuals_fetch_delay": 0,
             "forecast_day_entities": 8,
             "forecast_future_days": 14,
@@ -850,22 +857,11 @@ async def test_advanced_options(
         await wait()
         assert "Running task watchdog_advanced" in caplog.text
         assert "Monitoring" in caplog.text
-        assert "Advanced option set automated_dampening_ignore_intervals" in caplog.text
-        assert "automated_dampening_minimum_matching_intervals" not in caplog.text
-        assert "automated_dampening_insignificant_factor" not in caplog.text
-        assert "automated_dampening_insignificant_factor_adjusted" not in caplog.text
-        assert "automated_dampening_no_delta_corrections" not in caplog.text
-        assert "automated_dampening_no_limiting_consistency" not in caplog.text
-        assert "automated_dampening_model_days" not in caplog.text
-        assert "automated_dampening_generation_history_load_days" not in caplog.text
-        assert "automated_dampening_similar_peak" not in caplog.text
-        assert "entity_logging" in caplog.text  # The odd-man-out, detected as removed laterand set to default
-        assert "estimated_actuals_fetch_delay" not in caplog.text
-        assert "forecast_day_entities" not in caplog.text
-        assert "forecast_future_days" not in caplog.text
-        assert "forecast_history_max_days" not in caplog.text
-        assert "reload_on_advanced_change" not in caplog.text
-        assert "solcast_url" not in caplog.text
+        for option, value in data_file_1.items():
+            if value == ADVANCED_OPTIONS[option]["default"]:
+                assert f"{option}" not in caplog.text
+            else:
+                assert f"Advanced option set {option}: {value}" in caplog.text
 
         caplog.clear()
 
@@ -889,24 +885,26 @@ async def test_advanced_options(
         }
         data_file.write_text(json.dumps(data_file_2), encoding="utf-8")
         await wait()
-        assert f"automated_dampening_minimum_matching_generation: 0 (must be {LEAST}-21)" in caplog.text
-        assert f"automated_dampening_minimum_matching_intervals: 0 (must be {LEAST}-21)" in caplog.text
-        assert "automated_dampening_insignificant_factor: 1.1 (must be 0.0-1.0)" in caplog.text
-        assert "automated_dampening_insignificant_factor_adjusted: 1.1 (must be 0.0-1.0)" in caplog.text
-        assert "automated_dampening_model_days: 22 (must be 2-21)" in caplog.text
-        assert "automated_dampening_generation_history_load_days: 22 (must be 1-21)" in caplog.text
-        assert "automated_dampening_no_delta_corrections: should be bool" in caplog.text
-        assert "automated_dampening_similar_peak: 1.1 (must be 0.0-1.0)" in caplog.text
-        assert "estimated_actuals_fetch_delay: 140 (must be 0-120)" in caplog.text
-        assert "forecast_day_entities: 16 (must be 8-14)" in caplog.text
-        assert "forecast_future_days: 16 (must be 8-14)" in caplog.text
-        assert "forecast_history_max_days: 10 (must be 22-3650)" in caplog.text
+        for option, value in data_file_1.items():
+            if option in ["reload_on_advanced_change", "solcast_url"]:
+                continue
+            if ADVANCED_OPTIONS.get(option) is None:
+                assert f"Unknown advanced option ignored: {option}" in caplog.text
+            elif value != ADVANCED_OPTIONS.get(option, {}).get("default"):
+                if ADVANCED_OPTIONS[option]["type"] in (int, float):
+                    assert (
+                        f"{option}: {value} (must be {LEAST if 'matching' in option else ADVANCED_OPTIONS[option]['min']}-{ADVANCED_OPTIONS[option]['max']})"
+                        not in caplog.text
+                    )
+                elif ADVANCED_OPTIONS[option]["type"] is bool:
+                    assert f"{option}: {value} (must be bool)" not in caplog.text
+
         assert "Advanced option set reload_on_advanced_change: True" in caplog.text
-        assert "Unknown advanced option ignored: unknown_option" in caplog.text
+        assert "solcast_url: https://localhost" in caplog.text
         assert "Invalid time in advanced option automated_dampening_ignore_intervals: 24:00" in caplog.text
         assert "Invalid time in advanced option automated_dampening_ignore_intervals: 12:20" in caplog.text
         assert "Duplicate time in advanced option automated_dampening_ignore_intervals: 13:00" in caplog.text
-        assert "solcast_url: https://localhost" in caplog.text
+
         assert "Advanced options changed, restarting" in caplog.text
         assert "Start is not stale" in caplog.text
 
@@ -933,17 +931,11 @@ async def test_advanced_options(
         await wait()
         caplog.clear()
         er.async_get(hass).async_update_entity("sensor.solcast_pv_forecast_forecast_day_13", disabled_by=None)
-        async with asyncio.timeout(300):
-            while "Reloading configuration entries because disabled_by changed" not in caplog.text:
-                freezer.tick(0.01)
-                await hass.async_block_till_done()
-        async with asyncio.timeout(300):
-            while "Not adding entity Forecast Day 12 because it's disabled" not in caplog.text:
-                freezer.tick(0.01)
-                await hass.async_block_till_done()
-
+        await wait_for("Reloading configuration entries because disabled_by changed")
+        await wait_for("Not adding entity Forecast Day 12 because it's disabled")
         entity_state = hass.states.get("sensor.solcast_pv_forecast_forecast_day_13")
         assert entity_state is not None and entity_state.state == "42.552"
+
         await hass.config_entries.async_unload(entry.entry_id)
         await wait()
         assert "Cancelling coordinator task watchdog_advanced_start" in caplog.text
