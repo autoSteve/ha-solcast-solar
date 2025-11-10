@@ -1738,20 +1738,35 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         """Get estimated actuals.
 
         Arguments:
-            args (tuple): [0] (dt) = from timestamp, [1] (dt) = to timestamp.
+            args (tuple): [0] (dt) = from timestamp, [1] (dt) = to timestamp, [2] (bool) = dampened or un-dampened (default undampened).
 
         Returns:
             tuple(dict[str, Any], ...): Estimated actuals representing the range specified.
 
         """
 
-        start_index, end_index = self.__get_list_slice(self._data_estimated_actuals, args[0], args[1], search_past=True)
+        start_index, end_index = self.__get_list_slice(
+            self._data_estimated_actuals if args[2] else self._data_estimated_actuals_dampened, args[0], args[1], search_past=True
+        )
         if start_index == 0 and end_index == 0:
             # Range could not be found
             raise ValueError("Range is invalid")
-        estimate_slice = self._data_estimated_actuals[start_index:end_index]
+        estimate_slice = (
+            self._data_estimated_actuals[start_index:end_index] if args[2] else self._data_estimated_actuals_dampened[start_index:end_index]
+        )
 
         return tuple({**data, "period_start": data["period_start"].astimezone(self._tz)} for data in estimate_slice)
+
+    def get_earliest_estimate_dampened(self) -> dt | None:
+        """Get the earliest dampened estimated actual datetime.
+
+        Returns:
+            dt | None: The earliest dampened estimated actual datetime, or None if no data.
+
+        """
+        if len(self._data_estimated_actuals_dampened) > 0:
+            return self._data_estimated_actuals_dampened[0]["period_start"].astimezone(self._tz)
+        return None
 
     def get_api_used_count(self) -> int:
         """Return API polling count for this UTC 24hr period (minimum of all API keys).

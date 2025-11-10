@@ -487,6 +487,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
             data = await coordinator.service_query_estimate_data(
                 dt_util.as_utc(call.data.get(EVENT_START_DATETIME, day_start - timedelta(days=1))),
                 dt_util.as_utc(call.data.get(EVENT_END_DATETIME, day_start)),
+                call.data.get(UNDAMPENED, True),
             )
         except ValueError as e:
             raise ServiceValidationError(f"{e}") from e

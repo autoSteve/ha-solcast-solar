@@ -8,7 +8,6 @@ import contextlib
 from datetime import datetime as dt, timedelta
 from enum import Enum
 import logging
-import math
 from operator import itemgetter
 from pathlib import Path
 from random import randint
@@ -42,6 +41,7 @@ from .const import (
     CONFIG_DISCRETE_NAME,
     CONFIG_FOLDER_DISCRETE,
     DATE_FORMAT,
+    DATE_ONLY_FORMAT,
     DOMAIN,
     FORECAST_DAY_SENSORS,
     GET_ACTUALS,
@@ -426,45 +426,68 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     record["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
                 ] += record["generation"]
 
-        estimates = ("pv_estimate", "pv_estimate10", "pv_estimate90")
-
-        async def calculate_rmse(undampened: bool = False) -> list[float]:
-            """Calculate root mean squared error metric."""
+        async def calculate_mape(values: tuple[dict[str, Any], ...]) -> float:
+            """Calculate mean absolute percentage error metric."""
             try:
-                result: list[float] = []
-                forecasts = await self.solcast.get_forecast_list(
-                    self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
-                    self.solcast.get_day_start_utc(),
-                    "all",
-                    undampened,
-                )
-                forecast_day: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
-                delta_squared: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
-                for forecast in forecasts:
-                    if not generation.get(forecast["period_start"]):
-                        continue
-                    for estimate in estimates:
-                        if not generation[forecast["period_start"]]["export_limiting"]:
-                            forecast_day[estimate][
-                                forecast["period_start"]
-                                .astimezone(self.solcast.options.tz)
-                                .replace(hour=0, minute=0, second=0, microsecond=0)
-                            ] += forecast[estimate] / 2  # 30 minute intervals
-                for estimate in estimates:
-                    for day, forecast in forecast_day[estimate].items():
-                        delta_squared[estimate][day] = abs(generation_day[day] - forecast) ** 2
-                    mean = sum(delta_squared[estimate].values()) / len(delta_squared[estimate]) if len(delta_squared[estimate]) > 0 else 0.0
-                    root_mean_squared_error = math.sqrt(mean)
-                    result.append(root_mean_squared_error)
+                result: float = 0.0
+                value_day: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
+                error: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
+                for interval in values:
+                    if generation.get(interval["period_start"]) is not None:
+                        if not generation[interval["period_start"]]["export_limiting"]:
+                            if value_day["pv_estimate"] is not None:
+                                value_day["pv_estimate"][
+                                    interval["period_start"]
+                                    .astimezone(self.solcast.options.tz)
+                                    .replace(hour=0, minute=0, second=0, microsecond=0)
+                                ] += interval["pv_estimate"] / 2  # 30 minute intervals
+                for day, value in value_day["pv_estimate"].items():
+                    error["pv_estimate"][day] = (
+                        abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
+                    )
+                    _LOGGER.debug(
+                        "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%%",
+                        day.strftime(DATE_ONLY_FORMAT),
+                        generation_day[day],
+                        value,
+                        error["pv_estimate"][day],
+                    )
+                result = sum(error["pv_estimate"].values()) / len(error["pv_estimate"]) if len(error["pv_estimate"]) > 0 else 0.0
             except ValueError as e:
-                _LOGGER.debug("Could not calculate RMSE: %s", e)
-                result = [0.0, 0.0, 0.0]
+                _LOGGER.debug("Could not calculate MAPE: %s", e)
             return result
 
-        rmse_dampened = await calculate_rmse(undampened=False)
-        rmse_undampened = await calculate_rmse(undampened=True)
-        for est, estimate in enumerate(estimates):
-            _LOGGER.debug("RMSE %s: %.2f kWh, (%.2f kWh undampened)", estimate, rmse_dampened[est], rmse_undampened[est])
+        earliest = self.solcast.get_earliest_estimate_dampened()
+        if earliest is not None:
+            begin = max(
+                self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
+                earliest,
+            )
+            _LOGGER.debug(
+                "Calculating dampened estimated actual MAPE from %s to %s",
+                begin.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+                (self.solcast.get_day_start_utc() - timedelta(hours=1)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+            )
+            error_dampened = await calculate_mape(
+                await self.solcast.get_estimate_list(
+                    begin,
+                    self.solcast.get_day_start_utc(),
+                    False,
+                )
+            )
+            _LOGGER.debug(
+                "Calculating undampened estimated actual MAPE from %s to %s",
+                begin.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+                (self.solcast.get_day_start_utc() - timedelta(hours=1)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+            )
+            error_undampened = await calculate_mape(
+                await self.solcast.get_estimate_list(
+                    begin,
+                    self.solcast.get_day_start_utc(),
+                    True,
+                )
+            )
+            _LOGGER.debug("Estimated actual MAPE: %.2f%%, (%.2f%% undampened)", error_dampened, error_undampened)
 
     async def __check_estimated_actuals_fetch(self) -> None:
         """Check if estimated actuals fetch was missed and schedule it."""

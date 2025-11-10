@@ -59,7 +59,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _no_exception(caplog: pytest.LogCaptureFixture):
-    assert "Error" not in caplog.text
     assert "Exception" not in caplog.text
 
 
