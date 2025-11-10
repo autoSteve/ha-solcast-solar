@@ -3334,14 +3334,17 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self, site: str, period_start: dt, interval_pv50: float = -1.0, record_adjustment: bool = False
     ) -> float:
         """Retrieve a granular dampening factor."""
-        factor = self.granular_dampening[site][
-            period_start.hour
-            if len(self.granular_dampening[site]) == 24
-            else ((period_start.hour * 2) + (1 if period_start.minute > 0 else 0))
-        ]
+        factor = min(
+            1.0,
+            self.granular_dampening[site][
+                period_start.hour
+                if len(self.granular_dampening[site]) == 24
+                else ((period_start.hour * 2) + (1 if period_start.minute > 0 else 0))
+            ],
+        )
         if site == "all" and self.options.auto_dampen and self.granular_dampening.get("all"):
             interval = self.adjusted_interval_dt(period_start)
-            factor = self.granular_dampening["all"][interval]
+            factor = min(1.0, self.granular_dampening["all"][interval])
             if (
                 not self.advanced_options["automated_dampening_no_delta_corrections"]
                 and self._peak_intervals[interval] > 0
