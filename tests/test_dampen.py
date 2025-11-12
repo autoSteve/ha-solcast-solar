@@ -152,6 +152,7 @@ async def test_auto_dampen(
             json.dumps(
                 {
                     "automated_dampening_ignore_intervals": ["17:00"],
+                    "automated_dampening_log_mape_breakdown": True,
                     "automated_dampening_no_limiting_consistency": True,
                     "automated_dampening_insignificant_factor": 0.988,
                     "automated_dampening_insignificant_factor_adjusted": 0.989,
@@ -244,11 +245,17 @@ async def test_auto_dampen(
         caplog.clear()
         removed = -5
         value_removed = solcast._data_actuals["siteinfo"]["1111-1111-1111-1111"]["forecasts"].pop(removed)  # pyright: ignore[reportPrivateUsage]
+        for _ in range(49):
+            solcast._data_estimated_actuals.pop(-(3 * 48))
         freezer.move_to((dt.now(solcast._tz) + timedelta(hours=12)).replace(minute=0, second=0, microsecond=0))  # pyright: ignore[reportPrivateUsage]
         await hass.async_block_till_done()
-        # assert False
-        await _wait_for_it(hass, caplog, freezer, "Scheduling estimated actuals update")
+        _no_exception(caplog)
+        await _wait_for_it(hass, caplog, freezer, "Estimated actual MAPE")
         assert "Advanced option set automated_dampening_ignore_intervals: ['17:00']" in caplog.text
+        assert "Calculating dampened estimated actual MAPE" in caplog.text
+        assert "Calculating undampened estimated actual MAPE" in caplog.text
+        assert "APE calculation for day" in caplog.text
+        assert "Estimated actual MAPE" in caplog.text
         coordinator, solcast = await _reload(hass, entry)
         caplog.clear()
         await _wait_for_it(hass, caplog, freezer, "Applying future dampening", long_time=True)
@@ -386,6 +393,8 @@ async def test_auto_dampen_issues(
             await hass.async_block_till_done()
         assert hass.data[DOMAIN].get("presumed_dead", True) is False
         _no_exception(caplog)
+        assert "Calculating dampened estimated actual MAPE" not in caplog.text
+        assert "Estimated actual MAPE" in caplog.text
         if extra_sensors not in [ExtraSensors.YES_UNIT_NOT_IN_HISTORY, ExtraSensors.YES_NO_UNIT]:
             assert "Retrieved day -1 PV generation data from entity: sensor.solar_export_sensor_1111_1111_1111_1111" in caplog.text
             assert "No day -2 PV generation data (or barely any) from entity: sensor.solar_export_sensor_1111_1111_1111_1111" in caplog.text

@@ -80,6 +80,7 @@ ADVANCED_OPTIONS: dict[str, dict[str, Any]] = {
     "automated_dampening_ignore_intervals": {"type": "time_list", "default": []},
     "automated_dampening_insignificant_factor": {"type": "float", "min": 0.0, "max": 1.0, "default": DAMPENING_INSIGNIFICANT},
     "automated_dampening_insignificant_factor_adjusted": {"type": "float", "min": 0.0, "max": 1.0, "default": DAMPENING_INSIGNIFICANT_ADJ},
+    "automated_dampening_log_mape_breakdown": {"type": "bool", "default": False},
     "automated_dampening_minimum_matching_generation": {"type": "int", "min": 1, "max": 21, "default": DAMPENING_MINIMUM_GENERATION},
     "automated_dampening_minimum_matching_intervals": {"type": "int", "min": 1, "max": 21, "default": DAMPENING_MINIMUM_INTERVALS},
     "automated_dampening_model_days": {"type": "int", "min": 2, "max": 21, "default": DAMPENING_MODEL_DAYS},

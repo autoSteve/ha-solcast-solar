@@ -839,6 +839,7 @@ async def test_advanced_options(
             "automated_dampening_ignore_intervals": ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"],
             "automated_dampening_insignificant_factor": 0.95,
             "automated_dampening_insignificant_factor_adjusted": 0.95,
+            "automated_dampening_log_mape_breakdown": False,
             "automated_dampening_no_delta_corrections": False,
             "automated_dampening_no_limiting_consistency": False,
             "automated_dampening_model_days": 14,

@@ -1757,16 +1757,23 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         return tuple({**data, "period_start": data["period_start"].astimezone(self._tz)} for data in estimate_slice)
 
-    def get_earliest_estimate_dampened(self) -> dt | None:
-        """Get the earliest dampened estimated actual datetime.
+    def get_earliest_estimate(self) -> dt | None:
+        """Get the earliest contiguous estimated actual datetime.
 
         Returns:
-            dt | None: The earliest dampened estimated actual datetime, or None if no data.
+            dt | None: The earliest estimated actual datetime, or None if no data.
 
         """
-        if len(self._data_estimated_actuals_dampened) > 0:
-            return self._data_estimated_actuals_dampened[0]["period_start"].astimezone(self._tz)
-        return None
+        earliest = None
+        if len(self._data_estimated_actuals) > 0:
+            _LOGGER.debug("Earliest estimated actual datetime is %s", self._data_estimated_actuals[0]["period_start"].astimezone(self._tz))
+            for actual in reversed(self._data_estimated_actuals):
+                if earliest is not None:
+                    if actual["period_start"].astimezone(self._tz).date() < earliest.date() - timedelta(days=1):
+                        break
+                earliest = actual["period_start"].astimezone(self._tz)
+            _LOGGER.debug("Earliest contiguous estimated actual datetime is %s", earliest)
+        return earliest
 
     def get_api_used_count(self) -> int:
         """Return API polling count for this UTC 24hr period (minimum of all API keys).

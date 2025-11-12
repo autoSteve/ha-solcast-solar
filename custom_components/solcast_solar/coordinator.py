@@ -409,13 +409,15 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             self.solcast.log_advanced_options()  # Daily reminder of advanced options in use
 
             await self.__check_estimated_actuals_fetch()
+            await self.__calculate_accuracy_metrics()
 
         await self.solcast.cleanup_issues()
         self.async_update_listeners()
 
     async def __calculate_accuracy_metrics(self) -> None:
         """Calculate accuracy metrics for forecasts vs actuals."""
-        if (earliest := self.solcast.get_earliest_estimate_dampened()) is None:
+
+        if not self.solcast.options.get_actuals or (earliest := self.solcast.get_earliest_estimate()) is None:
             return
         earliest_start = max(
             self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
@@ -447,32 +449,43 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 error["pv_estimate"][day] = (
                     abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
                 )
-                _LOGGER.debug(
-                    "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%%",
-                    day.strftime(DATE_ONLY_FORMAT),
-                    generation_day[day],
-                    value,
-                    error["pv_estimate"][day],
-                )
+                if self.solcast.advanced_options["automated_dampening_log_mape_breakdown"]:
+                    _LOGGER.debug(
+                        "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%%",
+                        day.strftime(DATE_ONLY_FORMAT),
+                        generation_day[day],
+                        value,
+                        error["pv_estimate"][day],
+                    )
             return sum(error["pv_estimate"].values()) / len(error["pv_estimate"]) if len(error["pv_estimate"]) > 0 else 0.0
 
-        _LOGGER.debug(
-            "Calculating dampened estimated actual MAPE from %s to %s",
-            earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
-            (self.solcast.get_day_start_utc() - timedelta(minutes=30)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
-        )
-        error_dampened = await calculate_mape(
-            await self.solcast.get_estimate_list(
-                earliest_start,
-                self.solcast.get_day_start_utc() - timedelta(minutes=30),
-                False,
+        if self.solcast.options.auto_dampen:
+            if self.solcast.advanced_options["automated_dampening_log_mape_breakdown"]:
+                _LOGGER.debug(
+                    "Calculating dampened estimated actual MAPE from %s to %s",
+                    earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+                    (self.solcast.get_day_start_utc() - timedelta(minutes=30))
+                    .astimezone(self.solcast.options.tz)
+                    .strftime(DATE_ONLY_FORMAT),
+                )
+            try:
+                error_dampened = await calculate_mape(
+                    await self.solcast.get_estimate_list(
+                        earliest_start,
+                        self.solcast.get_day_start_utc() - timedelta(minutes=30),
+                        False,
+                    )
+                )
+            except ValueError:
+                error_dampened = -1.0  # No data to calculate
+        else:
+            error_dampened = -1.0  # Not applicable
+        if self.solcast.advanced_options["automated_dampening_log_mape_breakdown"]:
+            _LOGGER.debug(
+                "Calculating undampened estimated actual MAPE from %s to %s",
+                earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+                (self.solcast.get_day_start_utc() - timedelta(minutes=30)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
             )
-        )
-        _LOGGER.debug(
-            "Calculating undampened estimated actual MAPE from %s to %s",
-            earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
-            (self.solcast.get_day_start_utc() - timedelta(minutes=30)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
-        )
         error_undampened = await calculate_mape(
             await self.solcast.get_estimate_list(
                 earliest_start,
@@ -480,7 +493,9 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 True,
             )
         )
-        _LOGGER.debug("Estimated actual MAPE: %.2f%%, (%.2f%% undampened)", error_dampened, error_undampened)
+        _LOGGER.debug(
+            "Estimated actual MAPE: %.2f%%%s", error_undampened, f", ({error_dampened:.2f}% dampened)" if error_dampened != -1.0 else ""
+        )
 
     async def __check_estimated_actuals_fetch(self) -> None:
         """Check if estimated actuals fetch was missed and schedule it."""
