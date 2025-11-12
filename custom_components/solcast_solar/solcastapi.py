@@ -3357,14 +3357,11 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self, site: str, period_start: dt, interval_pv50: float = -1.0, record_adjustment: bool = False
     ) -> float:
         """Retrieve a granular dampening factor."""
-        factor = min(
-            1.0,
-            self.granular_dampening[site][
-                period_start.hour
-                if len(self.granular_dampening[site]) == 24
-                else ((period_start.hour * 2) + (1 if period_start.minute > 0 else 0))
-            ],
-        )
+        factor = self.granular_dampening[site][
+            period_start.hour
+            if len(self.granular_dampening[site]) == 24
+            else ((period_start.hour * 2) + (1 if period_start.minute > 0 else 0))
+        ]
         if site == "all" and self.options.auto_dampen and self.granular_dampening.get("all"):
             interval = self.adjusted_interval_dt(period_start)
             factor = min(1.0, self.granular_dampening["all"][interval])
@@ -3380,7 +3377,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     case _:
                         # Adjust the factor based on forecast vs. peak interval delta-logarithmically.
                         factor = max(
-                            factor, min(1, factor + ((1 - factor) * (math.log(self._peak_intervals[interval]) - math.log(interval_pv50))))
+                            factor,
+                            min(1.0, factor + ((1.0 - factor) * (math.log(self._peak_intervals[interval]) - math.log(interval_pv50)))),
                         )
                         if record_adjustment and period_start.astimezone(self._tz).date() == dt.now(self._tz).date():
                             _LOGGER.debug(
@@ -3397,7 +3395,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         if factor >= self.advanced_options["automated_dampening_insignificant_factor_adjusted"]:
                             factor = 1.0
 
-        return factor
+        return min(1.0, factor)
 
     def __get_dampening_factor(self, site: str | None, period_start: dt, interval_pv50: float, record_adjustment: bool = False) -> float:
         """Retrieve either a traditional or granular dampening factor."""
