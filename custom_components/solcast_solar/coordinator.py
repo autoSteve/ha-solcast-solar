@@ -441,29 +441,27 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
         async def calculate_mape(values: tuple[dict[str, Any], ...]) -> float:
             """Calculate mean absolute percentage error metric."""
-            value_day: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
-            error: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
+            value_day: defaultdict[dt, float] = defaultdict(float)
+            error: defaultdict[dt, float] = defaultdict(float)
             last_day: dt | None = None
             for interval in values:
                 i = interval["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
                 if i != last_day:
-                    value_day["pv_estimate"][i] = 0.0
+                    value_day[i] = 0.0
                     last_day = i
                 if generation.get(interval["period_start"]) is not None and not generation[interval["period_start"]]["export_limiting"]:
-                    value_day["pv_estimate"][i] += interval["pv_estimate"] / 2  # 30 minute intervals
-            for day, value in value_day["pv_estimate"].items():
-                error["pv_estimate"][day] = (
-                    abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
-                )
+                    value_day[i] += interval["pv_estimate"] / 2  # 30 minute intervals
+            for day, value in value_day.items():
+                error[day] = abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
                 if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
                     _LOGGER.debug(
                         "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%%",
                         day.strftime(DATE_ONLY_FORMAT),
                         generation_day[day],
                         value,
-                        error["pv_estimate"][day],
+                        error[day],
                     )
-            return sum(error["pv_estimate"].values()) / len(error["pv_estimate"]) if len(error["pv_estimate"]) > 0 else 0.0
+            return sum(error.values()) / len(error) if len(error) > 0 else 0.0
 
         if self.solcast.options.auto_dampen and earliest_dampened_start is not None:
             if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
@@ -478,7 +476,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 await self.solcast.get_estimate_list(
                     earliest_dampened_start,
                     self.solcast.get_day_start_utc() - timedelta(minutes=30),
-                    False,
+                    False,  # Undampened = False
                 )
             )
         else:
@@ -493,7 +491,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             await self.solcast.get_estimate_list(
                 earliest_undampened_start,
                 self.solcast.get_day_start_utc() - timedelta(minutes=30),
-                True,
+                True,  # Undampened = True
             )
         )
         _LOGGER.debug(

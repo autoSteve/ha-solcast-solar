@@ -1745,15 +1745,12 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         """
 
-        start_index, end_index = self.__get_list_slice(
-            self._data_estimated_actuals if args[2] else self._data_estimated_actuals_dampened, args[0], args[1], search_past=True
-        )
+        data = self._data_estimated_actuals if args[2] else self._data_estimated_actuals_dampened
+        start_index, end_index = self.__get_list_slice(data, args[0], args[1], search_past=True)
         if start_index == 0 and end_index == 0:
             # Range could not be found
             raise ValueError("Range is invalid")
-        estimate_slice = (
-            self._data_estimated_actuals[start_index:end_index] if args[2] else self._data_estimated_actuals_dampened[start_index:end_index]
-        )
+        estimate_slice = data[start_index:end_index]
 
         return tuple({**data, "period_start": data["period_start"].astimezone(self._tz)} for data in estimate_slice)
 
