@@ -136,7 +136,9 @@ If Home Assistant is restarted in the period between midnight and estimated actu
 
 Possible values: boolean `true`/`false` (default `false`)
 
-A Mean Actual Percentage Error (MAPE) value for estimated actuals vs. actual generation (both undampened and dampened) is logged on day change and at startup. Enable this option to also log the daily percentage error (APE).
+A Mean Actual Percentage Error (MAPE) value for estimated actuals vs. actual generation is logged on day change and at startup. Enable this option to also log the daily percentage error (APE).
+
+Both undampened and dampened are logged when automated dampening is enabled.
 
 ## Forecasts
 
