@@ -1243,6 +1243,7 @@ v4.4.8
 * Ignore adjusted automated dampening factors above 'insignificant' threshold by @autoSteve
 * Add advanced auto-dampen option 'insignificant factor adjusted' by @autoSteve
 * Add advanced auto-dampen option 'similar peak' by @autoSteve
+* Add advanced estimated actuals 'log mape breakdown' by @autoSteve
 * Add advanced estimated actuals 'fetch delay' by @autoSteve
 * Modify advanced auto-dampen option 'minimum matching intervals' to accept `1` by @autoSteve
 * Attribute consistency as local time zone for datetime values by @autoSteve

@@ -449,7 +449,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 error["pv_estimate"][day] = (
                     abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
                 )
-                if self.solcast.advanced_options["automated_dampening_log_mape_breakdown"]:
+                if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
                     _LOGGER.debug(
                         "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%%",
                         day.strftime(DATE_ONLY_FORMAT),
@@ -460,7 +460,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             return sum(error["pv_estimate"].values()) / len(error["pv_estimate"]) if len(error["pv_estimate"]) > 0 else 0.0
 
         if self.solcast.options.auto_dampen:
-            if self.solcast.advanced_options["automated_dampening_log_mape_breakdown"]:
+            if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
                 _LOGGER.debug(
                     "Calculating dampened estimated actual MAPE from %s to %s",
                     earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
@@ -480,7 +480,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 error_dampened = -1.0  # No data to calculate
         else:
             error_dampened = -1.0  # Not applicable
-        if self.solcast.advanced_options["automated_dampening_log_mape_breakdown"]:
+        if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
             _LOGGER.debug(
                 "Calculating undampened estimated actual MAPE from %s to %s",
                 earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),

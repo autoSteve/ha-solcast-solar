@@ -74,12 +74,6 @@ Possible values: float `0.0`..`1.0` (default `0.95`)
 
 Dampening values adjusted by delta adjustment as higher than a certain threshold are ignored as insignificant.
 
-**Key: "automated_dampening_log_mape_breakdown"**
-
-Possible values: boolean `true`/`false` (default `false`)
-
-A Mean Actual Percentage Error (MAPE) value for estimated actuals vs. actual generation (both undampened and dampened) is logged on day change and at startup. Enable this option to also log the daily percentage error (APE).
-
 **Key: "automated_dampening_minimum_matching_generation"**
 
 Possible values: integer `1`..`21` (default `2`)
@@ -137,6 +131,12 @@ A number of minutes to delay beyond midnight before estimated actuals are retrie
 If automated dampening is enabled then modelling of new dampening factors will occur immediately following retrieval.
 
 If Home Assistant is restarted in the period between midnight and estimated actuals being retrieved then retrieval will be rescheduled.
+
+**Key: "estimated_actuals_log_mape_breakdown"**
+
+Possible values: boolean `true`/`false` (default `false`)
+
+A Mean Actual Percentage Error (MAPE) value for estimated actuals vs. actual generation (both undampened and dampened) is logged on day change and at startup. Enable this option to also log the daily percentage error (APE).
 
 ## Forecasts
 
