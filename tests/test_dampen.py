@@ -245,8 +245,21 @@ async def test_auto_dampen(
         caplog.clear()
         removed = -5
         value_removed = solcast._data_actuals["siteinfo"]["1111-1111-1111-1111"]["forecasts"].pop(removed)  # pyright: ignore[reportPrivateUsage]
-        for _ in range(49):
-            solcast._data_estimated_actuals.pop(-(3 * 48))
+        first_48_actuals = solcast._data_estimated_actuals[:48]  # pyright: ignore[reportPrivateUsage]
+        for timeshift in range(20):
+            solcast._data_estimated_actuals = [  # pyright: ignore[reportAttributeAccessIssue]
+                {"period_start": actual["period_start"] - timedelta(days=timeshift), "pv_estimate": actual["pv_estimate"]}
+                for actual in first_48_actuals
+            ] + solcast._data_estimated_actuals  # pyright: ignore[reportAttributeAccessIssue]
+        first_48_actuals_dampened = solcast._data_estimated_actuals_dampened[:48]  # pyright: ignore[reportPrivateUsage]
+        for timeshift in range(20):
+            solcast._data_estimated_actuals_dampened = [  # pyright: ignore[reportAttributeAccessIssue]
+                {"period_start": actual["period_start"] - timedelta(days=timeshift), "pv_estimate": actual["pv_estimate"]}
+                for actual in first_48_actuals_dampened
+            ] + solcast._data_estimated_actuals_dampened  # pyright: ignore[reportAttributeAccessIssue]
+        for _ in range(49):  # Skip a day
+            solcast._data_estimated_actuals.pop(-(2 * 48))
+            solcast._data_estimated_actuals_dampened.pop(-(2 * 48))
         freezer.move_to((dt.now(solcast._tz) + timedelta(hours=12)).replace(minute=0, second=0, microsecond=0))  # pyright: ignore[reportPrivateUsage]
         await hass.async_block_till_done()
         _no_exception(caplog)
@@ -255,7 +268,9 @@ async def test_auto_dampen(
         assert "Calculating dampened estimated actual MAPE" in caplog.text
         assert "Calculating undampened estimated actual MAPE" in caplog.text
         assert "APE calculation for day" in caplog.text
+        assert "APE calculation for day 2025-11-09" not in caplog.text
         assert "Estimated actual MAPE" in caplog.text
+
         coordinator, solcast = await _reload(hass, entry)
         caplog.clear()
         await _wait_for_it(hass, caplog, freezer, "Applying future dampening", long_time=True)

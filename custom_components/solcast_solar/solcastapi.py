@@ -1757,44 +1757,39 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         return tuple({**data, "period_start": data["period_start"].astimezone(self._tz)} for data in estimate_slice)
 
-    def get_earliest_estimate(self, data: list[dict[str, Any]], dampened: bool = False) -> dt | None:
-        """Get the earliest contiguous estimated actual datetime."""
+    def get_earliest_estimate_after(self, data: list[dict[str, Any]], after: dt, dampened: bool = False) -> dt | None:
+        """Get the earliest estimated actual datetime after a specified datetime."""
         earliest = None
         if len(data) > 0:
-            _LOGGER.debug(
-                "Earliest %s estimated actual datetime is %s",
-                "dampened" if dampened else "undampened",
-                data[0]["period_start"].astimezone(self._tz),
-            )
             for actual in reversed(data):
                 if earliest is not None:
-                    if actual["period_start"].astimezone(self._tz).date() < earliest.date() - timedelta(days=1):
+                    if actual["period_start"] < after:
                         break
                 earliest = actual["period_start"].astimezone(self._tz)
             _LOGGER.debug(
-                "Earliest %s contiguous estimated actual datetime is %s",
+                "Earliest %s estimated actual datetime is %s",
                 "dampened" if dampened else "undampened",
                 earliest,
             )
         return earliest
 
-    def get_earliest_estimate_undampened(self) -> dt | None:
+    def get_earliest_estimate_after_undampened(self, after: dt) -> dt | None:
         """Get the earliest contiguous undampened estimated actual datetime.
 
         Returns:
             dt | None: The earliest undampened estimated actual datetime, or None if no data.
 
         """
-        return self.get_earliest_estimate(self._data_estimated_actuals)
+        return self.get_earliest_estimate_after(self._data_estimated_actuals, after=after)
 
-    def get_earliest_estimate_dampened(self) -> dt | None:
+    def get_earliest_estimate_after_dampened(self, after: dt) -> dt | None:
         """Get the earliest contiguous dampened estimated actual datetime.
 
         Returns:
             dt | None: The earliest dampened estimated actual datetime, or None if no data.
 
         """
-        return self.get_earliest_estimate(self._data_estimated_actuals_dampened, dampened=True)
+        return self.get_earliest_estimate_after(self._data_estimated_actuals_dampened, after=after, dampened=True)
 
     def get_api_used_count(self) -> int:
         """Return API polling count for this UTC 24hr period (minimum of all API keys).

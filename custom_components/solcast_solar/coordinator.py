@@ -417,23 +417,14 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
     async def __calculate_accuracy_metrics(self) -> None:
         """Calculate accuracy metrics for forecasts vs actuals."""
 
-        earliest_undampened = self.solcast.get_earliest_estimate_undampened()
-        if not self.solcast.options.get_actuals or earliest_undampened is None:
-            return
-        earliest_undampened_start = max(
-            self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
-            earliest_undampened,
+        earliest_undampened_start = self.solcast.get_earliest_estimate_after_undampened(
+            self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"])
         )
+        if not self.solcast.options.get_actuals or earliest_undampened_start is None:
+            return
         if self.solcast.options.auto_dampen:
-            earliest_dampened = self.solcast.get_earliest_estimate_dampened()
-
-            earliest_dampened_start = (
-                max(
-                    self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
-                    earliest_dampened,
-                )
-                if earliest_dampened is not None
-                else None
+            earliest_dampened_start = self.solcast.get_earliest_estimate_after_dampened(
+                self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"])
             )
 
         generation: defaultdict[dt, dict[str, Any]] = defaultdict(dict[str, Any])
@@ -457,6 +448,10 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     value_day["pv_estimate"][
                         interval["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
                     ] += interval["pv_estimate"] / 2  # 30 minute intervals
+                else:
+                    value_day["pv_estimate"][
+                        interval["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
+                    ] = 0.0
             for day, value in value_day["pv_estimate"].items():
                 error["pv_estimate"][day] = (
                     abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
