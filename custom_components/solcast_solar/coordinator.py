@@ -443,15 +443,14 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             """Calculate mean absolute percentage error metric."""
             value_day: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
             error: defaultdict[str, defaultdict[dt, float]] = defaultdict(lambda: defaultdict(float))
+            last_day: dt | None = None
             for interval in values:
+                i = interval["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
+                if i != last_day:
+                    value_day["pv_estimate"][i] = 0.0
+                    last_day = i
                 if generation.get(interval["period_start"]) is not None and not generation[interval["period_start"]]["export_limiting"]:
-                    value_day["pv_estimate"][
-                        interval["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
-                    ] += interval["pv_estimate"] / 2  # 30 minute intervals
-                else:
-                    value_day["pv_estimate"][
-                        interval["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
-                    ] = 0.0
+                    value_day["pv_estimate"][i] += interval["pv_estimate"] / 2  # 30 minute intervals
             for day, value in value_day["pv_estimate"].items():
                 error["pv_estimate"][day] = (
                     abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
