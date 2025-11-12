@@ -417,18 +417,30 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
     async def __calculate_accuracy_metrics(self) -> None:
         """Calculate accuracy metrics for forecasts vs actuals."""
 
-        if not self.solcast.options.get_actuals or (earliest := self.solcast.get_earliest_estimate()) is None:
+        earliest_undampened = self.solcast.get_earliest_estimate_undampened()
+        if not self.solcast.options.get_actuals or earliest_undampened is None:
             return
-        earliest_start = max(
+        earliest_undampened_start = max(
             self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
-            earliest,
+            earliest_undampened,
         )
+        if self.solcast.options.auto_dampen:
+            earliest_dampened = self.solcast.get_earliest_estimate_dampened()
+
+            earliest_dampened_start = (
+                max(
+                    self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"]),
+                    earliest_dampened,
+                )
+                if earliest_dampened is not None
+                else None
+            )
 
         generation: defaultdict[dt, dict[str, Any]] = defaultdict(dict[str, Any])
         generation_day: defaultdict[dt, float] = defaultdict(float)
         data_generation = self.solcast.get_data_generation()
         for record in data_generation.get("generation", []):
-            if record["period_start"] < earliest_start:
+            if record["period_start"] < earliest_undampened_start:
                 continue
             generation[record["period_start"]] = {"generation": record["generation"], "export_limiting": record["export_limiting"]}
             if not record["export_limiting"]:
@@ -459,36 +471,33 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     )
             return sum(error["pv_estimate"].values()) / len(error["pv_estimate"]) if len(error["pv_estimate"]) > 0 else 0.0
 
-        if self.solcast.options.auto_dampen:
+        if self.solcast.options.auto_dampen and earliest_dampened_start is not None:
             if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
                 _LOGGER.debug(
                     "Calculating dampened estimated actual MAPE from %s to %s",
-                    earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+                    earliest_dampened_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
                     (self.solcast.get_day_start_utc() - timedelta(minutes=30))
                     .astimezone(self.solcast.options.tz)
                     .strftime(DATE_ONLY_FORMAT),
                 )
-            try:
-                error_dampened = await calculate_mape(
-                    await self.solcast.get_estimate_list(
-                        earliest_start,
-                        self.solcast.get_day_start_utc() - timedelta(minutes=30),
-                        False,
-                    )
+            error_dampened = await calculate_mape(
+                await self.solcast.get_estimate_list(
+                    earliest_dampened_start,
+                    self.solcast.get_day_start_utc() - timedelta(minutes=30),
+                    False,
                 )
-            except ValueError:
-                error_dampened = -1.0  # No data to calculate
+            )
         else:
             error_dampened = -1.0  # Not applicable
         if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
             _LOGGER.debug(
                 "Calculating undampened estimated actual MAPE from %s to %s",
-                earliest_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
+                earliest_undampened_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
                 (self.solcast.get_day_start_utc() - timedelta(minutes=30)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
             )
         error_undampened = await calculate_mape(
             await self.solcast.get_estimate_list(
-                earliest_start,
+                earliest_undampened_start,
                 self.solcast.get_day_start_utc() - timedelta(minutes=30),
                 True,
             )
