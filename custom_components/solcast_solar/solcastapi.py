@@ -329,6 +329,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             _LOGGER.debug("Advanced options file %s exists", self._filename_advanced)
             async with aiofiles.open(self._filename_advanced) as file:
                 try:
+                    _INT = r"^\d+$"
                     _TIME = r"^([01]?[0-9]|2[0-3]):[03]{1}0$"
 
                     content = await file.read()
@@ -363,19 +364,32 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                         #    if re.match(_TIME, new_value) is None:  # pyright: ignore[reportArgumentType, reportCallIssue]
                                         #        _LOGGER.error("Invalid time in advanced option %s: %s", option, new_value)
                                         #        valid = False
+                                        case "int_list":
+                                            seen_int: list[int] = []
+                                            i: int
+                                            for i in new_value:  # pyright: ignore[reportGeneralTypeIssues]
+                                                if re.match(_INT, str(i)) is None:
+                                                    _LOGGER.error("Invalid int in advanced option %s: %s", option, i)
+                                                    valid = False
+                                                    continue
+                                                if i in seen_int:
+                                                    _LOGGER.error("Duplicate int in advanced option %s: %s", option, i)
+                                                    valid = False
+                                                    continue
+                                                seen_int.append(i)
                                         case "time_list":
-                                            seen: list[str] = []
+                                            seen_time: list[str] = []
                                             t: str
                                             for t in new_value:  # pyright: ignore[reportGeneralTypeIssues]
                                                 if re.match(_TIME, t) is None:
                                                     _LOGGER.error("Invalid time in advanced option %s: %s", option, t)
                                                     valid = False
                                                     continue
-                                                if t in seen:
+                                                if t in seen_time:
                                                     _LOGGER.error("Duplicate time in advanced option %s: %s", option, t)
                                                     valid = False
                                                     continue
-                                                seen.append(t)
+                                                seen_time.append(t)
                                         case _:
                                             pass
                                 else:

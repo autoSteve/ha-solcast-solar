@@ -88,6 +88,7 @@ ADVANCED_OPTIONS: dict[str, dict[str, Any]] = {
     "automated_dampening_similar_peak": {"type": "float", "min": 0.0, "max": 1.0, "default": DAMPENING_SIMILAR_PEAK},
     "entity_logging": {"type": "bool", "default": SENSOR_UPDATE_LOGGING},
     "estimated_actuals_fetch_delay": {"type": "int", "min": 0, "max": 120, "default": ESTIMATED_ACTUALS_FETCH_DELAY},
+    "estimated_actuals_log_ape_percentiles": {"type": "int_list", "default": [50]},
     "estimated_actuals_log_mape_breakdown": {"type": "bool", "default": False},
     "forecast_future_days": {"type": "int", "min": 8, "max": 14, "default": FORECAST_DAYS},
     "forecast_day_entities": {"type": "int", "min": 8, "max": 14, "default": FORECAST_DAY_SENSORS},

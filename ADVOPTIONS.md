@@ -132,6 +132,12 @@ If automated dampening is enabled then modelling of new dampening factors will o
 
 If Home Assistant is restarted in the period between midnight and estimated actuals being retrieved then retrieval will be rescheduled.
 
+**Key: "estimated_actuals_log_ape_percentiles"**
+
+Possible values: list[int] (default [50])
+
+By default a 50th percentile Actual Percentage Error (APE) is logged on day change and at startup. Specify alternate or more percentiles to analyse with this option.
+
 **Key: "estimated_actuals_log_mape_breakdown"**
 
 Possible values: boolean `true`/`false` (default `false`)

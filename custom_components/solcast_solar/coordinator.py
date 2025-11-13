@@ -417,7 +417,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
     async def __calculate_accuracy_metrics(self) -> None:
         """Calculate accuracy metrics for forecasts vs actuals."""
 
-        PERCENTILES = (50,)
+        percentiles_to_calculate = tuple(self.solcast.advanced_options["estimated_actuals_log_ape_percentiles"])
 
         earliest_undampened_start = self.solcast.get_earliest_estimate_after_undampened(
             self.solcast.get_day_start_utc() - timedelta(days=self.solcast.advanced_options["automated_dampening_model_days"])
@@ -522,11 +522,11 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     self.solcast.get_day_start_utc() - timedelta(minutes=30),
                     False,  # Undampened = False
                 ),
-                PERCENTILES,
+                percentiles_to_calculate,
             )
         else:
             error_dampened = -1.0  # Not applicable
-            error_dampened_percentiles = [-1.0] * len(PERCENTILES)  # Not applicable
+            error_dampened_percentiles = [-1.0] * len(percentiles_to_calculate)  # Not applicable
         if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
             _LOGGER.debug(
                 "Calculating undampened estimated actual MAPE from %s to %s",
@@ -541,12 +541,12 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 self.solcast.get_day_start_utc() - timedelta(minutes=30),
                 True,  # Undampened = True
             ),
-            PERCENTILES,
+            percentiles_to_calculate,
         )
         _LOGGER.debug(
             "Estimated actual mean APE: %.2f%%%s", error_undampened, f", ({error_dampened:.2f}% dampened)" if error_dampened != -1.0 else ""
         )
-        for i, p in enumerate(PERCENTILES):
+        for i, p in enumerate(percentiles_to_calculate):
             _LOGGER.debug(
                 "Estimated actual %dth percentile APE: %.2f%%%s",
                 p,
