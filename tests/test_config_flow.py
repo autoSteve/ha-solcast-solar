@@ -878,7 +878,7 @@ async def test_advanced_options(
             "automated_dampening_generation_history_load_days": 22,
             "automated_dampening_similar_peak": 1.1,
             "estimated_actuals_fetch_delay": 140,
-            "estimated_actuals_log_ape_percentiles": ["wrong_type"],
+            "estimated_actuals_log_ape_percentiles": [10, 50, 10, "wrong_type"],
             "forecast_day_entities": 16,
             "forecast_future_days": 16,
             "forecast_history_max_days": 10,
