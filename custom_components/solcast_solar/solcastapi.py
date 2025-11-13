@@ -329,8 +329,10 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             _LOGGER.debug("Advanced options file %s exists", self._filename_advanced)
             async with aiofiles.open(self._filename_advanced) as file:
                 try:
-                    _INT = r"^\d+$"
-                    _TIME = r"^([01]?[0-9]|2[0-3]):[03]{1}0$"
+                    _VALIDATION = {
+                        "int": r"^\d+$",
+                        "time": r"^([01]?[0-9]|2[0-3]):[03]{1}0$",
+                    }
 
                     content = await file.read()
                     if content.replace("\n", "").replace("\r", "").strip() != "":  # i.e. not empty
@@ -361,35 +363,23 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                                 )
                                                 valid = False
                                         # case "time":
-                                        #    if re.match(_TIME, new_value) is None:  # pyright: ignore[reportArgumentType, reportCallIssue]
+                                        #    if re.match(_VALIDATION["time"], new_value) is None:  # pyright: ignore[reportArgumentType, reportCallIssue]
                                         #        _LOGGER.error("Invalid time in advanced option %s: %s", option, new_value)
                                         #        valid = False
-                                        case "int_list":
-                                            seen_int: list[int] = []
-                                            i: int
-                                            for i in new_value:  # pyright: ignore[reportGeneralTypeIssues]
-                                                if re.match(_INT, str(i)) is None:
-                                                    _LOGGER.error("Invalid int in advanced option %s: %s", option, i)
+                                        case "list_int" | "list_time":
+                                            member_type = ADVANCED_OPTIONS[option]["type"].split("_")[1]
+                                            seen_members: list[Any] = []
+                                            member: Any
+                                            for member in new_value:  # pyright: ignore[reportGeneralTypeIssues]
+                                                if re.match(_VALIDATION[member_type], str(member)) is None:
+                                                    _LOGGER.error("Invalid %s in advanced option %s: %s", member_type, option, member)
                                                     valid = False
                                                     continue
-                                                if i in seen_int:
-                                                    _LOGGER.error("Duplicate int in advanced option %s: %s", option, i)
+                                                if member in seen_members:
+                                                    _LOGGER.error("Duplicate %s in advanced option %s: %s", member_type, option, member)
                                                     valid = False
                                                     continue
-                                                seen_int.append(i)
-                                        case "time_list":
-                                            seen_time: list[str] = []
-                                            t: str
-                                            for t in new_value:  # pyright: ignore[reportGeneralTypeIssues]
-                                                if re.match(_TIME, t) is None:
-                                                    _LOGGER.error("Invalid time in advanced option %s: %s", option, t)
-                                                    valid = False
-                                                    continue
-                                                if t in seen_time:
-                                                    _LOGGER.error("Duplicate time in advanced option %s: %s", option, t)
-                                                    valid = False
-                                                    continue
-                                                seen_time.append(t)
+                                                seen_members.append(member)
                                         case _:
                                             pass
                                 else:
