@@ -140,6 +140,8 @@ A Mean Actual Percentage Error (MAPE) value for estimated actuals vs. actual gen
 
 Both undampened and dampened are logged when automated dampening is enabled.
 
+Note: Totals for both generation and estimated actuals do not include half-hourly intervals that have experienced site export limiting.
+
 ## Forecasts
 
 **Key: "forecast_day_entities"**

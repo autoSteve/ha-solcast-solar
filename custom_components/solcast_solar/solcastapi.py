@@ -2947,14 +2947,14 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             interval = hour * 2 + minute // 30
             ignored_intervals.append(interval)
 
-        export_limited_intervals = dict.fromkeys(range(48), False)
+        export_limited_intervals = dict.fromkeys(range(50), False)
         if not self.advanced_options["automated_dampening_no_limiting_consistency"]:
-            for gen in self._data_generation["generation"]:
+            for gen in self._data_generation["generation"][-1 * self.advanced_options["automated_dampening_model_days"] * 48 :]:
                 if gen["export_limiting"]:
                     export_limited_intervals[self.adjusted_interval(gen)] = True
 
         generation: dict[dt, float] = {}
-        for gen in self._data_generation["generation"]:
+        for gen in self._data_generation["generation"][-1 * self.advanced_options["automated_dampening_model_days"] * 48 :]:
             if not self.advanced_options["automated_dampening_no_limiting_consistency"]:
                 if not export_limited_intervals[self.adjusted_interval(gen)]:
                     generation[gen["period_start"]] = gen["generation"]
