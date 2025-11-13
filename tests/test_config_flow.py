@@ -878,7 +878,7 @@ async def test_advanced_options(
             "automated_dampening_generation_history_load_days": 22,
             "automated_dampening_similar_peak": 1.1,
             "estimated_actuals_fetch_delay": 140,
-            "estimated_actuals_log_ape_percentiles": [10, 50, 10, "wrong_type"],
+            "estimated_actuals_log_ape_percentiles": [10, 50, 10, "wrong_type", 0.5],
             "forecast_day_entities": 16,
             "forecast_future_days": 16,
             "forecast_history_max_days": 10,
@@ -907,6 +907,9 @@ async def test_advanced_options(
         assert "Invalid time in advanced option automated_dampening_ignore_intervals: 24:00" in caplog.text
         assert "Invalid time in advanced option automated_dampening_ignore_intervals: 12:20" in caplog.text
         assert "Duplicate time in advanced option automated_dampening_ignore_intervals: 13:00" in caplog.text
+        assert "Invalid int in advanced option estimated_actuals_log_ape_percentiles: wrong_type" in caplog.text
+        assert "Invalid int in advanced option estimated_actuals_log_ape_percentiles: 0.5" in caplog.text
+        assert "Duplicate int in advanced option estimated_actuals_log_ape_percentiles: 10" in caplog.text
 
         assert "Advanced options changed, restarting" in caplog.text
         assert "Start is not stale" in caplog.text
