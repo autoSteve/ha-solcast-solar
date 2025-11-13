@@ -268,7 +268,7 @@ async def test_auto_dampen(
         assert "Calculating dampened estimated actual MAPE" in caplog.text
         assert "Calculating undampened estimated actual MAPE" in caplog.text
         assert "APE calculation for day" in caplog.text
-        assert "APE calculation for day 2025-11-09" not in caplog.text
+        assert f"APE calculation for day {(dt.now(solcast._tz) - timedelta(days=4)).date()}" not in caplog.text
         assert "Estimated actual MAPE" in caplog.text
 
         coordinator, solcast = await _reload(hass, entry)

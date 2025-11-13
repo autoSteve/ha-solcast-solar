@@ -994,11 +994,13 @@ async def test_remaining_actions(
         _LOGGER.debug("Test set reasonable hard limit")
         solcast = await _set_hard_limit("5.0")
         assert solcast.hard_limit == "5.0"
-        assert "Build hard limit period values from scratch for dampened" in caplog.text
-        assert "Build hard limit period values from scratch for un-dampened" in caplog.text
+        assert "Build hard limit period values from scratch for forecast" in caplog.text
+        assert "Build hard limit period values from scratch for undampened forecast" in caplog.text
         for estimate in ["pv_estimate", "pv_estimate10", "pv_estimate90"]:
             assert len(solcast._sites_hard_limit["all"][estimate]) > 0  # pyright: ignore[reportPrivateUsage]
             assert len(solcast._sites_hard_limit_undampened["all"][estimate]) > 0  # pyright: ignore[reportPrivateUsage]
+        assert re.search("Build hard limit processing took.+seconds for forecast", caplog.text)
+        assert re.search("Build hard limit processing took.+seconds for undampened forecast", caplog.text)
 
         _LOGGER.debug("Test set large hard limit")
         solcast = await _set_hard_limit("5000")
@@ -1038,19 +1040,24 @@ async def test_remaining_actions(
         assert solcast.hard_limit == "5.0,5.0"
         assert hass.states.get("sensor.solcast_pv_forecast_hard_limit_set_1").state == "5.0 kW"  # type: ignore[union-attr]
         assert hass.states.get("sensor.solcast_pv_forecast_hard_limit_set_2").state == "5.0 kW"  # type: ignore[union-attr]
-        assert "Build hard limit period values from scratch for dampened" in caplog.text
-        assert "Build hard limit period values from scratch for un-dampened" in caplog.text
+        assert "Build hard limit period values from scratch for forecast" in caplog.text
+        assert "Build hard limit period values from scratch for undampened forecast" in caplog.text
         for api_key in entry.options["api_key"].split(","):
             for estimate in ["pv_estimate", "pv_estimate10", "pv_estimate90"]:
                 assert len(solcast._sites_hard_limit[api_key][estimate]) > 0  # pyright: ignore[reportPrivateUsage]
                 assert len(solcast._sites_hard_limit_undampened[api_key][estimate]) > 0  # pyright: ignore[reportPrivateUsage]
+        assert re.search("Build hard limit processing took.+seconds for forecast", caplog.text)
+        assert re.search("Build hard limit processing took.+seconds for undampened forecast", caplog.text)
 
+        caplog.clear()
         _LOGGER.debug("Test set single hard limit value for both API keys")
         solcast = await _remove_hard_limit()
         assert solcast.hard_limit == "100.0"
         for estimate in ["pv_estimate", "pv_estimate10", "pv_estimate90"]:
             assert len(solcast._sites_hard_limit["all"][estimate]) == 0  # pyright: ignore[reportPrivateUsage]
             assert len(solcast._sites_hard_limit_undampened["all"][estimate]) == 0  # pyright: ignore[reportPrivateUsage]
+        assert re.search("Build hard limit processing took.+seconds for forecast", caplog.text) is None
+        assert re.search("Build hard limit processing took.+seconds for undampened forecast", caplog.text) is None
 
         # Test query forecast data
         queries: list[dict[str, Any]] = [

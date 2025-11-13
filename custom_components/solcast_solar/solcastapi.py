@@ -249,6 +249,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._site_latitude: defaultdict[str, dict[str, bool | float | int | None]] = defaultdict(dict[str, bool | float | int | None])
         self._sites_hard_limit: defaultdict[str, Any] = defaultdict(dict)
         self._sites_hard_limit_undampened: defaultdict[str, Any] = defaultdict(dict)
+        self._sites_actual_hard_limit: defaultdict[str, Any] = defaultdict(dict)
+        self._sites_actual_hard_limit_undampened: defaultdict[str, Any] = defaultdict(dict)
         self._spline_period = list(range(0, 90000, 1800))
         self._serialise_lock = asyncio.Lock()
         self._tally: dict[str, float | None] = {}
@@ -1764,7 +1766,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         break
                 earliest = actual["period_start"].astimezone(self._tz)
             _LOGGER.debug(
-                "Earliest %s estimated actual datetime is %s",
+                "Earliest applicable %s estimated actual datetime is %s",
                 "dampened" if dampened else "undampened",
                 earliest,
             )
@@ -3156,16 +3158,15 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
                     for actual in actuals_undampened_day:
                         period_start = actual["period_start"]
+                        undampened = actual["pv_estimate"]
+                        factor = self.__get_dampening_factor(
+                            site["resource_id"], period_start.astimezone(self._tz), undampened_interval_pv50.get(period_start, -1.0)
+                        )
+                        dampened = round(undampened * factor, 4)
                         self.__forecast_entry_update(
                             extant_actuals,
                             period_start,
-                            round(
-                                actual["pv_estimate"]
-                                * self.__get_dampening_factor(
-                                    site["resource_id"], period_start.astimezone(self._tz), undampened_interval_pv50.get(period_start, -1.0)
-                                ),
-                                4,
-                            ),
+                            dampened,
                         )
 
                     await self.sort_and_prune(
@@ -3617,7 +3618,6 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         _LOGGER.debug("%d records returned", len(latest_forecasts))
 
-        start_time = time.time()
         for forecast in latest_forecasts:
             period_start = dt.fromisoformat(forecast["period_end"]).astimezone(datetime.UTC).replace(second=0, microsecond=0) - timedelta(
                 minutes=30
@@ -3640,10 +3640,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         except:  # noqa: E722
             forecasts_undampened = {}
 
-        _LOGGER.debug("Task load_new_data took %.3f seconds", time.time() - start_time)
-
         # Add new data to the undampened forecasts.
-        start_time = time.time()
         for forecast in new_data:
             period_start = forecast["period_start"]
             self.__forecast_entry_update(
@@ -3947,6 +3944,91 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     break
         return limit
 
+    async def __build_hard_limit(
+        self,
+        data: dict[str, Any],
+        sites_hard_limit: defaultdict[str, dict[str, dict[dt, Any]]],
+        logged_hard_limit: list[str],
+        estimates: tuple[str, ...],
+        data_set: str = "unknown",
+    ) -> bool:
+        """Build per-site hard limit.
+
+        The API key hard limit for each site is calculated as proportion of the site contribution for the account.
+        """
+
+        start_time = time.time()
+        build_logged: list[str] = []
+
+        hard_limit_set, multi_key = self.hard_limit_set()
+        if hard_limit_set:
+            api_key_sites: defaultdict[str, Any] = defaultdict(dict)
+            for site in self.sites:
+                if data["siteinfo"].get(site["resource_id"]) is None:
+                    continue
+                api_key_sites[site["api_key"] if multi_key else "all"][site["resource_id"]] = {
+                    "earliest_period": data["siteinfo"][site["resource_id"]]["forecasts"][0]["period_start"],
+                    "last_period": data["siteinfo"][site["resource_id"]]["forecasts"][-1]["period_start"],
+                }
+            if data_set == "forecast":
+                _LOGGER.debug("Hard limit for individual API keys %s (%s)", multi_key, data_set)
+            for api_key, sites in api_key_sites.items():
+                hard_limit = self.__hard_limit_for_key(api_key)
+                _api_key = self.__redact_api_key(api_key) if multi_key else "all"
+                siteinfo = {
+                    site: {forecast["period_start"]: forecast for forecast in data["siteinfo"][site]["forecasts"]} for site in sites
+                }
+                earliest: dt = dt.now(self._tz)
+                latest: dt = earliest
+                for limits in sites.values():
+                    if len(sites_hard_limit[api_key]) == 0:
+                        msg = f"Build hard limit period values from scratch for {data_set} {_api_key}"
+                        if msg not in build_logged:
+                            build_logged.append(msg)
+                            _LOGGER.debug(msg)
+                        earliest = min(earliest, limits["earliest_period"])
+                    else:
+                        earliest = self.get_day_start_utc()  # Past hard limits done, so re-calculate from today onwards
+                    latest = limits["last_period"]
+                if _api_key not in logged_hard_limit:
+                    logged_hard_limit.append(_api_key)
+                    _LOGGER.debug(
+                        "Hard limit for API key %s is %s",
+                        _api_key,
+                        hard_limit,
+                    )
+                    _LOGGER.debug(
+                        "Earliest period %s, latest period %s (%s)",
+                        dt.strftime(earliest.astimezone(self._tz), DATE_FORMAT),
+                        dt.strftime(latest.astimezone(self._tz), DATE_FORMAT),
+                        data_set,
+                    )
+                periods: list[dt] = [earliest + timedelta(minutes=30 * x) for x in range(int((latest - earliest).total_seconds() / 1800))]
+                sites_hard_limit[api_key] = {est: {} for est in estimates}
+                for count, period in enumerate(periods):
+                    for pv_estimate in estimates:
+                        estimate = {site: siteinfo[site].get(period, {}).get(pv_estimate) for site in sites}
+                        total_estimate = sum(estimate[site] for site in sites if estimate[site] is not None)
+                        if total_estimate == 0:
+                            continue
+                        sites_hard_limit[api_key][pv_estimate][period] = {
+                            site: estimate[site] / total_estimate * hard_limit for site in sites if estimate[site] is not None
+                        }
+                    # Prevent blocking
+                    if count % 200 == 0:
+                        await asyncio.sleep(0)
+            _LOGGER.debug(
+                "Build hard limit processing took %.3f seconds for %s",
+                time.time() - start_time,
+                data_set,
+            )
+        elif multi_key:
+            for api_key in self.options.api_key.split(","):
+                sites_hard_limit[api_key] = {est: {} for est in estimates}
+        else:
+            sites_hard_limit["all"] = {est: {} for est in estimates}
+        return multi_key
+
     async def build_actual_data(self) -> bool:
         """Build data structures needed, adjusting if setting a hard limit.
 
@@ -3963,6 +4045,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._data_estimated_actuals = []
         self._data_estimated_actuals_dampened = []
 
+        logged_hard_limit: list[str] = []
+
         build_success = True
 
         async def build_data_actuals(
@@ -3970,19 +4054,21 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             commencing: datetime.date,
             actuals: dict[dt, dict[str, dt | float]],
             sites_hard_limit: defaultdict[str, dict[str, dict[dt, Any]]],
-            log_dictionary_length: bool = False,
+            dampened: bool = False,
         ) -> list[Any]:
             nonlocal build_success
 
             api_key: str | None = None
 
             try:
-                _, multi_key = self.hard_limit_set()
+                multi_key = await self.__build_hard_limit(
+                    data, sites_hard_limit, logged_hard_limit, ("pv_estimate",), data_set="actuals" if dampened else "undampened actuals"
+                )
 
-                # Build per-site actuals with hard limit applied.
+                # Build total actuals with proportionate hard limit applied.
                 for resource_id, siteinfo in data.get("siteinfo", {}).items():
                     api_key = self.__site_api_key(resource_id) if multi_key else "all"
-                    site_actuals: dict[dt, dict[str, dt | float]] = {}
+                    site_actuals: dict[dt, dict[str, Any]] = {}
 
                     if api_key is not None:
                         for actual_count, actual in enumerate(siteinfo["forecasts"]):
@@ -3993,12 +4079,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 # Record the individual site actual.
                                 site_actuals[period_start] = {
                                     "period_start": period_start,
-                                    "pv_estimate": round(
-                                        min(
-                                            actual["pv_estimate"],
-                                            sites_hard_limit[api_key]["pv_estimate"].get(period_start, {}).get(resource_id, 100),
-                                        ),
-                                        4,
+                                    "pv_estimate": min(
+                                        actual["pv_estimate"],
+                                        sites_hard_limit[api_key]["pv_estimate"].get(period_start, {}).get(resource_id, 100),
                                     ),
                                 }
 
@@ -4013,18 +4096,18 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                     else:
                                         actuals[period_start] = {
                                             "period_start": period_start,
-                                            "pv_estimate": site_actuals[period_start]["pv_estimate"],
+                                            "pv_estimate": round(site_actuals[period_start]["pv_estimate"], 4),
                                         }
 
                             # Prevent blocking
-                            if actual_count % 100 == 0:
+                            if actual_count % 200 == 0:
                                 await asyncio.sleep(0)
 
-                        if log_dictionary_length:
+                        if not dampened:
                             _LOGGER.debug(
                                 "Estimated actuals dictionary length for %s is %s",
                                 resource_id,
-                                len(self._data_actuals["siteinfo"][resource_id]["forecasts"]),
+                                len(data["siteinfo"][resource_id]["forecasts"]),
                             )
 
                 return sorted(actuals.values(), key=itemgetter("period_start"))
@@ -4035,24 +4118,17 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         start_time = time.time()
         self._data_estimated_actuals = await build_data_actuals(
-            self._data_actuals,
-            commencing,
-            actuals,
-            self._sites_hard_limit,
-            log_dictionary_length=True,
+            self._data_actuals, commencing, actuals, self._sites_actual_hard_limit_undampened
         )
         self._data_estimated_actuals_dampened = await build_data_actuals(
-            self._data_actuals_dampened,
-            commencing,
-            actuals_dampened,
-            self._sites_hard_limit,
+            self._data_actuals_dampened, commencing, actuals_dampened, self._sites_actual_hard_limit, dampened=True
         )
         _LOGGER.debug("Task build_data_actuals took %.3f seconds", time.time() - start_time)
         self._data_energy_dashboard = self.__make_energy_dict()
 
         return build_success
 
-    async def build_forecast_data(self) -> bool:  # noqa: C901
+    async def build_forecast_data(self) -> bool:
         """Build data structures needed, adjusting if setting a hard limit.
 
         Returns:
@@ -4070,13 +4146,13 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         build_success = True  # Be optimistic
 
-        async def build_data(  # noqa: C901
+        async def build_data(
             data: dict[str, Any],
             commencing: datetime.date,
             forecasts: dict[dt, dict[str, dt | float]],
             site_data_forecasts: dict[str, list[dict[str, dt | float]]],
             sites_hard_limit: defaultdict[str, dict[str, dict[dt, Any]]],
-            update_tally: bool = False,
+            dampened: bool = False,
         ):
             nonlocal build_success
 
@@ -4085,81 +4161,18 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             api_key: str | None = None
 
             try:
-                # Build per-site hard limit.
-                # The API key hard limit for each site is calculated as proportion of the site contribution for the account.
-                start_time = time.time()
-                hard_limit_set, multi_key = self.hard_limit_set()
-                if hard_limit_set:
-                    api_key_sites: dict[str, Any] = defaultdict(dict)
-                    for site in self.sites:
-                        api_key_sites[site["api_key"] if multi_key else "all"][site["resource_id"]] = {
-                            "earliest_period": data["siteinfo"][site["resource_id"]]["forecasts"][0]["period_start"],
-                            "last_period": data["siteinfo"][site["resource_id"]]["forecasts"][-1]["period_start"],
-                        }
-                    if update_tally:
-                        _LOGGER.debug("Hard limit for individual API keys %s", multi_key)
-                    for api_key, sites in api_key_sites.items():
-                        hard_limit = self.__hard_limit_for_key(api_key)
-                        _api_key = self.__redact_api_key(api_key) if multi_key else "all"
-                        if _api_key not in logged_hard_limit:
-                            logged_hard_limit.append(_api_key)
-                            _LOGGER.debug(
-                                "Hard limit for API key %s is %s",
-                                _api_key,
-                                hard_limit,
-                            )
-                        siteinfo = {
-                            site: {forecast["period_start"]: forecast for forecast in data["siteinfo"][site]["forecasts"]} for site in sites
-                        }
-                        earliest: dt = dt.now(self._tz)
-                        latest: dt = earliest
-                        for limits in sites.values():
-                            if len(sites_hard_limit[api_key]) == 0:
-                                _LOGGER.debug(
-                                    "Build hard limit period values from scratch for %s",
-                                    "dampened" if update_tally else "un-dampened",
-                                )
-                                earliest = min(earliest, limits["earliest_period"])
-                            else:
-                                earliest = self.get_day_start_utc()  # Past hard limits done, so re-calculate from today onwards
-                            latest = limits["last_period"]
-                        _LOGGER.debug(
-                            "Earliest period %s, latest period %s",
-                            dt.strftime(earliest.astimezone(self._tz), DATE_FORMAT),
-                            dt.strftime(latest.astimezone(self._tz), DATE_FORMAT),
-                        )
-                        periods: list[dt] = [
-                            earliest + timedelta(minutes=30 * x) for x in range(int((latest - earliest).total_seconds() / 1800))
-                        ]
-                        sites_hard_limit[api_key] = {est: {} for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")}
-                        for period in periods:
-                            for pv_estimate in [
-                                "pv_estimate",
-                                "pv_estimate10",
-                                "pv_estimate90",
-                            ]:
-                                estimate = {site: siteinfo[site].get(period, {}).get(pv_estimate) for site in sites}
-                                total_estimate = sum(estimate[site] for site in sites if estimate[site] is not None)
-                                if total_estimate == 0:
-                                    continue
-                                sites_hard_limit[api_key][pv_estimate][period] = {
-                                    site: estimate[site] / total_estimate * hard_limit for site in sites if estimate[site] is not None
-                                }
-                    _LOGGER.debug(
-                        "Build hard limit processing took %.3f seconds for %s",
-                        time.time() - start_time,
-                        "dampened" if update_tally else "un-dampened",
-                    )
-                elif multi_key:
-                    for api_key in self.options.api_key.split(","):
-                        sites_hard_limit[api_key] = {est: {} for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")}
-                else:
-                    sites_hard_limit["all"] = {est: {} for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")}
+                multi_key = await self.__build_hard_limit(
+                    data,
+                    sites_hard_limit,
+                    logged_hard_limit,
+                    ("pv_estimate", "pv_estimate10", "pv_estimate90"),
+                    data_set="forecast" if dampened else "undampened forecast",
+                )
 
                 # Build per-site and total forecasts with proportionate hard limit applied.
                 for resource_id, siteinfo in data.get("siteinfo", {}).items():
                     api_key = self.__site_api_key(resource_id) if multi_key else "all"
-                    if update_tally:
+                    if dampened:
                         tally = None
                     site_forecasts: dict[dt, dict[str, dt | float]] = {}
 
@@ -4185,7 +4198,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
                                 if resource_id not in self.options.exclude_sites:
                                     # If the forecast is for today, and the site is not excluded, add to the total.
-                                    if update_tally and period_start_local.date() == today:
+                                    if dampened and period_start_local.date() == today:
                                         if tally is None:
                                             tally = 0.0
                                         tally += (
@@ -4212,17 +4225,17 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                             est: site_forecasts[period_start][est]
                                             for est in ("pv_estimate", "pv_estimate10", "pv_estimate90")
                                         }
-                                        if update_tally and self.options.auto_dampen and period_start >= self.get_day_start_utc():
+                                        if dampened and self.options.auto_dampen and period_start >= self.get_day_start_utc():
                                             forecasts[period_start]["dampening_factor"] = round(
                                                 self._auto_dampening_factors[period_start], 4
                                             )
 
-                            # Yield to event loop and prevent blocking
-                            if forecast_count % 100 == 0:
+                            # Prevent blocking
+                            if forecast_count % 200 == 0:
                                 await asyncio.sleep(0)
 
                         site_data_forecasts[resource_id] = sorted(site_forecasts.values(), key=itemgetter("period_start"))
-                        if update_tally:
+                        if dampened:
                             rounded_tally: Any = round(tally, 4) if tally is not None else 0.0
                             if tally is not None:
                                 siteinfo["tally"] = rounded_tally
@@ -4234,7 +4247,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 len(self._data_undampened["siteinfo"][resource_id]["forecasts"]),
                             )
 
-                if update_tally:
+                if dampened:
                     self._data_forecasts = sorted(forecasts.values(), key=itemgetter("period_start"))
                 else:
                     self._data_forecasts_undampened = sorted(forecasts.values(), key=itemgetter("period_start"))
@@ -4242,20 +4255,13 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 _LOGGER.error("Exception in build_data(): %s: %s", e, traceback.format_exc())
                 self._data_forecasts = []
                 self._data_forecasts_undampened = []
-                if update_tally:
+                if dampened:
                     for site in self.sites:
                         self._tally[site["resource_id"]] = None
                 build_success = False
 
         start_time = time.time()
-        await build_data(
-            self._data,
-            commencing,
-            forecasts,
-            self._site_data_forecasts,
-            self._sites_hard_limit,
-            update_tally=True,
-        )
+        await build_data(self._data, commencing, forecasts, self._site_data_forecasts, self._sites_hard_limit, dampened=True)
         if build_success:
             await build_data(
                 self._data_undampened,

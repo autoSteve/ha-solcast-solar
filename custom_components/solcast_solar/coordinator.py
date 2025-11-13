@@ -48,7 +48,7 @@ from .const import (
     TIME_FORMAT,
 )
 from .solcastapi import SolcastApi
-from .util import AutoUpdate
+from .util import AutoUpdate, percentile
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -439,8 +439,8 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     record["period_start"].astimezone(self.solcast.options.tz).replace(hour=0, minute=0, second=0, microsecond=0)
                 ] += record["generation"]
 
-        async def calculate_mape(values: tuple[dict[str, Any], ...]) -> float:
-            """Calculate mean absolute percentage error metric."""
+        async def calculate_error(values: tuple[dict[str, Any], ...]) -> tuple[float, float]:
+            """Calculate mean and 50th percentile absolute percentage error."""
             value_day: defaultdict[dt, float] = defaultdict(float)
             error: defaultdict[dt, float] = defaultdict(float)
             last_day: dt | None = None
@@ -461,7 +461,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                         value,
                         error[day],
                     )
-            return sum(error.values()) / len(error) if len(error) > 0 else 0.0
+            return (sum(error.values()) / len(error), percentile(sorted(error.values()), 50)) if len(error) > 0 else (0.0, 0.0)
 
         if self.solcast.options.auto_dampen and earliest_dampened_start is not None:
             if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
@@ -472,7 +472,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     .astimezone(self.solcast.options.tz)
                     .strftime(DATE_ONLY_FORMAT),
                 )
-            error_dampened = await calculate_mape(
+            error_dampened, error_dampened_50th = await calculate_error(
                 await self.solcast.get_estimate_list(
                     earliest_dampened_start,
                     self.solcast.get_day_start_utc() - timedelta(minutes=30),
@@ -481,13 +481,14 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             )
         else:
             error_dampened = -1.0  # Not applicable
+            error_dampened_50th = -1.0  # Not applicable
         if self.solcast.advanced_options["estimated_actuals_log_mape_breakdown"]:
             _LOGGER.debug(
                 "Calculating undampened estimated actual MAPE from %s to %s",
                 earliest_undampened_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
                 (self.solcast.get_day_start_utc() - timedelta(minutes=30)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
             )
-        error_undampened = await calculate_mape(
+        error_undampened, error_undampened_50th = await calculate_error(
             await self.solcast.get_estimate_list(
                 earliest_undampened_start,
                 self.solcast.get_day_start_utc() - timedelta(minutes=30),
@@ -496,6 +497,11 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
         )
         _LOGGER.debug(
             "Estimated actual MAPE: %.2f%%%s", error_undampened, f", ({error_dampened:.2f}% dampened)" if error_dampened != -1.0 else ""
+        )
+        _LOGGER.debug(
+            "Estimated actual 50th percentile APE: %.2f%%%s",
+            error_undampened_50th,
+            f", ({error_dampened_50th:.2f}% dampened)" if error_dampened_50th != -1.0 else "",
         )
 
     async def __check_estimated_actuals_fetch(self) -> None:
