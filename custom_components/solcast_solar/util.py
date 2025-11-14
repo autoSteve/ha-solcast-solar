@@ -11,14 +11,40 @@ from enum import Enum
 import json
 import logging
 import math
+import re
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
+from .const import ESTIMATE, ESTIMATE10, ESTIMATE90
 
 if TYPE_CHECKING:
     from . import coordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+# Status code translation, HTTP and more.
+# A HTTP 418 error is included here for fun. This was introduced in RFC2324#section-2.3.2 as an April Fools joke in 1998.
+# 400 >= HTTP error <= 599
+# 900 >= Exceptions < 1000, to be potentially handled with retries.
+STATUS_TRANSLATE: dict[int, str] = {
+    200: "Success",
+    400: "Bad request",
+    401: "Unauthorized",
+    403: "Forbidden",
+    404: "Not found",
+    418: "I'm a teapot",
+    420: "Enhance your calm (rate limited)",
+    429: "Try again later",
+    500: "Internal web server error",
+    501: "Not implemented",
+    502: "Bad gateway",
+    503: "Service unavailable",
+    504: "Gateway timeout",
+    996: "Connection refused",
+    997: "Connect call failed",
+    999: "Prior crash",
+}
 
 
 @dataclass
@@ -136,6 +162,97 @@ class JSONDecoder(json.JSONDecoder):
             except:  # noqa: E722
                 result[key] = value
         return result
+
+
+def http_status_translate(status: int) -> str | Any:
+    """Translate HTTP status code to a human-readable translation.
+
+    Arguments:
+        status (int): A HTTP status code.
+
+    Returns:
+        str: Human readable HTTP status.
+
+    """
+    return (f"{status}/{STATUS_TRANSLATE[status]}") if STATUS_TRANSLATE.get(status) else status
+
+
+def api_key_last_six(api_key: str) -> str:
+    """Return last six characters of API key.
+
+    Arguments:
+        api_key (str): An individual Solcast account API key.
+
+    Returns:
+        str: The last six characters of the key.
+
+    """
+    return api_key[-6:]
+
+
+def redact_api_key(api_key: str) -> str:
+    """Obfuscate API key.
+
+    Arguments:
+        api_key (str): An individual Solcast account API key.
+
+    Returns:
+        str: The last six characters of the key, prepended by six asterisks.
+
+    """
+    return "*" * 6 + api_key_last_six(api_key)
+
+
+def redact_msg_api_key(msg: str, api_key: str) -> str:
+    """Obfuscate API key in messages.
+
+    Arguments:
+        msg (str): Typically a message to be logged.
+        api_key (str): An individual Solcast account API key.
+
+    Returns:
+        str: The message, with API key obfuscated.
+
+    """
+    return (
+        msg.replace("key=" + api_key, "key=" + redact_api_key(api_key))
+        .replace("key': '" + api_key, "key': '" + redact_api_key(api_key))
+        .replace("sites-" + api_key, "sites-" + redact_api_key(api_key))
+        .replace("usage-" + api_key, "usage-" + redact_api_key(api_key))
+    )
+
+
+def redact_lat_lon_simple(s: str) -> str:
+    """Redact latitude and longitude decimal places in a string."""
+    return re.sub(r"\.[0-9]+", ".******", s)
+
+
+def redact_lat_lon(s: str) -> str:
+    """Redact latitude and longitude in a string."""
+    return re.sub(r"itude\': [0-9\-\.]+", "itude': **.******", s)
+
+
+def forecast_entry_update(forecasts: dict[dt, Any], period_start: dt, pv: float, pv10: float | None = None, pv90: float | None = None):
+    """Update an individual forecast entry."""
+    extant = forecasts.get(period_start)
+    if extant:  # Update existing.
+        forecasts[period_start][ESTIMATE] = pv
+        if pv10 is not None:
+            forecasts[period_start][ESTIMATE10] = pv10
+        if pv90 is not None:
+            forecasts[period_start][ESTIMATE90] = pv90
+    elif pv10 is not None:
+        forecasts[period_start] = {
+            "period_start": period_start,
+            "pv_estimate": pv,
+            "pv_estimate10": pv10,
+            "pv_estimate90": pv90,
+        }
+    else:
+        forecasts[period_start] = {
+            "period_start": period_start,
+            "pv_estimate": pv,
+        }
 
 
 def percentile(data: list[Any], _percentile: float) -> float | int:
