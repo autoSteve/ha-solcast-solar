@@ -60,11 +60,11 @@
             "forecast_next_hour": {
                 "name": "Forecast Next Hour"
             },
-            "forecast_this_hour": {
-                "name": "Forecast This Hour"
-            },
             "forecast_remaining_today": {
                 "name": "Forecast Remaining Today"
+            },
+            "forecast_this_hour": {
+                "name": "Forecast This Hour"
             },
             "hard_limit": {
                 "name": "Hard Limit Set"

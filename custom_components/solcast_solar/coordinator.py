@@ -462,7 +462,6 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             self.solcast.log_advanced_options()  # Daily reminder of advanced options in use
 
             await self.__check_estimated_actuals_fetch()
-            await self.__calculate_accuracy_metrics()
 
         await self.solcast.cleanup_issues()
         self.async_update_listeners()
@@ -721,6 +720,8 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             await self.solcast.model_automated_dampening()
             await self.solcast.apply_forward_dampening()
             await self.solcast.build_forecast_data()
+
+        await self.__calculate_accuracy_metrics()
 
     def __auto_update_setup(self, init: bool = False) -> None:
         """Set up of auto-updates."""
