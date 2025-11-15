@@ -78,7 +78,9 @@ NAMES: Final[dict[str, str]] = {
     KEY_FORECAST_NEXT_HOUR: "Forecast Next Hour",
     KEY_FORECAST_THIS_HOUR: "Forecast This Hour",
     KEY_FORECAST_REMAINING_TODAY: "Forecast Remaining Today",
+    KEY_FORECAST_REMAINING_TODAY_OLD: "Forecast Remaining Today",
     KEY_LAST_UPDATED: "API Last Polled",
+    KEY_LAST_UPDATED_OLD: "API Last Polled",
     KEY_PEAK_W_TIME_TODAY: "Peak Time Today",
     KEY_PEAK_W_TIME_TOMORROW: "Peak Time Tomorrow",
     KEY_PEAK_W_TODAY: "Peak Forecast Today",
@@ -290,6 +292,7 @@ def get_sensor_update_policy(key: str) -> SensorUpdatePolicy:
         KEY_FORECAST_NEXT_HOUR,
         KEY_FORECAST_CUSTOM_HOURS,
         KEY_FORECAST_REMAINING_TODAY,
+        KEY_FORECAST_REMAINING_TODAY_OLD,
         KEY_POWER_NOW,
         KEY_POWER_NOW_30M,
         KEY_POWER_NOW_1HR,
@@ -463,7 +466,7 @@ class SolcastSensor(CoordinatorEntity, SensorEntity):
         """Entity about to be added to hass, so set recorder excluded attributes."""
         await super().async_added_to_hass()
 
-        if self.entity_description.key == KEY_LAST_UPDATED:
+        if self.entity_description.key in (KEY_LAST_UPDATED, KEY_LAST_UPDATED_OLD):
             self._state_info[UNRECORDED_ATTRIBUTES] = frozenset([NEXT_AUTO_UPDATE, AUTO_UPDATE_DIVISIONS, AUTO_UPDATE_QUEUE])
 
         elif str(self.entity_description.key).startswith(KEY_TOTAL_KWH_FORECAST):
