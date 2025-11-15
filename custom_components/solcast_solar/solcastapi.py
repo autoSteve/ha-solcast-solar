@@ -52,6 +52,7 @@ from .const import (
     ADVANCED_FORECAST_HISTORY_MAX_DAYS,
     ADVANCED_OPTION,
     ADVANCED_OPTIONS,
+    ADVANCED_SOLCAST_URL,
     ADVANCED_TYPE,
     ALL,
     API_KEY,
@@ -66,11 +67,14 @@ from .const import (
     BRK_HOURLY,
     BRK_SITE,
     BRK_SITE_DETAILED,
+    CAPACITY,
+    CAPACITY_DC,
     CONFIG_DISCRETE_NAME,
     CONFIG_FOLDER_DISCRETE,
     CORRECT,
     CUSTOM_HOUR_SENSOR,
     DAILY_LIMIT,
+    DAILY_LIMIT_CONSUMED,
     DAMPENING_FACTOR,
     DATA_CORRECT,
     DATA_SET_ACTUALS,
@@ -87,20 +91,27 @@ from .const import (
     DOMAIN,
     EARLIEST_PERIOD,
     ENTRY_OPTIONS,
+    ERROR_CODE,
     ESTIMATE,
     ESTIMATE10,
     ESTIMATE90,
+    ESTIMATED_ACTUALS,
     EXCLUDE_SITES,
     EXPECTED_INTERVALS,
     EXPORT_LIMITING,
+    EXTANT,
     FAILURE,
     FORECASTS,
+    FORMAT,
     GENERATION,
     GENERATION_ENTITIES,
     GENERATION_VERSION,
     GET_ACTUALS,
     HARD_LIMIT_API,
+    HOURS,
+    INSTALL_DATE,
     INTERVALS,
+    JSON,
     KEY_ESTIMATE,
     LAST_7D,
     LAST_24H,
@@ -108,24 +119,33 @@ from .const import (
     LAST_PERIOD,
     LAST_UPDATED,
     LATITUDE,
+    LEARN_MORE,
     LONGITUDE,
+    LOSS_FACTOR,
     MAXIMUM,
+    MESSAGE,
     MINIMUM,
+    NAME,
     OLD_API_KEY,
     PERIOD_END,
     PERIOD_START,
     PLATFORM_BINARY_SENSOR,
     PLATFORM_SENSOR,
+    PROPOSAL,
+    RESET,
     RESOURCE_ID,
+    RESPONSE_STATUS,
     SITE,
     SITE_DAMP,
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
     SITE_INFO,
     SITES,
+    TAGS,
     TALLY,
     TASK_ACTUALS_FETCH,
     TASK_FORECASTS_FETCH,
+    TILT,
     TOTAL_RECORDS,
     UNKNOWN,
     UNUSUAL_AZIMUTH_NORTHERN,
@@ -135,7 +155,6 @@ from .const import (
     WINTER_TIME,
 )
 from .util import (
-    Api,
     AutoUpdate,
     DataCallStatus,
     DateTimeEncoder,
@@ -157,16 +176,12 @@ from .util import (
     redact_msg_api_key,
 )
 
-API: Final = Api.HOBBYIST  # The API to use. Presently only the hobbyist API is allowed for hobbyist accounts.
+GRANULAR_DAMPENING_OFF: Final[bool] = False
+GRANULAR_DAMPENING_ON: Final[bool] = True
+JSON_VERSION: Final[int] = 7
+SET_ALLOW_RESET: Final[bool] = True
 
-# if API == Api.HOBBYIST:
-GRANULAR_DAMPENING_OFF: Final = False
-GRANULAR_DAMPENING_ON: Final = True
-JSON_VERSION: Final = 7
-SET_ALLOW_RESET: Final = True
-
-
-FRESH_DATA: dict[str, Any] = {
+FRESH_DATA: Final[dict[str, Any]] = {
     SITE_INFO: {},
     LAST_UPDATED: dt.fromtimestamp(0, datetime.UTC),
     LAST_ATTEMPT: dt.fromtimestamp(0, datetime.UTC),
@@ -702,8 +717,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 success = False
 
                 if not prior_crash:
-                    url = f"{self.advanced_options['solcast_url']}/rooftop_sites"
-                    params = {"format": "json", API_KEY: api_key}
+                    url = f"{self.advanced_options[ADVANCED_SOLCAST_URL]}/rooftop_sites"
+                    params = {FORMAT: JSON, API_KEY: api_key}
                     _LOGGER.debug("Connecting to %s?format=json&api_key=%s", url, redact_api_key(api_key))
                     response: ClientResponse = await self._aiohttp_session.get(url=url, params=params, headers=self.headers, ssl=False)
                     status = response.status
@@ -844,8 +859,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         )
         json_content: dict[str, Any] = {
             DAILY_LIMIT: self._api_limit[api_key],
-            "daily_limit_consumed": self._api_used[api_key],
-            "reset": self._api_used_reset[api_key],
+            DAILY_LIMIT_CONSUMED: self._api_used[api_key],
+            RESET: self._api_used_reset[api_key],
         }
         payload = json.dumps(json_content, ensure_ascii=False, cls=DateTimeEncoder)
         async with self._serialise_lock, aiofiles.open(filename, "w") as file:
@@ -865,9 +880,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             async def sanitise_and_set_usage(api_key: str, usage: dict[str, Any]):
                 self._api_limit[api_key] = usage.get(DAILY_LIMIT, 10)
                 assert isinstance(self._api_limit[api_key], int), "daily_limit is not an integer"
-                self._api_used[api_key] = usage.get("daily_limit_consumed", 0)
+                self._api_used[api_key] = usage.get(DAILY_LIMIT_CONSUMED, 0)
                 assert isinstance(self._api_used[api_key], int), "daily_limit_consumed is not an integer"
-                self._api_used_reset[api_key] = usage.get("reset", self.__get_utc_previous_midnight())
+                self._api_used_reset[api_key] = usage.get(RESET, self.__get_utc_previous_midnight())
                 assert isinstance(self._api_used_reset[api_key], dt), "reset is not a datetime"
                 if (used_reset := self._api_used_reset[api_key]) is not None:
                     _LOGGER.debug(
@@ -1043,7 +1058,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                             and not self._dismissal.get(site, False)
                             else _LOGGER.debug
                         )
-                        log(redact_lat_lon_simple(f"Unusual azimuth {azimuth} for site {site}, latitude {v['latitude']}"))
+                        log(redact_lat_lon_simple(f"Unusual azimuth {azimuth} for site {site}, latitude {v[LATITUDE]}"))
 
                     if unusual and not any_raised and raise_issue != "":
                         if not self._dismissal.get(site, False):
@@ -1061,9 +1076,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 translation_placeholders={
                                     SITE: site,
                                     LATITUDE: str(v[LATITUDE]),
-                                    "proposal": str(proposal),
-                                    "extant": str(v[AZIMUTH]),
-                                    "learn_more": "",
+                                    PROPOSAL: str(proposal),
+                                    EXTANT: str(v[AZIMUTH]),
+                                    LEARN_MORE: "",
                                 },
                                 learn_more_url="https://github.com/BJReplay/ha-solcast-solar?tab=readme-ov-file#solcast-requirements",
                             )
@@ -1537,7 +1552,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
                     if len(new_sites.keys()) > 0:
                         # Some site data does not exist yet so get it.
-                        # Do not alter self._data['last_attempt'], as this is not a scheduled thing
+                        # Do not alter self._data[LAST_ATTEMPT], as this is not a scheduled thing
                         _LOGGER.info("New site(s) have been added, so getting forecast data for them")
                         for site, api_key in new_sites.items():
                             await self.__http_data_call(site=site, api_key=api_key, do_past_hours=168)
@@ -1737,7 +1752,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         if start_index == 0 and end_index == 0:
             # Range could not be found
             raise ValueError(
-                f"Range is invalid {args[0]} to {args[1]}, earliest forecast is {data_forecasts[0]['period_start']}, latest forecast is {data_forecasts[-1]['period_start']}"
+                f"Range is invalid {args[0]} to {args[1]}, earliest forecast is {data_forecasts[0][PERIOD_START]}, latest forecast is {data_forecasts[-1][PERIOD_START]}"
             )
         forecast_slice = data_forecasts[start_index:end_index]
 
@@ -1871,17 +1886,17 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         target_site = tuple(_site for _site in self.sites if _site[RESOURCE_ID] == site)
         _site: dict[str, Any] = target_site[0]
         result = {
-            "name": _site.get("name"),
+            NAME: _site.get(NAME),
             RESOURCE_ID: _site.get(RESOURCE_ID),
-            "capacity": _site.get("capacity"),
-            "capacity_dc": _site.get("capacity_dc"),
+            CAPACITY: _site.get(CAPACITY),
+            CAPACITY_DC: _site.get(CAPACITY_DC),
             LONGITUDE: _site.get(LONGITUDE),
             LATITUDE: _site.get(LATITUDE),
             AZIMUTH: _site.get(AZIMUTH),
-            "tilt": _site.get("tilt"),
-            "install_date": _site.get("install_date"),
-            "loss_factor": _site.get("loss_factor"),
-            "tags": _site.get("tags"),
+            TILT: _site.get(TILT),
+            INSTALL_DATE: _site.get(INSTALL_DATE),
+            LOSS_FACTOR: _site.get(LOSS_FACTOR),
+            TAGS: _site.get(TAGS),
         }
         return {k: v for k, v in result.items() if v is not None}
 
@@ -2036,12 +2051,12 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             result[DETAILED_FORECAST] = _tuple
             if self.options.attr_brk_site_detailed:
                 for site in self.sites:
-                    result[f"{DETAILED_FORECAST}_{site['resource_id'].replace('-', '_')}"] = tuples[site[RESOURCE_ID]]
+                    result[f"{DETAILED_FORECAST}_{site[RESOURCE_ID].replace('-', '_')}"] = tuples[site[RESOURCE_ID]]
         if self.options.attr_brk_hourly:
             result[DETAILED_HOURLY] = hourly_tuple
             if self.options.attr_brk_site_detailed:
                 for site in self.sites:
-                    result[f"{DETAILED_HOURLY}_{site['resource_id'].replace('-', '_')}"] = hourly_tuples[site[RESOURCE_ID]]
+                    result[f"{DETAILED_HOURLY}_{site[RESOURCE_ID].replace('-', '_')}"] = hourly_tuples[site[RESOURCE_ID]]
         return result
 
     def get_forecast_n_hour(
@@ -3082,7 +3097,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 self.tasks[TASK_ACTUALS_FETCH] = asyncio.create_task(
                     self.fetch_data(
                         hours=168,
-                        path="estimated_actuals",
+                        path=ESTIMATED_ACTUALS,
                         site=site[RESOURCE_ID],
                         api_key=api_key,
                         force=True,
@@ -3098,7 +3113,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 reason = "No valid json returned"
                 break
 
-            estimate_actuals: list[dict[str, Any]] = act_response.get("estimated_actuals", [])
+            estimate_actuals: list[dict[str, Any]] = act_response.get(ESTIMATED_ACTUALS, [])
 
             oldest = (dt.now(self._tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=6)).astimezone(datetime.UTC)
 
@@ -3524,7 +3539,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 self.tasks[TASK_FORECASTS_FETCH] = asyncio.create_task(
                     self.fetch_data(
                         hours=do_past_hours,
-                        path="estimated_actuals",
+                        path=ESTIMATED_ACTUALS,
                         site=site,
                         api_key=api_key,
                         force=force,
@@ -3540,7 +3555,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 _LOGGER.error("API did not return a json object, returned `%s`", act_response)
                 return DataCallStatus.FAIL, "No valid json returned"
 
-            estimate_actuals: list[dict[str, Any]] = act_response.get("estimated_actuals", [])
+            estimate_actuals: list[dict[str, Any]] = act_response.get(ESTIMATED_ACTUALS, [])
 
             oldest = (dt.now(self._tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=6)).astimezone(datetime.UTC)
 
@@ -3656,7 +3671,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         Arguments:
             hours (int): Number of hours to fetch, normally 168, or seven days.
-            path (str): The path to follow. FORECASTS or "estimated_actuals". Omitting this parameter will result in an error.
+            path (str): The path to follow. FORECASTS or ESTIMATED_ACTUALS. Omitting this parameter will result in an error.
             site (str): A Solcast site ID.
             api_key (str): A Solcast API key appropriate to use for the site.
             force (bool): A forced update, which does not update the internal API use counter.
@@ -3689,8 +3704,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 async with asyncio.timeout(900):
                     if self._api_used[api_key] < self._api_limit[api_key] or force:
                         # if API == Api.HOBBYIST:
-                        url = f"{self.advanced_options['solcast_url']}/rooftop_sites/{site}/{path}"
-                        params: dict[str, str | int] = {"format": "json", API_KEY: api_key, "hours": hours}
+                        url = f"{self.advanced_options[ADVANCED_SOLCAST_URL]}/rooftop_sites/{site}/{path}"
+                        params: dict[str, str | int] = {FORMAT: JSON, API_KEY: api_key, HOURS: hours}
 
                         tries = 10
                         counter = 0
@@ -3732,16 +3747,16 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 # {"response_status":{"error_code":"TooManyRequests","message":"You have exceeded your free daily limit.","errors":[]}}
                                 response_json = await response.json(content_type=None)
                                 if response_json is not None:
-                                    response_status = response_json.get("response_status")
+                                    response_status = response_json.get(RESPONSE_STATUS)
                                     if response_status is not None:
-                                        if response_status.get("error_code") == "TooManyRequests":
+                                        if response_status.get(ERROR_CODE) == "TooManyRequests":
                                             _LOGGER.debug("Set status to 998, API limit exceeded")
                                             status = 998
                                             self._api_used[api_key] = self._api_limit[api_key]
                                             await self.__serialise_usage(api_key)
                                             break
                                         status = 1000
-                                        _LOGGER.warning("An unexpected error occurred: %s", response_status.get("message"))
+                                        _LOGGER.warning("An unexpected error occurred: %s", response_status.get(MESSAGE))
                                         break
                             if counter >= tries:
                                 _LOGGER.error("API was tried %d times, but all attempts failed", tries)

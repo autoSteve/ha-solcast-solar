@@ -33,6 +33,7 @@ from .const import (
     DETAILED_FORECAST,
     DETAILED_HOURLY,
     DOMAIN,
+    ENABLED_BY_DEFAULT,
     FACTORS,
     HARD_LIMIT,
     HARD_LIMIT_API,
@@ -95,7 +96,7 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             name=NAMES[KEY_API_COUNTER],
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
-        "attribution": False,
+        ATTRIBUTION: False,
     },
     KEY_API_LIMIT: {
         DESCRIPTION: SensorEntityDescription(
@@ -104,7 +105,7 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             name=NAMES[KEY_API_LIMIT],
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
-        "attribution": False,
+        ATTRIBUTION: False,
     },
     KEY_DAMPEN: {
         DESCRIPTION: SensorEntityDescription(
@@ -113,8 +114,8 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             name=NAMES[KEY_DAMPEN],
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
-        "attribution": False,
-        "enabled_by_default": False,
+        ATTRIBUTION: False,
+        ENABLED_BY_DEFAULT: False,
     },
     KEY_FORECAST_THIS_HOUR: {
         DESCRIPTION: SensorEntityDescription(
@@ -135,7 +136,7 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             name=NAMES[KEY_FORECAST_CUSTOM_HOURS],
             suggested_display_precision=0,
         ),
-        "enabled_by_default": False,
+        ENABLED_BY_DEFAULT: False,
     },
     KEY_FORECAST_NEXT_HOUR: {
         DESCRIPTION: SensorEntityDescription(
@@ -165,7 +166,7 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             name=NAMES[KEY_LAST_UPDATED],
             entity_category=EntityCategory.DIAGNOSTIC,
         ),
-        "attribution": False,
+        ATTRIBUTION: False,
     },
     KEY_PEAK_W_TIME_TODAY: {
         DESCRIPTION: SensorEntityDescription(
@@ -333,7 +334,7 @@ async def async_setup_entry(
                     suggested_display_precision=2,
                     state_class=SensorStateClass.TOTAL,
                 ),
-                "enabled_by_default": False,
+                ENABLED_BY_DEFAULT: False,
             },
         )
         entities.append(sen)
@@ -433,10 +434,10 @@ class SolcastSensor(CoordinatorEntity, SensorEntity):
         self._attr_extra_state_attributes = {}
         self._attr_unique_id = f"{self.entity_description.key}"
         self._coordinator = coordinator
-        self._attr_entity_registry_enabled_default = sensor.get("enabled_by_default", True)
+        self._attr_entity_registry_enabled_default = sensor.get(ENABLED_BY_DEFAULT, True)
         self._sensor_data = None
         self._update_policy = get_sensor_update_policy(self.entity_description.key)
-        if sensor.get("attribution", True):
+        if sensor.get(ATTRIBUTION, True):
             self._attr_attribution = ATTRIBUTION
 
         try:
@@ -588,7 +589,7 @@ class RooftopSensor(CoordinatorEntity, SensorEntity):
             configuration_url="https://toolkit.solcast.com.au/",
         )
 
-        self._unique_id = f"solcast_api_{sensor['description'].name}"
+        self._unique_id = f"solcast_api_{sensor[DESCRIPTION].name}"
 
     @property
     def available(self) -> bool:  # type: ignore[explicit-override]  # Explicitly overridden because parent is a cached property

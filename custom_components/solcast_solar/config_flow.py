@@ -50,7 +50,9 @@ from .const import (
     CONFIG_DAMP,
     CONFIG_VERSION,
     CUSTOM_HOUR_SENSOR,
+    DEVICE_NAME,
     DOMAIN,
+    ENTRY_ID,
     EXCLUDE_SITES,
     GENERATION_ENTITIES,
     GET_ACTUALS,
@@ -64,7 +66,9 @@ from .const import (
     SITE_DAMP,
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
-    SOLCAST_URL,
+    SOLCAST,
+    SOLCAST_HTTPS_URL,
+    SUGGESTED_VALUE,
     TITLE,
     TRANSLATE_ACTUALS_WITHOUT_GET,
     TRANSLATE_API_DUPLICATE,
@@ -84,6 +88,7 @@ from .const import (
     TRANSLATE_REAUTH_SUCCESSFUL,
     TRANSLATE_RECONFIGURED,
     TRANSLATE_SINGLE_INSTANCE_ALLOWED,
+    UNKNOWN,
     USE_ACTUALS,
 )
 from .solcastapi import ConnectionOptions, SolcastApi
@@ -166,7 +171,7 @@ async def validate_sites(hass: HomeAssistant, user_input: dict[str, Any]) -> tup
     options = ConnectionOptions(
         user_input[CONF_API_KEY],
         user_input[API_QUOTA],
-        SOLCAST_URL,
+        SOLCAST_HTTPS_URL,
         hass.config.path(f"{hass.config.config_dir}/solcast.json"),
         await __get_time_zone(hass),
         user_input[AUTO_UPDATE],
@@ -227,7 +232,7 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth(self, entry: Mapping[str, Any]) -> ConfigFlowResult:
         """Set a new API key."""
-        self.entry = self.hass.config_entries.async_get_entry(self.context.get("entry_id", ""))
+        self.entry = self.hass.config_entries.async_get_entry(self.context.get(ENTRY_ID, ""))
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -266,13 +271,13 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_API_KEY, default=all_config_data[CONF_API_KEY]): str,
                 }
             ),
-            description_placeholders={"device_name": self.entry.title if self.entry is not None else "unknown"},
+            description_placeholders={DEVICE_NAME: self.entry.title if self.entry is not None else UNKNOWN},
             errors=errors,
         )
 
     async def async_step_reconfigure(self, entry: Mapping[str, Any]) -> ConfigFlowResult:
         """Reconfigure API key, limit and auto-update."""
-        self.entry = self.hass.config_entries.async_get_entry(self.context.get("entry_id", ""))
+        self.entry = self.hass.config_entries.async_get_entry(self.context.get(ENTRY_ID, ""))
         return await self.async_step_reconfigure_confirm()
 
     async def async_step_reconfigure_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -322,7 +327,7 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                     ),
                 }
             ),
-            description_placeholders={"device_name": self.entry.title if self.entry is not None else "unknown"},
+            description_placeholders={DEVICE_NAME: self.entry.title if self.entry is not None else UNKNOWN},
             errors=errors,
         )
 
@@ -567,7 +572,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             SelectOptionDict(label="estimate90", value="estimate90"),
         ]
 
-        solcast = self.hass.data.get(DOMAIN, {}).get("solcast")
+        solcast = self.hass.data.get(DOMAIN, {}).get(SOLCAST)
         exclude: list[SelectOptionDict] = [SelectOptionDict(label="not_loaded", value="")]
         if solcast is not None:
             exclude = [
@@ -672,7 +677,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             step_id="dampen",
             data_schema=vol.Schema(
                 {
-                    vol.Required(f"damp{factor:02d}", description={"suggested_value": extant_factors[f"damp{factor:02d}"]}): vol.All(
+                    vol.Required(f"damp{factor:02d}", description={SUGGESTED_VALUE: extant_factors[f"damp{factor:02d}"]}): vol.All(
                         vol.Coerce(float), vol.Range(min=0.0, max=1.0)
                     )
                     for factor in range(24)

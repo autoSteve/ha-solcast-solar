@@ -4,7 +4,7 @@ import types
 from typing import Any, Final
 
 # Development flags
-SENSOR_UPDATE_LOGGING: bool = False
+SENSOR_UPDATE_LOGGING: Final[bool] = False
 
 # Integration constants
 ACTION: Final[str] = "action"
@@ -56,6 +56,8 @@ BRK_HALFHOURLY: Final[str] = "attr_brk_halfhourly"
 BRK_HOURLY: Final[str] = "attr_brk_hourly"
 BRK_SITE: Final[str] = "attr_brk_site"
 BRK_SITE_DETAILED: Final[str] = "attr_brk_detailed"
+CAPACITY: Final[str] = "capacity"
+CAPACITY_DC: Final[str] = "capacity_dc"
 COMPLETION: Final[str] = "completion"
 CONFIG_DAMP: Final[str] = "config_damp"
 CONFIG_DISCRETE_NAME: Final[str] = "solcast_solar"
@@ -65,6 +67,7 @@ CORRECT: Final[str] = "correct"
 CUSTOM_HOURS: Final[str] = "custom_hours"
 CUSTOM_HOUR_SENSOR: Final[str] = "customhoursensor"
 DAILY_LIMIT: Final[str] = "daily_limit"
+DAILY_LIMIT_CONSUMED: Final[str] = "daily_limit_consumed"
 DAMP_FACTOR: Final[str] = "damp_factor"
 DAMPENING_FACTOR: Final[str] = "dampening_factor"
 DAMPENING_INSIGNIFICANT: Final[float] = 0.95  # Dampening factors considered insignificant for automated dampening
@@ -89,14 +92,19 @@ DEFAULT: Final[str] = "default"
 DESCRIPTION: Final[str] = "description"
 DETAILED_FORECAST: Final[str] = "detailedForecast"
 DETAILED_HOURLY: Final[str] = "detailedHourly"
+DEVICE_NAME: Final[str] = "device_name"
 DISMISSAL: Final[str] = "dismissal"
 DOMAIN: Final[str] = "solcast_solar"
 EARLIEST_PERIOD: Final[str] = "earliest_period"
+ENABLED_BY_DEFAULT: Final[str] = "enabled_by_default"
+ENTRY_ID: Final[str] = "entry_id"
 ENTRY_OPTIONS: Final[str] = "entry_options"
 ENTRY_TYPE_SERVICE: Final[str] = "service"
+ERROR_CODE: Final[str] = "error_code"
 ESTIMATE: Final[str] = "pv_estimate"
 ESTIMATE10: Final[str] = "pv_estimate10"
 ESTIMATE90: Final[str] = "pv_estimate90"
+ESTIMATED_ACTUALS: Final[str] = "estimated_actuals"
 ESTIMATED_ACTUALS_FETCH_DELAY: Final[int] = 0  # Minutes to wait after midnight before fetching estimated actuals (plus random offset)
 EVENT: Final[str] = "event"
 EVENT_END_DATETIME: Final[str] = "end_date_time"
@@ -104,12 +112,14 @@ EVENT_START_DATETIME: Final[str] = "start_date_time"
 EXCLUDE_SITES: Final[str] = "exclude_sites"
 EXPECTED_INTERVALS: Final[str] = "expected_intervals"
 EXPORT_LIMITING: Final[str] = "export_limiting"
+EXTANT: Final[str] = "extant"
 FACTOR: Final[str] = "factor"
 FACTORS: Final[str] = "factors"
 FAILURE: Final[str] = "failure"
 FORECAST_DAYS: Final[int] = 14  # Minimum 8, maximum 14
 FORECAST_DAY_SENSORS: Final[int] = 8  # Minimum 8, maximum 14
 FORECASTS: Final[str] = "forecasts"
+FORMAT: Final[str] = "format"
 GENERATION: Final[str] = "generation"
 GENERATION_ENTITIES: Final[str] = "generation_entities"
 GENERATION_HISTORY_LOAD_DAYS: Final[int] = 7  # Number of days of generation history to load when no data present
@@ -118,11 +128,14 @@ GET_ACTUALS: Final[str] = "get_actuals"
 HARD_LIMIT: Final[str] = "hard_limit"
 HARD_LIMIT_API: Final[str] = "hard_limit_api"
 HISTORY_MAX: Final[int] = 730  # Maximum number of history days to keep
+HOURS: Final[str] = "hours"
 IGNORE_AUTO_ENABLED: Final[str] = "ignore_auto_enabled"
+INSTALL_DATE: Final[str] = "install_date"
 INTEGRATION: Final[str] = "Solcast PV Forecast"
 INTEGRATION_AUTOMATED: Final[str] = "integration_automated"
 INTERVAL: Final[str] = "interval"
 INTERVALS: Final[str] = "intervals"
+JSON: Final[str] = "json"
 KEY_API_COUNTER: Final[str] = "api_counter"
 KEY_API_LIMIT: Final[str] = "api_limit"
 KEY_DAMPEN: Final[str] = "dampen"
@@ -151,8 +164,10 @@ LAST_UPDATED: Final[str] = "last_updated"
 LATITUDE: Final[str] = "latitude"
 LEARN_MORE: Final[str] = "learn_more"
 LONGITUDE: Final[str] = "longitude"
+LOSS_FACTOR: Final[str] = "loss_factor"
 MANUFACTURER: Final[str] = "BJReplay"
 MAXIMUM: Final[str] = "max"
+MESSAGE: Final[str] = "message"
 METHOD: Final[str] = "method"
 MINIMUM: Final[str] = "min"
 NAME: Final[str] = "name"
@@ -167,8 +182,11 @@ PLATFORM_SENSOR: Final[str] = "sensor"
 PLATFORM_SWITCH: Final[str] = "switch"
 PRESUMED_DEAD: Final[str] = "presumed_dead"
 PRIOR_CRASH_ALLOW_SITES: Final[str] = "prior_crash_allow_sites"
+PROPOSAL: Final[str] = "proposal"
+RESET: Final[str] = "reset"
 RESET_OLD_KEY: Final[str] = "reset_old_key"
 RESOURCE_ID: Final[str] = "resource_id"
+RESPONSE_STATUS: Final[str] = "response_status"
 SCHEMA: Final[str] = "schema"
 SERVICE_CLEAR_DATA: Final[str] = "clear_all_solcast_data"
 SERVICE_FORCE_UPDATE_ESTIMATES: Final[str] = "force_update_estimates"
@@ -187,8 +205,10 @@ SITE_EXPORT_ENTITY: Final[str] = "site_export_entity"
 SITE_EXPORT_LIMIT: Final[str] = "site_export_limit"
 SITE_INFO: Final[str] = "siteinfo"
 SOLCAST: Final[str] = "solcast"
-SOLCAST_URL: Final[str] = "https://api.solcast.com.au"
+SOLCAST_HTTPS_URL: Final[str] = "https://api.solcast.com.au"
+SUGGESTED_VALUE: Final[str] = "suggested_value"
 SUPPORTS_RESPONSE: Final[str] = "supports_response"
+TAGS: Final[str] = "tags"
 TALLY: Final[str] = "tally"
 TASK_ACTUALS_FETCH: Final[str] = "update_actuals"
 TASK_CHECK_FETCH: Final[str] = "check_fetch"
@@ -204,6 +224,7 @@ TASK_WATCHDOG_DAMPENING_LEGACY: Final[str] = "watchdog_dampening_legacy"
 TASK_WATCHDOG_DAMPENING_START: Final[str] = "watchdog_dampening_start"
 TIME_FORMAT: Final[str] = "%H:%M:%S"
 TITLE: Final[str] = "Solcast Solar"
+TILT: Final[str] = "tilt"
 TOTAL_RECORDS: Final[str] = "total_records"
 TRANSLATE_ACTUALS_NOT_ENABLED: Final[str] = "actuals_not_enabled"
 TRANSLATE_ACTUALS_WITHOUT_GET: Final[str] = "actuals_without_get"
@@ -254,7 +275,7 @@ VERSION: Final[str] = "version"
 WINTER_TIME: Final[list[str]] = ["Europe/Dublin"]  # Zones that use "Winter time" rather than "Daylight time"
 
 
-ADVANCED_OPTIONS: dict[str, dict[str, Any]] = {
+ADVANCED_OPTIONS: Final[dict[str, dict[str, Any]]] = {
     ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL: {ADVANCED_TYPE: ADVANCED_OPTION.INT, MINIMUM: 0, MAXIMUM: 0, DEFAULT: 0},
     ADVANCED_AUTOMATED_DAMPENING_GENERATION_HISTORY_LOAD_DAYS: {
         ADVANCED_TYPE: ADVANCED_OPTION.INT,
@@ -309,5 +330,5 @@ ADVANCED_OPTIONS: dict[str, dict[str, Any]] = {
     ADVANCED_FORECAST_DAY_ENTITIES: {ADVANCED_TYPE: ADVANCED_OPTION.INT, MINIMUM: 8, MAXIMUM: 14, DEFAULT: FORECAST_DAY_SENSORS},
     ADVANCED_FORECAST_HISTORY_MAX_DAYS: {ADVANCED_TYPE: ADVANCED_OPTION.INT, MINIMUM: 22, MAXIMUM: 3650, DEFAULT: HISTORY_MAX},
     ADVANCED_RELOAD_ON_ADVANCED_CHANGE: {ADVANCED_TYPE: ADVANCED_OPTION.BOOL, DEFAULT: False},
-    ADVANCED_SOLCAST_URL: {ADVANCED_TYPE: ADVANCED_OPTION.STR, DEFAULT: SOLCAST_URL},
+    ADVANCED_SOLCAST_URL: {ADVANCED_TYPE: ADVANCED_OPTION.STR, DEFAULT: SOLCAST_HTTPS_URL},
 }

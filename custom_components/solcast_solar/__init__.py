@@ -85,7 +85,7 @@ from .const import (
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
     SOLCAST,
-    SOLCAST_URL,
+    SOLCAST_HTTPS_URL,
     SUPPORTS_RESPONSE,
     TRANSLATE_DAMP_AUTO_ENABLED,
     TRANSLATE_DAMP_COUNT_NOT_CORRECT,
@@ -198,7 +198,7 @@ async def __get_options(hass: HomeAssistant, entry: ConfigEntry) -> ConnectionOp
     return ConnectionOptions(
         entry.options[CONF_API_KEY],
         entry.options.get(API_QUOTA, 10),
-        SOLCAST_URL,
+        SOLCAST_HTTPS_URL,
         hass.config.path(
             f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}/solcast.json"
             if CONFIG_FOLDER_DISCRETE
@@ -365,7 +365,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
     options = await __get_options(hass, entry)
     __setup_storage(hass)
 
-    prior_crash = hass.data[DOMAIN].get("presumed_dead", False)
+    prior_crash = hass.data[DOMAIN].get(PRESUMED_DEAD, False)
     prior_crash_allow_sites: dt | None = hass.data[DOMAIN].get(PRIOR_CRASH_ALLOW_SITES)
     if prior_crash:
         if prior_crash_allow_sites is None:
@@ -824,8 +824,8 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
             hass.data[DOMAIN][OLD_API_KEY] = hass.data[DOMAIN][ENTRY_OPTIONS].get(CONF_API_KEY)
 
     # Multi-API key hard limit tracking and clean up.
-    if hass.data[DOMAIN].get("old_hard_limit", coordinator.solcast.hard_limit) != entry.options[HARD_LIMIT_API]:
-        old_multi_key = len(hass.data[DOMAIN].get("old_hard_limit", coordinator.solcast.hard_limit).split(",")) > 1
+    if hass.data[DOMAIN].get(OLD_HARD_LIMIT, coordinator.solcast.hard_limit) != entry.options[HARD_LIMIT_API]:
+        old_multi_key = len(hass.data[DOMAIN].get(OLD_HARD_LIMIT, coordinator.solcast.hard_limit).split(",")) > 1
         new_multi_key = len(entry.options[HARD_LIMIT_API].split(",")) > 1
         if old_multi_key != new_multi_key:  # Changing from single to multi or vice versa
             entity_registry = er.async_get(hass)
@@ -901,7 +901,7 @@ async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
         await coordinator.solcast.set_options(entry.options)
         if recalculate_and_refresh:
             await coordinator.solcast.build_forecast_data()
-            if entry.options.get("get_actuals"):
+            if entry.options.get(GET_ACTUALS):
                 await coordinator.solcast.build_actual_data()
         elif recalculate_splines:
             await coordinator.solcast.recalculate_splines()

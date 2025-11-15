@@ -46,9 +46,12 @@ from .const import (
     ADVANCED_ESTIMATED_ACTUALS_LOG_APE_PERCENTILES,
     ADVANCED_ESTIMATED_ACTUALS_LOG_MAPE_BREAKDOWN,
     ADVANCED_FORECAST_DAY_ENTITIES,
+    ADVANCED_RELOAD_ON_ADVANCED_CHANGE,
+    ALL,
     COMPLETION,
     CONFIG_DISCRETE_NAME,
     CONFIG_FOLDER_DISCRETE,
+    CUSTOM_HOURS,
     DATE_FORMAT,
     DATE_ONLY_FORMAT,
     DOMAIN,
@@ -60,6 +63,7 @@ from .const import (
     GENERATION,
     GET_ACTUALS,
     INTEGRATION_AUTOMATED,
+    INTERVAL,
     KEY_API_COUNTER,
     KEY_API_LIMIT,
     KEY_DAMPEN,
@@ -388,7 +392,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     if self.watchdog[task][EVENT] == FileEvent.UPDATE:
                         self.watchdog[task][EVENT] = FileEvent.NO_EVENT
                         change = await self.solcast.read_advanced_options()
-                        if change and self.solcast.advanced_options.get("reload_on_advanced_change", False):
+                        if change and self.solcast.advanced_options.get(ADVANCED_RELOAD_ON_ADVANCED_CHANGE, False):
                             _LOGGER.debug("Advanced options changed, restarting")
                             async_call_later(self.hass, 1, self.__restart)
                 if self.watchdog[task][EVENT] == FileEvent.DELETE:
@@ -1055,37 +1059,37 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 if self.solcast.options.auto_dampen:
                     factors: dict[str, dict[str, Any]] = {}
                     dst = False
-                    for i, f in enumerate(self.solcast.granular_dampening.get("all", [])):
+                    for i, f in enumerate(self.solcast.granular_dampening.get(ALL, [])):
                         dst = dt.now(self.solcast.options.tz).replace(
                             hour=i // 2, minute=i % 2 * 30, second=0, microsecond=0
                         ).dst() == timedelta(hours=1)
                         interval = f"{i // 2 + (1 if dst else 0):02d}:{i % 2 * 30:02d}"
                         factors[interval] = {
-                            "interval": interval,
+                            INTERVAL: interval,
                             FACTOR: f,
                         }
                     for hour in ["00", "03"]:
                         if factors.get(hour + ":00") is None:
-                            factors[hour + ":00"] = {"interval": hour + ":00", FACTOR: 1}
-                            factors[hour + ":30"] = {"interval": hour + ":30", FACTOR: 1}
+                            factors[hour + ":00"] = {INTERVAL: hour + ":00", FACTOR: 1}
+                            factors[hour + ":30"] = {INTERVAL: hour + ":30", FACTOR: 1}
                     if factors.get("24:00"):
                         factors.pop("24:00")
                         factors.pop("24:30")
-                    ret[FACTORS] = sorted(factors.values(), key=itemgetter("interval"))
+                    ret[FACTORS] = sorted(factors.values(), key=itemgetter(INTERVAL))
                 else:
                     ret[FACTORS] = [
                         {
-                            "interval": f"{i // 2:02d}:{i % 2 * 30:02d}",
+                            INTERVAL: f"{i // 2:02d}:{i % 2 * 30:02d}",
                             FACTOR: f,
                         }
-                        for i, f in enumerate(self.solcast.granular_dampening.get("all", []))
+                        for i, f in enumerate(self.solcast.granular_dampening.get(ALL, []))
                     ]
             else:
                 ret[INTEGRATION_AUTOMATED] = False
                 ret[LAST_UPDATED] = None
                 ret[FACTORS] = [
                     {
-                        "interval": i,
+                        INTERVAL: i,
                         FACTOR: f,
                     }
                     for i, f in self.solcast.options.dampening.items()
@@ -1095,7 +1099,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             ret.update(self._get_auto_update_details())
 
         if key == KEY_FORECAST_CUSTOM_HOURS:
-            ret.update({"custom_hours": self.solcast.options.custom_hour_sensor})
+            ret.update({CUSTOM_HOURS: self.solcast.options.custom_hour_sensor})
 
         return ret
 

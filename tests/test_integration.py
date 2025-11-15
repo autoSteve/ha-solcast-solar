@@ -212,13 +212,14 @@ async def _wait_for_update(hass: HomeAssistant, caplog: pytest.LogCaptureFixture
     async with asyncio.timeout(10):
         while (
             "Forecast update completed successfully" not in caplog.text
-            and "Saved estimated actual cache" not in caplog.text
             and "Not requesting a solar forecast" not in caplog.text
             and "aborting forecast update" not in caplog.text
             and "update already in progress" not in caplog.text
             and "pausing" not in caplog.text
             and "Completed task update" not in caplog.text
             and "Completed task force_update" not in caplog.text
+            and "Completed task actuals" not in caplog.text
+            and "Completed task force_actuals" not in caplog.text
             and "ConfigEntryAuthFailed" not in caplog.text
         ):  # Wait for task to complete
             await asyncio.sleep(0.01)
@@ -1487,7 +1488,7 @@ async def test_estimated_actuals(
         # Kill the cache, then re-create with a forced update
         _LOGGER.debug("Testing force update actuals")
         Path(f"{config_dir}/solcast-dampening.json").unlink(missing_ok=True)  # Remove dampening file
-        await _exec_update_actuals(hass, coordinator, solcast, caplog, "force_update_estimates")
+        await _exec_update_actuals(hass, coordinator, solcast, caplog, "force_update_estimates", wait=True)
         assert Path(f"{config_dir}/solcast-actuals.json").is_file()
         assert "Estimated actuals dictionary for site 1111-1111-1111-1111" in caplog.text
         assert "Estimated actuals dictionary for site 2222-2222-2222-2222" in caplog.text
