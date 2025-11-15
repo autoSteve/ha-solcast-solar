@@ -69,9 +69,9 @@ from .const import (
     KEY_DAMPEN,
     KEY_FORECAST_CUSTOM_HOURS,
     KEY_FORECAST_NEXT_HOUR,
-    KEY_FORECAST_REMAINING_TODAY,
+    KEY_FORECAST_REMAINING_TODAY_OLD,
     KEY_FORECAST_THIS_HOUR,
-    KEY_LAST_UPDATED,
+    KEY_LAST_UPDATED_OLD,
     KEY_PEAK_W_TIME_TODAY,
     KEY_PEAK_W_TIME_TOMORROW,
     KEY_PEAK_W_TODAY,
@@ -109,7 +109,7 @@ from .util import AutoUpdate, percentile
 
 _LOGGER = logging.getLogger(__name__)
 
-NO_ATTRIBUTES = [KEY_API_COUNTER, KEY_API_LIMIT, KEY_DAMPEN, KEY_LAST_UPDATED]
+NO_ATTRIBUTES = [KEY_API_COUNTER, KEY_API_LIMIT, KEY_DAMPEN, KEY_LAST_UPDATED_OLD]
 
 
 class FileEvent(Enum):
@@ -170,7 +170,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             KEY_FORECAST_THIS_HOUR: [{METHOD: self.solcast.get_forecast_n_hour, VALUE: 0}],
             KEY_FORECAST_NEXT_HOUR: [{METHOD: self.solcast.get_forecast_n_hour, VALUE: 1}],
             KEY_FORECAST_CUSTOM_HOURS: [{METHOD: self.solcast.get_forecast_custom_hours, VALUE: self.solcast.custom_hour_sensor}],
-            KEY_FORECAST_REMAINING_TODAY: [{METHOD: self.solcast.get_forecast_remaining_today}],
+            KEY_FORECAST_REMAINING_TODAY_OLD: [{METHOD: self.solcast.get_forecast_remaining_today}],
             KEY_POWER_NOW: [{METHOD: self.solcast.get_power_n_minutes, VALUE: 0}],
             KEY_POWER_NOW_30M: [{METHOD: self.solcast.get_power_n_minutes, VALUE: 30}],
             KEY_POWER_NOW_1HR: [{METHOD: self.solcast.get_power_n_minutes, VALUE: 60}],
@@ -180,7 +180,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             KEY_PEAK_W_TOMORROW: [{METHOD: self.solcast.get_peak_power_day, VALUE: 1}],
             KEY_API_COUNTER: [{METHOD: self.solcast.get_api_used_count}],
             KEY_API_LIMIT: [{METHOD: self.solcast.get_api_limit}],
-            KEY_LAST_UPDATED: [{METHOD: self.solcast.get_last_updated}],
+            KEY_LAST_UPDATED_OLD: [{METHOD: self.solcast.get_last_updated}],
             KEY_DAMPEN: [{METHOD: self.solcast.get_dampen}],
         }
         days = [KEY_TOTAL_KWH_FORECAST_TODAY, KEY_TOTAL_KWH_FORECAST_TOMORROW] + [

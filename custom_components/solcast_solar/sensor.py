@@ -44,8 +44,10 @@ from .const import (
     KEY_FORECAST_CUSTOM_HOURS,
     KEY_FORECAST_NEXT_HOUR,
     KEY_FORECAST_REMAINING_TODAY,
+    KEY_FORECAST_REMAINING_TODAY_OLD,
     KEY_FORECAST_THIS_HOUR,
     KEY_LAST_UPDATED,
+    KEY_LAST_UPDATED_OLD,
     KEY_PEAK_W_TIME_TODAY,
     KEY_PEAK_W_TIME_TOMORROW,
     KEY_PEAK_W_TODAY,
@@ -148,9 +150,9 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             suggested_display_precision=0,
         )
     },
-    KEY_FORECAST_REMAINING_TODAY: {
+    KEY_FORECAST_REMAINING_TODAY_OLD: {
         DESCRIPTION: SensorEntityDescription(
-            key=KEY_FORECAST_REMAINING_TODAY,
+            key=KEY_FORECAST_REMAINING_TODAY_OLD,
             translation_key=KEY_FORECAST_REMAINING_TODAY,
             device_class=SensorDeviceClass.ENERGY,
             native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -158,9 +160,9 @@ SENSORS: Final[dict[str, dict[str, Any]]] = {
             suggested_display_precision=2,
         )
     },
-    KEY_LAST_UPDATED: {
+    KEY_LAST_UPDATED_OLD: {
         DESCRIPTION: SensorEntityDescription(
-            key=KEY_LAST_UPDATED,
+            key=KEY_LAST_UPDATED_OLD,
             translation_key=KEY_LAST_UPDATED,
             device_class=SensorDeviceClass.TIMESTAMP,
             name=NAMES[KEY_LAST_UPDATED],
