@@ -1246,6 +1246,7 @@ v4.4.8
 * Add advanced estimated actuals option 'log mape breakdown' by @autoSteve
 * Add advanced estimated actuals option 'log ape percentiles' by @autoSteve
 * Add advanced estimated actuals option 'fetch delay' by @autoSteve
+* Add advanced general option 'user agent' by @autoSteve
 * Modify advanced auto-dampen option 'minimum matching intervals' to accept `1` by @autoSteve
 * Attribute consistency as local time zone for datetime values by @autoSteve
 
