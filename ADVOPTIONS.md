@@ -199,3 +199,9 @@ Possible values: string URL (default `"https://api.solcast.com.au"`)
 Do not set this option unless you are a developer and want to utilise the Solcast API Simulator.
 
 Do not add a trailing `/`. An integration reload is required.
+
+**Key: "user_agent"**
+
+Possible values: string (default `"default"`)
+
+The HTTP header User-Agent is set to "ha-solcast-solar-integration/x.x.x" by default. This advanced option allows it to be set to another user agent string.
