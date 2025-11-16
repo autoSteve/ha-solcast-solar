@@ -7,6 +7,7 @@ from typing import Any, Final
 SENSOR_UPDATE_LOGGING: Final[bool] = False
 
 # Integration constants
+ACCEPT: Final[str] = "accept"
 ACTION: Final[str] = "action"
 ADVANCED_OPTION = types.SimpleNamespace()
 ADVANCED_OPTION.BOOL = "bool"
@@ -37,6 +38,7 @@ ADVANCED_FORECAST_DAY_ENTITIES: Final[str] = "forecast_day_entities"
 ADVANCED_FORECAST_HISTORY_MAX_DAYS: Final[str] = "forecast_history_max_days"
 ADVANCED_RELOAD_ON_ADVANCED_CHANGE: Final[str] = "reload_on_advanced_change"
 ADVANCED_SOLCAST_URL: Final[str] = "solcast_url"
+ADVANCED_USER_AGENT: Final[str] = "user_agent"
 ALL: Final[str] = "all"
 API_KEY: Final[str] = "api_key"
 API_QUOTA: Final[str] = "api_quota"
@@ -272,6 +274,7 @@ UNUSUAL_AZIMUTH_NORTHERN: Final[str] = "unusual_azimuth_northern"
 UNUSUAL_AZIMUTH_SOUTHERN: Final[str] = "unusual_azimuth_southern"
 UPGRADE_FUNCTION: Final[str] = "function"
 USE_ACTUALS: Final[str] = "use_actuals"
+USER_AGENT: Final[str] = "user_agent"
 VALUE: Final[str] = "value"
 VERSION: Final[str] = "version"
 WINTER_TIME: Final[list[str]] = ["Europe/Dublin"]  # Zones that use "Winter time" rather than "Daylight time"
@@ -333,4 +336,5 @@ ADVANCED_OPTIONS: Final[dict[str, dict[str, Any]]] = {
     ADVANCED_FORECAST_HISTORY_MAX_DAYS: {ADVANCED_TYPE: ADVANCED_OPTION.INT, MINIMUM: 22, MAXIMUM: 3650, DEFAULT: HISTORY_MAX},
     ADVANCED_RELOAD_ON_ADVANCED_CHANGE: {ADVANCED_TYPE: ADVANCED_OPTION.BOOL, DEFAULT: False},
     ADVANCED_SOLCAST_URL: {ADVANCED_TYPE: ADVANCED_OPTION.STR, DEFAULT: SOLCAST_HTTPS_URL},
+    ADVANCED_USER_AGENT: {ADVANCED_TYPE: ADVANCED_OPTION.STR, DEFAULT: "default"},
 }

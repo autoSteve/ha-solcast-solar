@@ -196,7 +196,7 @@ async def validate_sites(hass: HomeAssistant, user_input: dict[str, Any]) -> tup
     )
     solcast = SolcastApi(session, options, hass)
     await solcast.read_advanced_options()
-    solcast.headers = get_session_headers(await get_version(hass))
+    solcast.headers = get_session_headers(solcast, await get_version(hass))
 
     status, message, api_key_in_error = await solcast.get_sites_and_usage(prior_crash=False, use_cache=False)
     if status != 200:

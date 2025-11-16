@@ -33,7 +33,9 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    ACCEPT,
     ACTION,
+    ADVANCED_USER_AGENT,
     API_KEY,
     API_QUOTA,
     AUTO_DAMPEN,
@@ -107,6 +109,7 @@ from .const import (
     UNDAMPENED,
     UPGRADE_FUNCTION,
     USE_ACTUALS,
+    USER_AGENT,
     VERSION,
 )
 from .coordinator import SolcastUpdateCoordinator
@@ -258,12 +261,14 @@ def __log_hard_limit_set(solcast: SolcastApi) -> None:
         )
 
 
-def get_session_headers(version: str) -> dict[str, str]:
+def get_session_headers(solcast: SolcastApi, version: str) -> dict[str, str]:
     """Get the headers for the session based on the integration version."""
     raw_version = version.replace("v", "")
     headers = {
-        "Accept": "application/json",
-        "User-Agent": "ha-solcast-solar-integration/" + raw_version,
+        ACCEPT: "application/json",
+        USER_AGENT: ("ha-solcast-solar-integration/" + raw_version)
+        if solcast.advanced_options[ADVANCED_USER_AGENT] == "default"
+        else solcast.advanced_options[ADVANCED_USER_AGENT],
     }
     _LOGGER.debug("Session headers %s", headers)
     return headers
@@ -380,7 +385,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
     solcast = SolcastApi(aiohttp_client.async_get_clientsession(hass), options, hass, entry)
     await solcast.read_advanced_options()
 
-    solcast.headers = get_session_headers(version)
+    solcast.headers = get_session_headers(solcast, version)
     await solcast.get_sites_and_usage(prior_crash=prior_crash)
     match solcast.sites_status:
         case SitesStatus.BAD_KEY:
