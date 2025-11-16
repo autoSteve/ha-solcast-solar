@@ -207,6 +207,7 @@
         "integration_not_loaded": {
             "message": "Integración no cargada, no se realiza acción."
         },
+        
         "remove_cache_failed": {
             "message": "Error al borrar todos los datos de Solcast."
         }

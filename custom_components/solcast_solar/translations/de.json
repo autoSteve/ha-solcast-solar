@@ -207,6 +207,9 @@
         "integration_not_loaded": {
             "message": "Integration nicht geladen, keine Aktion ausgeführt."
         },
+        "integration_prior_crash": {
+            "message": "Die Integration konnte zuvor nicht geladen werden und wird nach einer Verzögerung erneut versucht."
+        },
         "remove_cache_failed": {
             "message": "Das Löschen aller Solcast-Daten ist fehlgeschlagen."
         }

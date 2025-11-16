@@ -1384,7 +1384,21 @@ async def test_scenarios(
         assert "Get sites failed, last call result: 999/Prior crash" in caplog.text
         assert "Connecting to https://api.solcast.com.au/rooftop_sites" not in caplog.text
         caplog.clear()
+        hass.data[DOMAIN]["presumed_dead"] = True  # Set presumption of death
+        hass.data[DOMAIN]["prior_crash_allow_sites"] = dt_util.now(dt_util.UTC) - timedelta(minutes=31)
+        coordinator, solcast = await _reload(hass, entry)
+        assert "Prior crash detected" in caplog.text
+        assert "Integration failed to load previously" in caplog.text
+        assert "Connecting to https://api.solcast.com.au/rooftop_sites" not in caplog.text
+        hass.data[DOMAIN]["prior_crash_allow_sites"] = dt_util.now(dt_util.UTC) - timedelta(minutes=61)
+        coordinator, solcast = await _reload(hass, entry)
+        assert "Prior crash detected" in caplog.text
+        assert "Prior crash was more than 60 minutes ago" in caplog.text
+        assert "Connecting to https://api.solcast.com.au/rooftop_sites" in caplog.text
+        hass.data[DOMAIN].pop("presumed_dead", None)
+        hass.data[DOMAIN].pop("prior_crash_allow_sites", None)
 
+        caplog.clear()
         _LOGGER.debug("Unlinking sites cache files")
         for f in ["solcast-sites.json", "solcast-sites-1.json", "solcast-sites-2.json"]:
             Path(f"{config_dir}/{f}").unlink(missing_ok=True)  # Remove sites cache file
@@ -1426,6 +1440,8 @@ async def test_scenarios(
         caplog.clear()
 
         # Corrupt usage.json
+        hass.data[DOMAIN].pop("presumed_dead", None)
+        hass.data[DOMAIN].pop("prior_crash_allow_sites", None)
         usage_corruption: list[dict[str, Any]] = [
             {"daily_limit": "10", "daily_limit_consumed": 8, "reset": "2025-01-05T00:00:00+00:00"},
             {"daily_limit": 10, "daily_limit_consumed": "8", "reset": "2025-01-05T00:00:00+00:00"},
@@ -1436,6 +1452,10 @@ async def test_scenarios(
             usage_file.write_text(json.dumps(test), encoding="utf-8")
             await _reload(hass, entry)
             assert entry.state is ConfigEntryState.SETUP_ERROR
+            assert hass.data[DOMAIN].get("presumed_dead") is True
+            assert hass.data[DOMAIN].get("prior_crash_allow_sites") is None
+            hass.data[DOMAIN].pop("presumed_dead", None)  # Clear presumption of death
+            hass.data[DOMAIN].pop("prior_crash_allow_sites", None)
         usage_file.write_text(corrupt, encoding="utf-8")
         await _reload(hass, entry)
         assert "corrupt, re-creating cache with zero usage" in caplog.text

@@ -106,6 +106,7 @@ from .const import (
     TRANSLATE_INIT_UNKNOWN,
     TRANSLATE_INIT_USAGE_CORRUPT,
     TRANSLATE_INTEGRATION_NOT_LOADED,
+    TRANSLATE_INTEGRATION_PRIOR_CRASH,
     UNDAMPENED,
     UPGRADE_FUNCTION,
     USE_ACTUALS,
@@ -372,14 +373,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:  #
 
     prior_crash = hass.data[DOMAIN].get(PRESUMED_DEAD, False)
     prior_crash_allow_sites: dt | None = hass.data[DOMAIN].get(PRIOR_CRASH_ALLOW_SITES)
+    deny_startup: bool = prior_crash_allow_sites is not None
     if prior_crash:
-        if prior_crash_allow_sites is None:
+        if not deny_startup:
             _LOGGER.debug("Prior crash detected, set the time of crash")
             hass.data[DOMAIN][PRIOR_CRASH_ALLOW_SITES] = dt_util.now(dt_util.UTC)  # Set the time of the crash.
-        elif prior_crash_allow_sites < dt_util.now(dt_util.UTC) - timedelta(minutes=30):
-            _LOGGER.info("Prior crash was more than 30 minutes ago, allowing sites to be reloaded")
+        elif prior_crash_allow_sites < dt_util.now(dt_util.UTC) - timedelta(minutes=60):
+            _LOGGER.info("Prior crash was more than 60 minutes ago, allowing sites to be reloaded")
             hass.data[DOMAIN][PRIOR_CRASH_ALLOW_SITES] = dt_util.now(dt_util.UTC)
             prior_crash = False
+    if prior_crash and deny_startup:
+        _LOGGER.debug(
+            "Prior crash detected (%s), skipping reload for now to avoid repeated crashes",
+            dt.strftime(prior_crash_allow_sites, DATE_FORMAT),
+        )
+        raise ConfigEntryNotReady(translation_domain=DOMAIN, translation_key=TRANSLATE_INTEGRATION_PRIOR_CRASH)
 
     hass.data[DOMAIN][PRESUMED_DEAD] = True  # Presumption that init will not be successful.
     solcast = SolcastApi(aiohttp_client.async_get_clientsession(hass), options, hass, entry)

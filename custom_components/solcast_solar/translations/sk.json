@@ -207,6 +207,9 @@
         "integration_not_loaded": {
             "message": "Integrácia nie je načítaná, nevykonáva akciu."
         },
+        "integration_prior_crash": {
+            "message": "Integrácia sa predtým nepodarilo načítať, skúša sa to znova po oneskorení."
+        },
         "remove_cache_failed": {
             "message": "Vymazanie všetkých údajov Solcast zlyhalo."
         }

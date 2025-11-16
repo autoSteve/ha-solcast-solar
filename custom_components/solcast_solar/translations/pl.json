@@ -207,6 +207,9 @@
         "integration_not_loaded": {
             "message": "Integracja nie została załadowana, nie wykonuje akcji."
         },
+        "integration_prior_crash": {
+            "message": "Integracja nie mogła się wcześniej załadować, ponawianie próby po opóźnieniu."
+        },
         "remove_cache_failed": {
             "message": "Wyczyść wszystkie dane Solcast nie powiodło się."
         }

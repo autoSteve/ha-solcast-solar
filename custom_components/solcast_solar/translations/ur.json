@@ -207,6 +207,7 @@
         "integration_not_loaded": {
             "message": "انضمام لوڈ نہیں ہوا، عمل نہیں کر رہا ہے۔"
         },
+        
         "remove_cache_failed": {
             "message": "تمام سولکاسٹ ڈیٹا کو صاف کرنا ناکام ہوگیا۔"
         }
