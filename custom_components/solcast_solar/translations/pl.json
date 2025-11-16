@@ -219,6 +219,10 @@
             "title": "Brak prognoz na przyszłość",
             "description": "Brak danych prognozy na przyszłość, co jest nieoczekiwane, ponieważ włączona jest automatyczna aktualizacja."
         },
+        "records_missing_unfixable": {
+            "title": "Brak prognoz na przyszłość",
+            "description": "Brak danych prognozy na przyszłość, co jest nieoczekiwane. Sprawdź dzienniki."
+        },
         "records_missing_fixable": {
             "title": "Brak prognoz na przyszłość",
             "fix_flow": {

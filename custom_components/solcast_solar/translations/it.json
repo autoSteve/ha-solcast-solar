@@ -219,6 +219,10 @@
             "title": "Previsioni future mancanti",
             "description": "I dati delle previsioni future sono mancanti, il che è inaspettato perché l'aggiornamento automatico è abilitato."
         },
+        "records_missing_unfixable": {
+            "title": "Previsioni future mancanti",
+            "description": "I dati delle previsioni future sono mancanti, il che è inaspettato. Controllare i registri."
+        },
         "records_missing_fixable": {
             "title": "Previsioni future mancanti",
             "fix_flow": {

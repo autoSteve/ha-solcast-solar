@@ -219,6 +219,10 @@
             "title": "Predpovede do budúcnosti chýbajú",
             "description": "Údaje budúcej prognózy chýbajú, čo je neočakávané, pretože je povolená automatická aktualizácia."
         },
+        "records_missing_unfixable": {
+            "title": "Predpovede do budúcnosti chýbajú",
+            "description": "Údaje budúcej prognózy chýbajú, čo je neočakávané. Skontrolujte denníky."
+        },
         "records_missing_fixable": {
             "title": "Predpovede do budúcnosti chýbajú",
             "fix_flow": {

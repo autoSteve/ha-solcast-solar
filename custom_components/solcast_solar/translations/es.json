@@ -207,7 +207,7 @@
         "integration_not_loaded": {
             "message": "Integración no cargada, no se realiza acción."
         },
-        
+
         "remove_cache_failed": {
             "message": "Error al borrar todos los datos de Solcast."
         }
@@ -216,6 +216,10 @@
         "records_missing": {
             "title": "Faltan previsiones de futuro",
             "description": "Faltan datos de pronóstico futuro, lo cual es inesperado porque la actualización automática está habilitada."
+        },
+        "records_missing_unfixable": {
+            "title": "Faltan previsiones de futuro",
+            "description": "Faltan datos de pronóstico futuro, lo cual es inesperado. Verifique los registros."
         },
         "records_missing_fixable": {
             "title": "Faltan previsiones de futuro",

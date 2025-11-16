@@ -219,6 +219,10 @@
             "title": "Prévisions manquantes",
             "description": "Les données de prévisions futures sont manquantes, ce qui est inattendu car la mise à jour automatique est activée."
         },
+        "records_missing_unfixable": {
+            "title": "Prévisions manquantes",
+            "description": "Les données de prévisions futures sont manquantes, ce qui est inattendu. Vérifiez les journaux."
+        },
         "records_missing_fixable": {
             "title": "Prévisions manquantes",
             "fix_flow": {

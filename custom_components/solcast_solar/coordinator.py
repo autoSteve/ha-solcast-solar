@@ -843,6 +843,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             "last_attempt": self.solcast.get_last_attempt().astimezone(self.solcast.options.tz),
             "failure_count_today": self.solcast.get_failures_last_24h(),
             "failure_count_7_day": self.solcast.get_failures_last_7d(),
+            "failure_count_14_day": self.solcast.get_failures_last_14d(),
         }
         if self.solcast.options.auto_update != AutoUpdate.NONE:
             return base | {

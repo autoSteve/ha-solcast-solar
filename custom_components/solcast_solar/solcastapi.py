@@ -114,6 +114,7 @@ from .const import (
     JSON,
     KEY_ESTIMATE,
     LAST_7D,
+    LAST_14D,
     LAST_24H,
     LAST_ATTEMPT,
     LAST_PERIOD,
@@ -186,7 +187,7 @@ FRESH_DATA: Final[dict[str, Any]] = {
     LAST_UPDATED: dt.fromtimestamp(0, datetime.UTC),
     LAST_ATTEMPT: dt.fromtimestamp(0, datetime.UTC),
     AUTO_UPDATED: 0,
-    FAILURE: {LAST_24H: 0, LAST_7D: [0] * 7},
+    FAILURE: {LAST_24H: 0, LAST_7D: [0] * 7, LAST_14D: [0] * 14},
     VERSION: JSON_VERSION,
 }
 
@@ -1500,7 +1501,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 # Add failure statistics to cache structure, introduced v4.3.5.
                                 if json_version < 7:
                                     data[VERSION] = 7
-                                    data[FAILURE] = {LAST_24H: 0, LAST_7D: [0] * 7}
+                                    data[FAILURE] = {LAST_24H: 0, LAST_7D: [0] * 7, LAST_14D: [0] * 14}
                                     json_version = 7
 
                                 if json_version > on_version:
@@ -1673,6 +1674,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         _LOGGER.debug("Resetting failure statistics")
         self._data[FAILURE][LAST_24H] = 0
         self._data[FAILURE][LAST_7D] = [0, *self._data[FAILURE][LAST_7D][:-1]]
+        self._data[FAILURE][LAST_14D] = [0, *self._data[FAILURE][LAST_14D][:-1]]
         await self.serialise_data(self._data, self._filename)
 
     def get_last_attempt(self) -> dt:
@@ -1713,6 +1715,14 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         """
         return sum(self._data[FAILURE][LAST_7D])
+
+    def get_failures_last_14d(self) -> int:
+        """Get the number of failures in the last 14 days.
+
+        Returns:
+            list[int]: The number of failures in the last 14 days.
+        """
+        return sum(self._data[FAILURE][LAST_14D])
 
     async def delete_solcast_file(self, *args: tuple[Any]) -> None:
         """Delete the solcast json files.
@@ -3687,6 +3697,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             def increment_failure_count():
                 self._data[FAILURE][LAST_24H] += 1
                 self._data[FAILURE][LAST_7D][0] += 1
+                self._data[FAILURE][LAST_14D][0] += 1
 
             if api_key is not None and site is not None:
                 # One site is fetched, and retries ensure that the site is actually fetched.
@@ -4388,9 +4399,11 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         if 0 < contiguous < self.advanced_options[ADVANCED_FORECAST_FUTURE_DAYS] - 1:
             if self.entry is not None:
-                # If auto-update is enabled then raise an un-fixable issue, otherwise raise a fixable issue.
-                raise_issue: str | None
-                raise_issue = "records_missing_fixable" if self.entry.options[AUTO_UPDATE] == AutoUpdate.NONE else "records_missing"
+                # If auto-update is enabled then raise an un-fixable issue, otherwise raise a fixable issue unless there have been failues seen.
+                raise_issue: str | None = None
+                if self.entry.options[AUTO_UPDATE] == AutoUpdate.NONE:
+                    raise_issue = "records_missing_unfixable" if any(self._data[FAILURE][LAST_14D]) else "records_missing_fixable"
+
                 # If auto-update is enabled yet the prior forecast update was manual then do not raise an issue.
                 raise_issue = None if self._data[AUTO_UPDATED] == 0 and self.entry.options[AUTO_UPDATE] != AutoUpdate.NONE else raise_issue
                 if raise_issue is not None and issue_registry.async_get_issue(DOMAIN, raise_issue) is None:
@@ -4399,7 +4412,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         self.hass,
                         DOMAIN,
                         raise_issue,
-                        is_fixable=self.entry.options[AUTO_UPDATE] == AutoUpdate.NONE,
+                        is_fixable=self.entry.options[AUTO_UPDATE] == AutoUpdate.NONE and any(self._data[FAILURE][LAST_14D]) == 0,
                         data={
                             "contiguous": contiguous,
                         },

@@ -219,6 +219,10 @@
             "title": "Future forecasts missing",
             "description": "Future forecast data is missing, which is unexpected because auto-update is enabled."
         },
+        "records_missing_unfixable": {
+            "title": "Future forecasts missing",
+            "description": "Future forecast data is missing, which is unexpected. Check the logs."
+        },
         "records_missing_fixable": {
             "title": "Future forecasts missing",
             "fix_flow": {
