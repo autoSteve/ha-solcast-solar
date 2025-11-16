@@ -3293,7 +3293,6 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             if b_status and s_status:
                 _LOGGER.info("Forecast update completed successfully%s", next_update())
         else:
-            await self.serialise_data(self._data, self._filename)
             _LOGGER.warning("Forecast has not been updated%s", next_update())
             status = f"At least one site forecast get failed: {reason}"
         return status
@@ -3655,9 +3654,11 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         return DataCallStatus.SUCCESS, ""
 
-    async def _sleep(self, delay: float):
+    async def _sleep(self, delay: int):
         """Sleep for a specified number of seconds."""
-        await asyncio.sleep(delay)
+
+        for _ in range(delay * 10):
+            await asyncio.sleep(0.1)
 
     async def fetch_data(
         self,
@@ -3763,7 +3764,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 break
                             # Integration fetch is in a possibly recoverable state, so delay (15 seconds * counter),
                             # plus a random number of seconds between zero and 15.
-                            delay = (counter * backoff) + random.randrange(0, 15)
+                            delay: int = (counter * backoff) + random.randrange(0, 15)
                             _LOGGER.warning(
                                 "Call status %s, pausing %d seconds before retry",
                                 http_status_translate(status),
