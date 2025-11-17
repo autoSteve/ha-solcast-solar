@@ -1240,9 +1240,12 @@ The code itself resides at `/config/custom_components/solcast_solar`, and removi
 v4.4.8
 
 * Move all cache and configuration files to `config/solcast_solar` by @autoSteve
+* Improve 'Future forecasts missing when auto update is enabled' repair notice by @gcoan
+* Do not suggest 'fixable' repair notice for manual update after API failures by @autoSteve
 * Ignore adjusted automated dampening factors above 'insignificant' threshold by @autoSteve
 * Add advanced auto-dampen option 'insignificant factor adjusted' by @autoSteve
 * Add advanced auto-dampen option 'similar peak' by @autoSteve
+* Add advanced auto-dampen option 'generation fetch delay' by @autoSteve
 * Add advanced estimated actuals option 'log mape breakdown' by @autoSteve
 * Add advanced estimated actuals option 'log ape percentiles' by @autoSteve
 * Add advanced estimated actuals option 'fetch delay' by @autoSteve
