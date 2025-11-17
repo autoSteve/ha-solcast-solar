@@ -1,22 +1,28 @@
 ---
 name: Bug report
-about: Create a report when you think you've found a bug in the Solcast integration
+about: Create an issue  when you think you've found a bug in the Solcast integration
 title: ''
 labels: ''
 assignees: ''
 
 ---
-## Help us help you.
+### Help us help you.
 
-#### This bug report requests debug logs.  If you don't provide them don't expect any help, unless you are an expert developer and know why they're not required.  And, if you're an expert developer, know that they're not required, and you're wrong, don't expect any help.
+#### Do not create issues for questions on how to use or set up this integration - use the discussions for general support.  Only create issues to report geniune suspected bugs in the integration.
+
+##### This issue template requests debug logs.  Please provide them.  Please don't provide screenshots of logs, or say "_logs look clean_" or assume they're not needed.  This integration works extremely well except when it fails, and when it fails, unless debug logs are provided, our chances of working out why it has failed are close to zero.
 
 Note the instructions for getting debug logs, and follow them.
 
 #### Fill in **all** of the data requested.
 
-By failing to provide debug logs, you're providing us with permission to ignore you, or, at best, say debug logs required, and then ignore you.  By being lazy and not bothering to fill in data, you're encouraging us to be lazy and not bother responding.
+By failing to provide debug logs, you're providing us with permission to ignore you, or, at best, say **_debug logs required_**, and then ignore you.  By being lazy and not bothering to fill in data, you're encouraging us to be lazy and not bother responding.
 
+By complaining that we're not treating you kindly or welcoming you, you're encouraging us to block you from this repo.  Please don't encourage us to block you; it's far quicker and easier for us to block you than to ~~argue~~ _discuss github etiquette_ with you, and we'll opt for quick and easy almost every time.
 
+Feel free to delete everything above this line.
+
+---
 
 ## Describe the bug
 
