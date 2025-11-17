@@ -21,6 +21,7 @@ from homeassistant.components.solcast_solar.config_flow import (
     SolcastSolarOptionFlowHandler,
 )
 from homeassistant.components.solcast_solar.const import (
+    ADVANCED_OPTION,
     ADVANCED_OPTIONS,
     API_QUOTA,
     AUTO_DAMPEN,
@@ -804,7 +805,7 @@ async def test_advanced_options(
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
 
         async def wait():
-            for _ in range(200):
+            for _ in range(1000):
                 freezer.tick(0.1)
                 await hass.async_block_till_done()
 
@@ -821,6 +822,7 @@ async def test_advanced_options(
         await wait()
         assert "exists" in caplog.text
         assert "is not valid JSON" not in caplog.text
+        assert "Advanced option proposed" not in caplog.text
         assert "Advanced option set" not in caplog.text
         assert "Advanced option default set" not in caplog.text
         assert "JSONDecodeError" not in caplog.text
@@ -834,6 +836,7 @@ async def test_advanced_options(
         data_file.unlink()
         await wait()
 
+        _LOGGER.debug("Testing advanced options 1")
         data_file_1: dict[str, Any] = {
             "automated_dampening_minimum_matching_intervals": 2,
             "automated_dampening_ignore_intervals": ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"],
@@ -864,10 +867,13 @@ async def test_advanced_options(
             if value == ADVANCED_OPTIONS[option]["default"]:
                 assert f"{option}" not in caplog.text
             else:
+                if ADVANCED_OPTIONS[option]["type"] in (ADVANCED_OPTION.FLOAT, ADVANCED_OPTION.INT):
+                    assert f"Advanced option proposed {option}: {value}" in caplog.text
                 assert f"Advanced option set {option}: {value}" in caplog.text
 
         caplog.clear()
 
+        _LOGGER.debug("Testing advanced options 2")
         data_file_2: dict[str, Any] = {
             "automated_dampening_minimum_matching_generation": 0,
             "automated_dampening_minimum_matching_intervals": 0,
@@ -904,6 +910,7 @@ async def test_advanced_options(
                 elif ADVANCED_OPTIONS[option]["type"] is bool:
                     assert f"{option}: {value} (must be bool)" not in caplog.text
 
+        assert "Advanced option proposed reload_on_advanced_change: True" not in caplog.text
         assert "Advanced option set reload_on_advanced_change: True" in caplog.text
         assert "solcast_url: https://localhost" in caplog.text
         assert "Invalid time in advanced option automated_dampening_ignore_intervals: 24:00" in caplog.text
@@ -916,9 +923,28 @@ async def test_advanced_options(
         assert "Advanced options changed, restarting" in caplog.text
         assert "Start is not stale" in caplog.text
 
+        _LOGGER.debug("Testing advanced options revert to defaults")
         data_file.write_text(json.dumps(data_file_1), encoding="utf-8")
         await wait()
+
         caplog.clear()
+
+        _LOGGER.debug("Testing advanced options 3")
+        data_file_3: dict[str, Any] = {
+            "automated_dampening_generation_fetch_delay": 40,
+            "estimated_actuals_fetch_delay": 30,
+            "forecast_future_days": 8,
+            "forecast_day_entities": 10,
+        }
+        data_file.write_text(json.dumps(data_file_3), encoding="utf-8")
+        await wait()
+        assert "Advanced option automated_dampening_generation_fetch_delay: 40 must be less than or equal" in caplog.text
+        assert "Advanced option estimated_actuals_fetch_delay: 30 must be greater than or equal" in caplog.text
+        assert "Advanced option forecast_day_entities: 10 must be less than or equal" in caplog.text
+        assert "Advanced option proposed forecast_future_days: 8" in caplog.text
+        assert "Advanced option set forecast_future_days: 8" in caplog.text
+        caplog.clear()
+
         data_file = data_file.rename(f"{config_dir}/solcast-advanced.bak")
         await wait()
         assert "Advanced options file deleted, no longer monitoring" in caplog.text

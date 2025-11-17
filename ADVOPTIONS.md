@@ -48,7 +48,7 @@ Possible values: int `0`..`120` (default `0`)
 
 A number of minutes to delay beyond midnight before generation history is retrieved.
 
-This value _must_ be less than the estimated actual fetch delay option. (This is not validated.)
+This value must be less than the estimated actual fetch delay option.
 
 If Home Assistant is restarted in the period between midnight and generation being retrieved then retrieval will be rescheduled.
 
@@ -90,7 +90,7 @@ Possible values: integer `1`..`21` (default `2`)
 
 Dampening modelling will skip intervals where there are a low number of matching generation samples for intervals. This is defaulted at two to get a "peak" generation value, but a value of one is also allowed for experimentation.
 
-Do not set this value higher than the minimum matching intervals or the number of past days considered for automated dampening.
+This value must be less than or equal to the minimum matching intervals or the number of past days considered for automated dampening.
 
 **Key: "automated_dampening_minimum_matching_intervals"**
 
@@ -98,7 +98,7 @@ Possible values: integer `1`..`21` (default `2`)
 
 Dampening modelling will skip intervals where there are a low number of matching past intervals. A low number of matches are generally seen at the beginning and end of each day, and these are ignored by default.
 
-Do not set this value lower than the minimum matching generation, or higher than the number of past days considered for automated dampening.
+This value must be greater than or equal to the minimum matching generation, or higher than the number of past days considered for automated dampening.
 
 **Key: "automated_dampening_model_days"**
 
@@ -168,7 +168,7 @@ The number of forecast day entities to create (plus one). By default seven entit
 
 An integration reload is required to vary the number of entities. New entities created will be disabled by default, and if this option is reduced then entities will be cleaned up.
 
-Do not set this value higher than the number of forecast future days.
+This value must be less than or equal to the number of forecast future days.
 
 **Key: "forecast_future_days"**
 

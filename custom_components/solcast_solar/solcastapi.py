@@ -130,6 +130,8 @@ from .const import (
     MINIMUM,
     NAME,
     OLD_API_KEY,
+    OPTION_GREATER_THAN_OR_EQUAL,
+    OPTION_LESS_THAN_OR_EQUAL,
     PERIOD_END,
     PERIOD_START,
     PLATFORM_BINARY_SENSOR,
@@ -389,9 +391,10 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._use_forecast_confidence = f"pv_{self.options.key_estimate}"
         self.estimate_set = self.__get_estimate_set(self.options)
 
-    async def read_advanced_options(self) -> bool:
+    async def read_advanced_options(self) -> bool:  # noqa: C901
         """Read advanced JSON file options, validate and set them."""
 
+        advanced_options_proposal: dict[str, Any] = copy.deepcopy(self.advanced_options)
         change = False
         if Path(self._filename_advanced).exists():
             _LOGGER.debug("Advanced options file %s exists", self._filename_advanced)
@@ -457,15 +460,61 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                     _LOGGER.error("Type mismatch for advanced option %s: should be %s", option, type(value).__name__)
                                     valid = False
                                 if valid:
-                                    self.advanced_options[option] = new_value
-                                    _LOGGER.debug("Advanced option set %s: %s", option, new_value)
-                                    change = True
-                    for option, value in self.advanced_options.items():
+                                    advanced_options_proposal[option] = new_value
+                                    if ADVANCED_OPTIONS[option][ADVANCED_TYPE] in (ADVANCED_OPTION.FLOAT, ADVANCED_OPTION.INT):
+                                        _LOGGER.debug("Advanced option proposed %s: %s", option, new_value)
+
+                    invalid: list[str] = []
+                    for option, value in advanced_options_proposal.items():
+                        if ADVANCED_OPTIONS[option].get(OPTION_GREATER_THAN_OR_EQUAL) is not None:
+                            if any(
+                                value < advanced_options_proposal[opt] for opt in ADVANCED_OPTIONS[option][OPTION_GREATER_THAN_OR_EQUAL]
+                            ):
+                                _LOGGER.error(
+                                    "Advanced option %s: %s must be greater than or equal to the value of %s",
+                                    option,
+                                    value,
+                                    ", ".join(
+                                        [
+                                            f"{opt} ({advanced_options_proposal[opt]})"
+                                            for opt in ADVANCED_OPTIONS[option][OPTION_GREATER_THAN_OR_EQUAL]
+                                        ]
+                                    ),
+                                )
+                                invalid.append(option)
+                        if ADVANCED_OPTIONS[option].get(OPTION_LESS_THAN_OR_EQUAL) is not None:
+                            if any(value > advanced_options_proposal[opt] for opt in ADVANCED_OPTIONS[option][OPTION_LESS_THAN_OR_EQUAL]):
+                                _LOGGER.error(
+                                    "Advanced option %s: %s must be less than or equal to the value of %s",
+                                    option,
+                                    value,
+                                    ", ".join(
+                                        [
+                                            f"{opt} ({advanced_options_proposal[opt]})"
+                                            for opt in ADVANCED_OPTIONS[option][OPTION_LESS_THAN_OR_EQUAL]
+                                        ]
+                                    ),
+                                )
+                                invalid.append(option)
+
+                    for option, value in advanced_options_proposal.items():
+                        default = ADVANCED_OPTIONS[option][DEFAULT]
+                        if option in invalid:
+                            advanced_options_proposal[option] = self.advanced_options.get(option, default)
+                            continue
                         if option not in options_present:
-                            default = ADVANCED_OPTIONS[option][DEFAULT]
                             if value != default:
-                                self.advanced_options[option] = default
+                                advanced_options_proposal[option] = default
                                 _LOGGER.debug("Advanced option default set %s: %s", option, default)
+                                change = True
+                        elif value != default:
+                            _LOGGER.debug("Advanced option set %s: %s", option, value)
+                            change = True
+                        elif value != self.advanced_options.get(option):
+                            advanced_options_proposal[option] = default
+                            _LOGGER.debug("Advanced option default set %s: %s", option, default)
+                            change = True
+                    self.advanced_options.update(advanced_options_proposal)
                 except json.decoder.JSONDecodeError:
                     _LOGGER.error("JSONDecodeError, advanced options ignored: %s", self._filename_advanced)
         return change
