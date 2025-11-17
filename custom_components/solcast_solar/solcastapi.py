@@ -4418,7 +4418,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         },
                         severity=ir.IssueSeverity.WARNING,
                         translation_key=raise_issue,
-                        learn_more_url="https://github.com/BJReplay/ha-solcast-solar?tab=readme-ov-file#updating-forecasts",
+                        learn_more_url="https://github.com/BJReplay/ha-solcast-solar/blob/main/FAQ.md",
                     )
                 if not raise_issue:
                     _remove_issues()
