@@ -112,6 +112,7 @@ from .const import (
     INSTALL_DATE,
     INTERVALS,
     JSON,
+    JSON_VERSION,
     KEY_ESTIMATE,
     LAST_7D,
     LAST_14D,
@@ -183,7 +184,6 @@ from .util import (
 
 GRANULAR_DAMPENING_OFF: Final[bool] = False
 GRANULAR_DAMPENING_ON: Final[bool] = True
-JSON_VERSION: Final[int] = 7
 SET_ALLOW_RESET: Final[bool] = True
 
 FRESH_DATA: Final[dict[str, Any]] = {
@@ -1531,6 +1531,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 # Add LAST_ATTEMPT and AUTO_UPDATED to cache structure as of v5, introduced v4.2.5.
                                 # Ancient v3 versions of this code did not have the SITE_INFO key to contain forecasts, so fix that.
                                 if json_version < 5:
+                                    _LOGGER.debug("Upgrading to v5 cache structure")
                                     data[VERSION] = 5
                                     data[LAST_ATTEMPT] = data[LAST_UPDATED]
                                     data[AUTO_UPDATED] = self.options.auto_update != AutoUpdate.NONE
@@ -1546,14 +1547,21 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                     json_version = 5
                                 # Alter AUTO_UPDATED boolean flag to be the integer number of auto-update divisions, introduced v4.3.0.
                                 if json_version < 6:
+                                    _LOGGER.debug("Upgrading to v6 cache structure")
                                     data[VERSION] = 6
                                     data[AUTO_UPDATED] = 99999 if self.options.auto_update != AutoUpdate.NONE else 0
                                     json_version = 6
                                 # Add failure statistics to cache structure, introduced v4.3.5.
                                 if json_version < 7:
+                                    _LOGGER.debug("Upgrading to v7 cache structure")
                                     data[VERSION] = 7
-                                    data[FAILURE] = {LAST_24H: 0, LAST_7D: [0] * 7, LAST_14D: [0] * 14}
+                                    data[FAILURE] = {LAST_24H: 0, LAST_7D: [0] * 7}
                                     json_version = 7
+                                if json_version < 8:
+                                    _LOGGER.debug("Upgrading to v8 cache structure")
+                                    data[VERSION] = 8
+                                    data[FAILURE][LAST_14D] = data[FAILURE][LAST_7D] + [0] * 7
+                                    json_version = 8
 
                                 if json_version > on_version:
                                     await self.serialise_data(data, filename)

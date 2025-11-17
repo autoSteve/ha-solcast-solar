@@ -219,10 +219,6 @@
             "description": "Future forecast data is missing, which is unexpected because auto-update is enabled.",
             "title": "Future forecasts missing"
         },
-        "records_missing_unfixable": {
-            "description": "Future forecast data is missing, which is unexpected. Check the logs.",
-            "title": "Future forecasts missing"
-        },
         "records_missing_fixable": {
             "fix_flow": {
                 "abort": {
@@ -238,6 +234,10 @@
                     }
                 }
             },
+            "title": "Future forecasts missing"
+        },
+        "records_missing_unfixable": {
+            "description": "Future forecast data is missing, which is unexpected. Check the logs.",
             "title": "Future forecasts missing"
         },
         "unusual_azimuth_northern": {

@@ -142,6 +142,7 @@ INTEGRATION_AUTOMATED: Final[str] = "integration_automated"
 INTERVAL: Final[str] = "interval"
 INTERVALS: Final[str] = "intervals"
 JSON: Final[str] = "json"
+JSON_VERSION: Final[int] = 8
 KEY_API_COUNTER: Final[str] = "api_counter"
 KEY_API_LIMIT: Final[str] = "api_limit"
 KEY_DAMPEN: Final[str] = "dampen"
