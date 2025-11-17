@@ -33,7 +33,6 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    ACCEPT,
     ACTION,
     ADVANCED_USER_AGENT,
     API_KEY,
@@ -54,6 +53,7 @@ from .const import (
     DAILY_LIMIT,
     DAMP_FACTOR,
     DATE_FORMAT,
+    DEFAULT_SOLCAST_HTTPS_URL,
     DOMAIN,
     ENTRY_OPTIONS,
     EVENT_END_DATETIME,
@@ -63,6 +63,8 @@ from .const import (
     GET_ACTUALS,
     HARD_LIMIT,
     HARD_LIMIT_API,
+    HEADERS_ACCEPT,
+    HEADERS_USER_AGENT,
     KEY_ESTIMATE,
     LAST_ATTEMPT,
     OLD_API_KEY,
@@ -87,7 +89,6 @@ from .const import (
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
     SOLCAST,
-    SOLCAST_HTTPS_URL,
     SUPPORTS_RESPONSE,
     TRANSLATE_DAMP_AUTO_ENABLED,
     TRANSLATE_DAMP_COUNT_NOT_CORRECT,
@@ -110,7 +111,6 @@ from .const import (
     UNDAMPENED,
     UPGRADE_FUNCTION,
     USE_ACTUALS,
-    USER_AGENT,
     VERSION,
 )
 from .coordinator import SolcastUpdateCoordinator
@@ -202,7 +202,7 @@ async def __get_options(hass: HomeAssistant, entry: ConfigEntry) -> ConnectionOp
     return ConnectionOptions(
         entry.options[CONF_API_KEY],
         entry.options.get(API_QUOTA, 10),
-        SOLCAST_HTTPS_URL,
+        DEFAULT_SOLCAST_HTTPS_URL,
         hass.config.path(
             f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}/solcast.json"
             if CONFIG_FOLDER_DISCRETE
@@ -266,8 +266,8 @@ def get_session_headers(solcast: SolcastApi, version: str) -> dict[str, str]:
     """Get the headers for the session based on the integration version."""
     raw_version = version.replace("v", "")
     headers = {
-        ACCEPT: "application/json",
-        USER_AGENT: ("ha-solcast-solar-integration/" + raw_version)
+        HEADERS_ACCEPT: "application/json",
+        HEADERS_USER_AGENT: ("ha-solcast-solar-integration/" + raw_version)
         if solcast.advanced_options[ADVANCED_USER_AGENT] == "default"
         else solcast.advanced_options[ADVANCED_USER_AGENT],
     }

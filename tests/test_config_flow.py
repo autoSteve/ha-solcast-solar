@@ -842,6 +842,7 @@ async def test_advanced_options(
             "automated_dampening_no_delta_corrections": False,
             "automated_dampening_no_limiting_consistency": False,
             "automated_dampening_model_days": 14,
+            "automated_dampening_generation_fetch_delay": 0,
             "automated_dampening_generation_history_load_days": 7,
             "automated_dampening_similar_peak": 0.90,
             "entity_logging": True,  # The odd-man-out, detected as removed later and set to default
@@ -875,6 +876,7 @@ async def test_advanced_options(
             "automated_dampening_insignificant_factor_adjusted": 1.1,
             "automated_dampening_no_delta_corrections": "wrong_type",
             "automated_dampening_model_days": 22,
+            "automated_dampening_generation_fetch_delay": -10,
             "automated_dampening_generation_history_load_days": 22,
             "automated_dampening_similar_peak": 1.1,
             "estimated_actuals_fetch_delay": 140,

@@ -38,6 +38,7 @@ from homeassistant.helpers.sun import get_astral_event_next
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .const import (
+    ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY,
     ADVANCED_AUTOMATED_DAMPENING_IGNORE_INTERVALS,
     ADVANCED_AUTOMATED_DAMPENING_MODEL_DAYS,
     ADVANCED_AUTOMATED_DAMPENING_NO_LIMITING_CONSISTENCY,
@@ -95,6 +96,7 @@ from .const import (
     TASK_LISTENERS,
     TASK_MIDNIGHT_UPDATE,
     TASK_NEW_DAY_ACTUALS,
+    TASK_NEW_DAY_GENERATION,
     TASK_WATCHDOG_ADVANCED,
     TASK_WATCHDOG_ADVANCED_START,
     TASK_WATCHDOG_DAMPENING,
@@ -245,8 +247,9 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
         for task in sorted(self.tasks):
             _LOGGER.debug("Running task %s", task)
 
-        await self.__check_estimated_actuals_fetch()
-        await self.__calculate_accuracy_metrics()
+        await self.__check_generation_fetch()
+        if not await self.__check_estimated_actuals_fetch():
+            await self.__calculate_accuracy_metrics()
 
         return True
 
@@ -461,13 +464,14 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 " and generation data" if self.solcast.options.generation_entities else "",
             )
             self._last_day = current_day
+
+            self.solcast.log_advanced_options()  # Daily reminder of advanced options in use
             await self.__update_midnight_spline_recalculate()
             self.__auto_update_setup()
 
             if self.solcast.options.auto_dampen and self.solcast.options.generation_entities:
-                await self.solcast.get_pv_generation()
-
-            self.solcast.log_advanced_options()  # Daily reminder of advanced options in use
+                await self.__check_generation_fetch()
+                # await self.solcast.get_pv_generation()
 
             await self.__check_estimated_actuals_fetch()
 
@@ -616,9 +620,33 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 f", ({error_dampened_percentiles[i]:.2f}% dampened)" if error_dampened_percentiles[i] != -1.0 else "",
             )
 
-    async def __check_estimated_actuals_fetch(self) -> None:
+    async def __check_generation_fetch(self) -> None:
+        """Check if generation fetch was missed and schedule it."""
+
+        if self.solcast.options.get_actuals:
+            if not self.solcast.get_estimated_actuals_updated_today():
+                now_minute = dt.now(self.solcast.options.tz).minute + dt.now(self.solcast.options.tz).hour * 60
+                if now_minute <= self.solcast.advanced_options[ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY]:
+                    update_at = (
+                        dt.now(self.solcast.options.tz).replace(
+                            hour=0,
+                            minute=0,
+                            second=5 if self.solcast.advanced_options[ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY] == 0 else 0,
+                            microsecond=0,
+                        )  # i.e. just past midnight local
+                        + timedelta(minutes=self.solcast.advanced_options[ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY])
+                    )
+                    _LOGGER.debug("Scheduling generation update at %s", update_at.astimezone(self.solcast.options.tz).strftime(TIME_FORMAT))
+                    self.tasks[TASK_NEW_DAY_GENERATION] = async_track_point_in_utc_time(
+                        self.hass,
+                        self.__generation,
+                        update_at,
+                    )
+
+    async def __check_estimated_actuals_fetch(self) -> bool:
         """Check if estimated actuals fetch was missed and schedule it."""
 
+        scheduled = False
         if self.solcast.options.get_actuals:
             if not self.solcast.get_estimated_actuals_updated_today():
                 now_minute = dt.now(self.solcast.options.tz).minute
@@ -636,6 +664,8 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                         self.__actuals,
                         update_at,
                     )
+                    scheduled = True
+        return scheduled
 
     async def __restart_time_track_midnight_update(self) -> None:
         """Cancel and restart UTC time change tracker."""
@@ -670,6 +700,10 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             await self.__forecast_update(completion=f"Completed task {task_name}")
             if task_name in self.tasks:
                 self.tasks.pop(task_name)
+
+    async def __generation(self, _: dt | None = None) -> None:
+        _LOGGER.info("Update generation data")
+        await self.__update_generation_history()
 
     async def __check_forecast_fetch(self, _: dt | None = None) -> None:
         """Check for an auto forecast update event."""
@@ -714,8 +748,16 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
         await self.solcast.check_data_records()
         await self.solcast.recalculate_splines()
 
+    async def __update_generation_history(self, new_day: bool = False, dampen_yesterday: bool = False) -> None:
+        """Update generation using the API."""
+
+        await self.solcast.get_pv_generation()
+        if TASK_NEW_DAY_GENERATION in self.tasks:
+            self.tasks.pop(TASK_NEW_DAY_GENERATION, None)
+
     async def __update_estimated_actuals_history(self, new_day: bool = False, dampen_yesterday: bool = False) -> None:
         """Update estimated actuals using the API."""
+
         _LOGGER.debug("Started task actuals")
         await self.solcast.update_estimated_actuals(dampen_yesterday=dampen_yesterday)
         await self.solcast.build_actual_data()
@@ -733,6 +775,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
 
     def __auto_update_setup(self, init: bool = False) -> None:
         """Set up of auto-updates."""
+
         match self.solcast.options.auto_update:
             case AutoUpdate.DAYLIGHT:
                 self.__get_sun_rise_set()

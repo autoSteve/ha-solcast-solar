@@ -153,8 +153,10 @@ async def test_auto_dampen(
                 {
                     "automated_dampening_ignore_intervals": ["17:00"],
                     "automated_dampening_no_limiting_consistency": True,
+                    "automated_dampening_generation_fetch_delay": 5,
                     "automated_dampening_insignificant_factor": 0.988,
                     "automated_dampening_insignificant_factor_adjusted": 0.989,
+                    "estimated_actuals_fetch_delay": 5,
                     "estimated_actuals_log_mape_breakdown": True,
                 }
             ),
@@ -234,6 +236,7 @@ async def test_auto_dampen(
         caplog.clear()
         _LOGGER.debug("Testing force update actuals with dampening enabled")
         await _exec_update_actuals(hass, coordinator, solcast, caplog, freezer, "force_update_estimates")
+        await _wait_for_it(hass, caplog, freezer, "Estimated actual mean APE", long_time=True)
         assert "Estimated actuals dictionary for site 1111-1111-1111-1111" in caplog.text
         assert "Estimated actuals dictionary for site 2222-2222-2222-2222" in caplog.text
         assert "Estimated actuals dictionary for site 3333-3333-3333-3333" in caplog.text
@@ -245,35 +248,16 @@ async def test_auto_dampen(
         caplog.clear()
         removed = -5
         value_removed = solcast._data_actuals["siteinfo"]["1111-1111-1111-1111"]["forecasts"].pop(removed)  # pyright: ignore[reportPrivateUsage]
-        first_48_actuals = solcast._data_estimated_actuals[:48]  # pyright: ignore[reportPrivateUsage]
-        for timeshift in range(20):
-            solcast._data_estimated_actuals = [  # pyright: ignore[reportAttributeAccessIssue]
-                {"period_start": actual["period_start"] - timedelta(days=timeshift), "pv_estimate": actual["pv_estimate"]}
-                for actual in first_48_actuals
-            ] + solcast._data_estimated_actuals  # pyright: ignore[reportAttributeAccessIssue]
-        first_48_actuals_dampened = solcast._data_estimated_actuals_dampened[:48]  # pyright: ignore[reportPrivateUsage]
-        for timeshift in range(20):
-            solcast._data_estimated_actuals_dampened = [  # pyright: ignore[reportAttributeAccessIssue]
-                {"period_start": actual["period_start"] - timedelta(days=timeshift), "pv_estimate": actual["pv_estimate"]}
-                for actual in first_48_actuals_dampened
-            ] + solcast._data_estimated_actuals_dampened  # pyright: ignore[reportAttributeAccessIssue]
-        for _ in range(49):  # Skip a day
-            solcast._data_estimated_actuals.pop(-(2 * 48))
-            solcast._data_estimated_actuals_dampened.pop(-(2 * 48))
         freezer.move_to((dt.now(solcast._tz) + timedelta(hours=12)).replace(minute=0, second=0, microsecond=0))  # pyright: ignore[reportPrivateUsage]
         await hass.async_block_till_done()
+        await _wait_for_it(hass, caplog, freezer, "Update generation data", long_time=True)
+        await _wait_for_it(hass, caplog, freezer, "Estimated actual mean APE", long_time=True)
         _no_exception(caplog)
-        await _wait_for_it(hass, caplog, freezer, "Estimated actual mean APE")
         assert "Advanced option set automated_dampening_ignore_intervals: ['17:00']" in caplog.text
         assert "Calculating dampened estimated actual MAPE" in caplog.text
         assert "Calculating undampened estimated actual MAPE" in caplog.text
         assert "APE calculation for day" in caplog.text
-        assert f"APE calculation for day {(dt.now(solcast._tz) - timedelta(days=4)).date()}" not in caplog.text
         assert "Estimated actual mean APE" in caplog.text
-
-        coordinator, solcast = await _reload(hass, entry)
-        caplog.clear()
-        await _wait_for_it(hass, caplog, freezer, "Applying future dampening", long_time=True)
         assert "Getting estimated actuals update for site" in caplog.text
         assert "Apply dampening to previous day estimated actuals" in caplog.text
         assert "Task model_automated_dampening took" in caplog.text

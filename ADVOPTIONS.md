@@ -42,6 +42,16 @@ Possible values: integer `0` (default `0`)
 
 This option presently does nothing. It is reserved to accommodate the addition of alternatives to the present delta logarithmic adjustment of dampening factors where forecast deviates from matching past intervals.
 
+**Key: "automated_dampening_generation_fetch_delay"**
+
+Possible values: int `0`..`120` (default `0`)
+
+A number of minutes to delay beyond midnight before generation history is retrieved.
+
+This value _must_ be less than the estimated actual fetch delay option. (This is not validated.)
+
+If Home Assistant is restarted in the period between midnight and generation being retrieved then retrieval will be rescheduled.
+
 **Key: "automated_dampening_generation_history_load_days"**
 
 Possible values: integer `1`..`21` (default `7`)

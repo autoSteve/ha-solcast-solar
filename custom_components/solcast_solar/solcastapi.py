@@ -1794,11 +1794,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         """Get the earliest estimated actual datetime after a specified datetime."""
         earliest = None
         if len(data) > 0:
-            for actual in reversed(data):
-                if earliest is not None:
-                    if actual[PERIOD_START] < after:
-                        break
-                earliest = actual[PERIOD_START].astimezone(self._tz)
+            # Find all actuals with period_start >= after, then get the earliest one
+            in_scope_actuals = [actual[PERIOD_START] for actual in data if actual[PERIOD_START] >= after]
+            earliest = min(in_scope_actuals) if in_scope_actuals else None
             _LOGGER.debug(
                 "Earliest applicable %s estimated actual datetime is %s",
                 "dampened" if dampened else "undampened",
@@ -2919,14 +2917,14 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
                         for i, export in export_intervals.items():
                             export_interval = i.replace(minute=i.minute // 30 * 30)
-                            if export >= self.options.site_export_limit and generation_intervals[export_interval] > 0:
+                            if export >= self.options.site_export_limit and generation_intervals.get(export_interval, 0) > 0:
                                 export_limiting[export_interval] = True
                     else:
                         _LOGGER.debug("No site export history found for %s", entity)
 
             # Add recent generation intervals to the history.
             generation |= {
-                i: {PERIOD_START: i, GENERATION: generation, EXPORT_LIMITING: export_limiting[i]}
+                i: {PERIOD_START: i, GENERATION: generation, EXPORT_LIMITING: export_limiting.get(i, False)}
                 for i, generation in generation_intervals.items()
             }
 

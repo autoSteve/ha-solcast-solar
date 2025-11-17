@@ -24,8 +24,8 @@ from homeassistant.components.solcast_solar.const import (
     CONFIG_DISCRETE_NAME,
     CONFIG_FOLDER_DISCRETE,
     CUSTOM_HOUR_SENSOR,
-    FORECAST_DAY_SENSORS,
-    FORECAST_DAYS,
+    DEFAULT_FORECAST_DAY_SENSORS,
+    DEFAULT_FORECAST_DAYS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
 from homeassistant.components.solcast_solar.solcastapi import SolcastApi
@@ -350,7 +350,9 @@ SENSORS: dict[str, dict[str, Any]] = {
 }
 
 SENSORS["forecast_tomorrow"] = copy.deepcopy(SENSORS["forecast_today"])
-for day in range(3, FORECAST_DAY_SENSORS - 1):  # Do not test the last day, as values will vary based on the time of day the test is run.
+for day in range(
+    3, DEFAULT_FORECAST_DAY_SENSORS - 1
+):  # Do not test the last day, as values will vary based on the time of day the test is run.
     SENSORS[f"forecast_day_{day}"] = copy.deepcopy(SENSORS["forecast_today"])
     SENSORS[f"forecast_day_{day}"]["should_be_disabled"] = True
 
@@ -635,7 +637,7 @@ async def test_sensor_unavailable(
         solcast._data_undampened = old_solcast_data_undampened  # pyright: ignore[reportPrivateUsage]
         for site in ("1111-1111-1111-1111", "2222-2222-2222-2222"):
             solcast._data["siteinfo"][site]["forecasts"] = old_solcast_data["siteinfo"][site]["forecasts"][  # pyright: ignore[reportPrivateUsage]
-                : -(269 + (FORECAST_DAYS - 8) * 48)
+                : -(269 + (DEFAULT_FORECAST_DAYS - 8) * 48)
             ]
         await solcast.build_forecast_data()
         coordinator._data_updated = True  # pyright: ignore[reportPrivateUsage]
@@ -656,7 +658,7 @@ async def test_sensor_unavailable(
         solcast._data_undampened = old_solcast_data_undampened  # pyright: ignore[reportPrivateUsage]
         for site in ("1111-1111-1111-1111", "2222-2222-2222-2222"):
             solcast._data["siteinfo"][site]["forecasts"] = old_solcast_data["siteinfo"][site]["forecasts"][  # pyright: ignore[reportPrivateUsage]
-                : -(325 + (FORECAST_DAYS - 8) * 48)
+                : -(325 + (DEFAULT_FORECAST_DAYS - 8) * 48)
             ]
         await solcast.build_forecast_data()
         coordinator._data_updated = True  # pyright: ignore[reportPrivateUsage]

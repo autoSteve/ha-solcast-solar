@@ -12,7 +12,7 @@ from homeassistant.components.recorder import Recorder
 from homeassistant.components.solcast_solar.const import (
     CONFIG_DISCRETE_NAME,
     CONFIG_FOLDER_DISCRETE,
-    FORECAST_DAYS,
+    DEFAULT_FORECAST_DAYS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
 from homeassistant.core import HomeAssistant
@@ -133,7 +133,7 @@ async def test_timezone_transition(
             in caplog.text
         )
         assert (
-            f"Forecast data from {scenario['start_date']} to {scenario['start_date'][:-2]}{int(scenario['start_date'][-2:]) - 2 + FORECAST_DAYS:02d} contains all intervals"
+            f"Forecast data from {scenario['start_date']} to {scenario['start_date'][:-2]}{int(scenario['start_date'][-2:]) - 2 + DEFAULT_FORECAST_DAYS:02d} contains all intervals"
             in caplog.text
         )
 
@@ -154,7 +154,7 @@ async def test_timezone_transition(
             in caplog.text
         )
         assert (
-            f"Forecast data from {scenario['end_date']} to {scenario['end_date'][:-2]}{int(scenario['end_date'][-2:]) - 1 + FORECAST_DAYS - 1:02d} contains all intervals"
+            f"Forecast data from {scenario['end_date']} to {scenario['end_date'][:-2]}{int(scenario['end_date'][-2:]) - 1 + DEFAULT_FORECAST_DAYS - 1:02d} contains all intervals"
             in caplog.text
         )
 
