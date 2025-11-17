@@ -121,6 +121,8 @@ from .const import (
     LAST_UPDATED,
     LATITUDE,
     LEARN_MORE,
+    LEARN_MORE_MISSING_FORECAST_DATA,
+    LEARN_MORE_UNUSUAL_AZIMUTH,
     LONGITUDE,
     LOSS_FACTOR,
     MAXIMUM,
@@ -1081,7 +1083,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                     EXTANT: str(v[AZIMUTH]),
                                     LEARN_MORE: "",
                                 },
-                                learn_more_url="https://github.com/BJReplay/ha-solcast-solar?tab=readme-ov-file#solcast-requirements",
+                                learn_more_url=LEARN_MORE_UNUSUAL_AZIMUTH,
                             )
                             raise_issue = ""
                             self._dismissal[site] = True
@@ -4418,7 +4420,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         },
                         severity=ir.IssueSeverity.WARNING,
                         translation_key=raise_issue,
-                        learn_more_url="https://github.com/BJReplay/ha-solcast-solar/blob/main/FAQ.md",
+                        learn_more_url=LEARN_MORE_MISSING_FORECAST_DATA,
                     )
                 if not raise_issue:
                     _remove_issues()
