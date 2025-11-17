@@ -493,7 +493,7 @@ async def test_schema_upgrade(
 
         def verify_new_solcast_schema(data_file: Path):
             data = json.loads(data_file.read_text(encoding="utf-8"))
-            assert data["version"] == 7
+            assert data["version"] == 8
             assert "last_attempt" in data
             assert "auto_updated" in data
 
@@ -505,7 +505,7 @@ async def test_schema_upgrade(
         kill_undampened_cache()
         set_old_solcast_schema(data_file)
         coordinator, solcast = await _reload(hass, entry)
-        assert "version from v4 to v7" in caplog.text
+        assert "version from v4 to v8" in caplog.text
         assert "Migrating un-dampened history" in caplog.text
         verify_new_solcast_schema(data_file)
         verify_new_solcast_schema(undampened_file)
@@ -515,7 +515,7 @@ async def test_schema_upgrade(
         kill_undampened_cache()
         set_ancient_solcast_schema(data_file)
         coordinator, solcast = await _reload(hass, entry)
-        assert "version from v1 to v7" in caplog.text
+        assert "version from v1 to v8" in caplog.text
         assert "Migrating un-dampened history" in caplog.text
         verify_new_solcast_schema(data_file)
         verify_new_solcast_schema(undampened_file)
