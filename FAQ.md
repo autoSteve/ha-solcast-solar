@@ -1,9 +1,10 @@
 # Troubleshooting FAQ
 
 ## Contents
+* Q: When should I change my API key, and will this help fix problems?
 * Q: I've just got **lots of 429 errors reported**, and I'm not getting forecasts.  Should I raise an issue, or continue one of the long running discussions?
 * Q: I'm trying to set up (or re-set up) the integration, and **I'm getting 429 errors** and can't get any further.  What's happening?
-* Solcast's API status page at [https://status.solcast.com/](https://status.solcast.com/) says that the Legacy Rooftop Site API is Operational, but **I'm getting 429 errors**.  What should I do?
+* Solcast's API status page at [https://status.solcast.com/](https://status.solcast.com/) says that the API status is all green, but **I'm getting 429 errors**.  What should I do?
 * Q: You asked for DEBUG logs to be provided when raising issues. How do I get these?
 * Q: I don't understand the README, and it's too long. Can it be simplified?
 * Q: Is submitting debug logging going to expose my API key or location to the world?
@@ -17,6 +18,14 @@
 * Q: What polls to Solcast happen, when do they happen, and are they important?
 * Q: A follow-up question: If I restart the integration will it use API quota?
 
+### Q: When should I change my API key, and will this help fix problems?
+
+Only change your API key when you think the key has been leaked publicly or somehow compromised.
+
+Only change your API key when the Solcast service is _**HEALTHY**_ for Hobbyist users. NEVER CHANGE YOUR KEY WHEN `429` errors are occurring, because when you update the integration configuration with the new key it needs to contact the Solcast API to read site details. It will likely get a `429` error and will not be able to fully complete the configuration change.
+
+Changing your API key will NEVER fix any problem other than resolving a compromise, like if you have posted a screen grab of your integration configuration in a discussion topic. The last six characters of the key only are logged.
+
 ### Q: I've just got lots of 429 errors reported, and I'm not getting forecasts.  Should I raise an issue, or continue one of the long running discussions?
 
 or
@@ -25,7 +34,7 @@ or
 
 or
 
-### Solcast's API status page at [https://status.solcast.com/](https://status.solcast.com/) says that the Legacy Rooftop Site API is Operational, but I'm getting 429 errors.  What should I do?
+### Solcast's API status page at [https://status.solcast.com/](https://status.solcast.com/) says that the API status is all green, but I'm getting 429 errors.  What should I do?
 
 As the [Solcast API Status](https://status.solcast.com/) page says: **_Don't agree with what's reported here? Contact_ [them] _at [support@solcast.com](mailto:support@solcast.com?subject=Report%20Incident)._** Do note that the status page generally **doesn't report the hobbyist API status** because the information there is for **paying customers**, not you.
 
@@ -33,7 +42,7 @@ This integration reports 429 errors returned by the Solcast Legacy Rooftop Site 
 
 There is nothing that the integration maintainers can do to fix this.
 
-The vast majority of times that this has occurred, it is because someone (not necessarily an integration user, and not necessarily a rooftop hobbyist user) is hammering Solcast servers thousands of times an hour with an out-of-control process. 
+The vast majority of times that this has occurred is because someone (not necessarily an integration user, and not necessarily a rooftop hobbyist user) is hammering Solcast servers thousands of times an hour (or minute) with an out-of-control process.
 
 If the Solcast team aren't yet aware of it (outside of normal Australian business hours) they may not have had a chance to respond and block that process, so as the message on their website says, please, in the first instance, politely (since you're using a free service), ask them if there are any issues, and provide them with as much information as possible.
 
