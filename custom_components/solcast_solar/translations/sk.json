@@ -217,7 +217,7 @@
     "issues": {
         "api_unavailable": {
             "title": "Solcast API dočasne nedostupné",
-            "description": "Počas aktualizácie Solcast API opakovane hlásilo stav `429 / Skúste to znova neskôr`.\n\n* Nesnažte sa túto situáciu riešiť.\n* Nezmeňte svoj kľúč API.\n* Vyhnite sa reštartovaniu integrácie\n* Nie je to problém s integráciou a vyrieši sa to samo.\n\n(Ak chcete tento problém potlačiť, vytvorte pokročilú možnosť api_raise_issue a nastavte ju na false.)"
+            "description": "Počas aktualizácie Solcast API opakovane hlásilo stav `429 / Skúste to znova neskôr`.\n\n* Nesnažte sa túto situáciu riešiť.\n* Nezmeňte svoj kľúč API.\n* Vyhnite sa reštartovaniu integrácie\n* Nie je to problém s integráciou a vyrieši sa to samo.\n\n(Ak chcete tento problém potlačiť, vytvorte možnosť pokročilej konfigurácie api_raise_issue a nastavte ju na false.)"
         },
         "records_missing": {
             "title": "Predpovede do budúcnosti chýbajú",

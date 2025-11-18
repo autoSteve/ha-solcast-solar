@@ -217,7 +217,7 @@
     "issues": {
         "api_unavailable": {
             "title": "Solcast API tymczasowo niedostępne",
-            "description": "Podczas aktualizacji Solcast API wielokrotnie zgłaszało status `429 / Spróbuj ponownie później`.\n\n* Nie próbuj rozwiązać tej sytuacji.\n* Nie zmieniaj klucza API.\n* Unikaj ponownego uruchamiania integracji\n* To nie jest problem z integracją i rozwiąże się samoczynnie.\n\n(Aby wyciszyć ten problem, utwórz zaawansowaną opcję api_raise_issue i ustaw ją na false.)"
+            "description": "Podczas aktualizacji Solcast API wielokrotnie zgłaszało status `429 / Spróbuj ponownie później`.\n\n* Nie próbuj rozwiązać tej sytuacji.\n* Nie zmieniaj klucza API.\n* Unikaj ponownego uruchamiania integracji\n* To nie jest problem z integracją i rozwiąże się samoczynnie.\n\n(Aby wyciszyć ten problem, utwórz zaawansowana opcja konfiguracji api_raise_issue i ustaw ją na false.)"
         },
         "records_missing": {
             "title": "Brak prognoz na przyszłość",
