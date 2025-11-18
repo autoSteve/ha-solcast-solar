@@ -85,6 +85,7 @@ from . import (
     session_clear,
     session_reset_usage,
     session_set,
+    verify_data_schema,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -768,6 +769,12 @@ async def test_integration(
             granular_dampening_file.unlink()
             await _wait_for(caplog, "Granular dampening file deleted, no longer monitoring")
 
+        # Verify data schema
+        verify_data_schema(solcast._data)  # pyright: ignore[reportPrivateUsage]
+        verify_data_schema(solcast._data_undampened)  # pyright: ignore[reportPrivateUsage]
+        verify_data_schema(solcast._data_actuals)  # pyright: ignore[reportPrivateUsage]
+        verify_data_schema(solcast._data_actuals_dampened)  # pyright: ignore[reportPrivateUsage]
+
         caplog.clear()
 
         def set_file_last_modified(file_path: str, dtm: dt):
@@ -1122,6 +1129,12 @@ async def test_remaining_actions(
                 return_response=True,
             )
 
+        # Verify data schema
+        verify_data_schema(solcast._data)  # pyright: ignore[reportPrivateUsage]
+        verify_data_schema(solcast._data_undampened)  # pyright: ignore[reportPrivateUsage]
+        verify_data_schema(solcast._data_actuals)  # pyright: ignore[reportPrivateUsage]
+        verify_data_schema(solcast._data_actuals_dampened)  # pyright: ignore[reportPrivateUsage]
+
         assert await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
 
@@ -1374,7 +1387,7 @@ async def test_scenarios(
         sites_file = Path(f"{config_dir}/solcast-sites.json")
         sites = json.loads(sites_file.read_text(encoding="utf-8"))
 
-        # Test no sites call on start when in a presumed dead state, then an allowed call after thirty minutes.
+        # Test no sites call on start when in a presumed dead state, then an allowed call after sixty minutes.
         session_set(MOCK_BUSY)
 
         hass.data[DOMAIN]["presumed_dead"] = True  # Set presumption of death

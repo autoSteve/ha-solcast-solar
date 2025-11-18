@@ -187,6 +187,48 @@ _LOGGER = logging.getLogger(__name__)
 simulated: SimulatedSolcast = SimulatedSolcast()
 
 
+def verify_data_schema(data: dict[str, Any]) -> None:
+    """Verify the schema of data sets."""
+
+    SCHEMA: dict[str, Any] = {
+        "siteinfo": {"type": dict},
+        "version": {"type": int},
+        "last_updated": {"type": dt},
+        "last_attempt": {"type": dt},
+        "auto_updated": {"type": int},
+        "failure": {"type": dict, "members": ["last_24h", "last_7d", "last_14d"]},
+    }
+
+    fail = False
+
+    for key, rules in SCHEMA.items():
+        if key not in data:
+            _LOGGER.error("Missing key in data: %s", key)
+            fail = True
+            continue
+        if not isinstance(data[key], rules["type"]):
+            _LOGGER.error("Incorrect type for key %s: expected %s, got %s", key, rules["type"], type(data[key]))
+            fail = True
+        if "members" in rules:
+            for member in rules["members"]:
+                if member not in data[key]:
+                    _LOGGER.error("Missing member %s in key %s", member, key)
+                    fail = True
+    for key, value in data.items():
+        if key not in SCHEMA:
+            _LOGGER.error("Unexpected key in schema: %s", key)
+            fail = True
+        if SCHEMA.get(key):
+            if "members" in SCHEMA[key]:
+                for member in value:
+                    if member not in SCHEMA[key]["members"]:
+                        _LOGGER.error("Unexpected member %s in key %s", member, key)
+                        fail = True
+
+    if fail:
+        raise AssertionError("Schema verification failed")
+
+
 def _check_abend(api_key: str, site: str | None = None) -> CallbackResult | None:
     if MOCK_SESSION_CONFIG[MOCK_BUSY] or (MOCK_SESSION_CONFIG[MOCK_BUSY_SITE] and site == MOCK_SESSION_CONFIG[MOCK_BUSY_SITE]):
         return CallbackResult(status=429, body=STATUS_EMPTY)

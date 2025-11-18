@@ -8,6 +8,7 @@ import contextlib
 from datetime import datetime as dt, timedelta
 from enum import Enum
 import logging
+import math
 from operator import itemgetter
 from pathlib import Path
 from random import randint
@@ -556,18 +557,20 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 if generation.get(interval[PERIOD_START]) is not None and not generation[interval[PERIOD_START]][EXPORT_LIMITING]:
                     value_day[i] += interval[ESTIMATE] / 2  # 30 minute intervals
             for day, value in value_day.items():
-                error[day] = abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else 0.0
+                error[day] = abs(generation_day[day] - value) / generation_day[day] * 100.0 if generation_day[day] > 0 else math.inf
                 if self.solcast.advanced_options[ADVANCED_ESTIMATED_ACTUALS_LOG_MAPE_BREAKDOWN]:
                     _LOGGER.debug(
-                        "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%%",
+                        "APE calculation for day %s, Actual %.2f kWh, Estimate %.2f kWh, Error %.2f%s",
                         day.strftime(DATE_ONLY_FORMAT),
                         generation_day[day],
                         value,
                         error[day],
+                        "%" if error[day] != math.inf else "",
                     )
+            non_inf_error: dict[dt, float] = {k: v for k, v in error.items() if v != math.inf}
             return (
-                (sum(error.values()) / len(error), [percentile(sorted(error.values()), p) for p in percentiles])
-                if len(error) > 0
+                (sum(non_inf_error.values()) / len(non_inf_error), [percentile(sorted(error.values()), p) for p in percentiles])
+                if len(non_inf_error) > 0
                 else (0.0, [0.0] * len(percentiles))
             )
 
@@ -609,6 +612,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             ),
             percentiles_to_calculate,
         )
+        _LOGGER.debug("Excluding %s values", math.inf)
         _LOGGER.debug(
             "Estimated actual mean APE: %.2f%%%s", error_undampened, f", ({error_dampened:.2f}% dampened)" if error_dampened != -1.0 else ""
         )
