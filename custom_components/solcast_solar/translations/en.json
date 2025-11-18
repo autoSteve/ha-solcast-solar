@@ -215,6 +215,10 @@
         }
     },
     "issues": {
+        "api_unavailable": {
+            "description": "The Solcast API has reported `429 / Try again later` status repeatedly during an update.\n\n* Do not attempt to fix this situation.\n* Do not change your API key.\n* Avoid restarting the integration\n* This is not an integration issue and will resolve itself.\n\n(To suppress this issue, create an advanced option api_raise_issue and set it to false.)",
+            "title": "Solcast API temporarily unavailable"
+        },
         "records_missing": {
             "description": "Future forecast data is missing, which is unexpected because auto-update is enabled.",
             "title": "Future forecasts missing"

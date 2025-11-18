@@ -9,6 +9,7 @@ from freezegun.api import FrozenDateTimeFactory
 import pytest
 
 from homeassistant.components.recorder import Recorder
+from homeassistant.components.solcast_solar.const import DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS
 from homeassistant.core import HomeAssistant
 
 from . import (
@@ -16,6 +17,7 @@ from . import (
     MOCK_BUSY,
     async_cleanup_integration_tests,
     async_init_integration,
+    session_clear,
     session_set,
 )
 
@@ -78,6 +80,15 @@ async def test_forecast_retry(
         assert "No data was returned for forecasts" in caplog.text
         assert "Forecast has not been updated, next auto update at" in caplog.text
         assert "Completed task pending_update_009" in caplog.text
+        assert "Raise issue for api_unavailable" in caplog.text
+
+        session_clear(MOCK_BUSY)
+        caplog.clear()
+        await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
+        for _ in range(150):
+            freezer.tick(0.09)
+            await hass.async_block_till_done()
+        assert "Remove issue for api_unavailable" in caplog.text
 
     finally:
         await async_cleanup_integration_tests(hass)

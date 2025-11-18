@@ -56,6 +56,7 @@ from .const import (
     ADVANCED_TYPE,
     ALL,
     API_KEY,
+    API_UNAVAILABLE,
     AUTO_DAMPEN,
     AUTO_UPDATE,
     AUTO_UPDATED,
@@ -3749,6 +3750,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         """
         response_text = ""
+        received_429: int = 0
+
         try:
 
             def increment_failure_count():
@@ -3771,8 +3774,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 start_time = time.time()
 
                 async with asyncio.timeout(900):
+                    issue_registry = ir.async_get(self.hass)
+
                     if self._api_used[api_key] < self._api_limit[api_key] or force:
-                        # if API == Api.HOBBYIST:
                         url = f"{self.advanced_options[ADVANCED_SOLCAST_URL]}/rooftop_sites/{site}/{path}"
                         params: dict[str, str | int] = {FORMAT: JSON, API_KEY: api_key, HOURS: hours}
 
@@ -3827,6 +3831,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                         status = 1000
                                         _LOGGER.warning("An unexpected error occurred: %s", response_status.get(MESSAGE))
                                         break
+                                else:
+                                    received_429 += 1
                             if counter >= tries:
                                 _LOGGER.error("API was tried %d times, but all attempts failed", tries)
                                 break
@@ -3853,6 +3859,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 _LOGGER.debug("API returned data, using force fetch so not incrementing API counter")
                             response_json = response_text
                             response_json = json.loads(response_json)
+                            if issue_registry.async_get_issue(DOMAIN, API_UNAVAILABLE) is not None:
+                                _LOGGER.debug("Remove issue for %s", API_UNAVAILABLE)
+                                ir.async_delete_issue(self.hass, DOMAIN, API_UNAVAILABLE)
                             _LOGGER.debug(
                                 "Task fetch_data took %.3f seconds",
                                 time.time() - start_time,
@@ -3879,6 +3888,19 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                 self._api_limit[api_key],
                             )
                             _LOGGER.debug("HTTP session status %s", http_status_translate(status))
+
+                            if received_429 == tries and issue_registry.async_get_issue(DOMAIN, API_UNAVAILABLE) is None:
+                                _LOGGER.debug("Raise issue for %s", API_UNAVAILABLE)
+                                ir.async_create_issue(
+                                    self.hass,
+                                    DOMAIN,
+                                    API_UNAVAILABLE,
+                                    is_fixable=False,
+                                    severity=ir.IssueSeverity.WARNING,
+                                    translation_key=API_UNAVAILABLE,
+                                    learn_more_url=LEARN_MORE_MISSING_FORECAST_DATA,
+                                )
+
                     else:
                         _LOGGER.warning(
                             "API polling limit exhausted, not getting forecast for site %s, API used is %d/%d",

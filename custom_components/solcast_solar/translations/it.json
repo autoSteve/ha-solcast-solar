@@ -215,6 +215,10 @@
         }
     },
     "issues": {
+        "api_unavailable": {
+            "title": "API Solcast temporaneamente non disponibile",
+            "description": "L'API Solcast ha segnalato ripetutamente lo stato `429 / Riprova più tardi` durante un aggiornamento.\n\n* Non tentare di risolvere questa situazione.\n* Non modificare la chiave API.\n* Evita di riavviare l'integrazione\n* Non è un problema di integrazione e si risolverà da solo.\n\n(Per sopprimere questo problema, crea un'opzione avanzata api_raise_issue e impostala su false.)"
+        },
         "records_missing": {
             "title": "Previsioni future mancanti",
             "description": "I dati delle previsioni future sono mancanti, il che è inaspettato perché l'aggiornamento automatico è abilitato."

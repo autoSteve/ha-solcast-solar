@@ -188,6 +188,14 @@ There may be a performance implication when too much history data is retained, d
 
 ## General
 
+**Key: "api_raise_issue"**
+
+Possible values: boolean `true`/`false` (default `true`)
+
+When repeated `429 / Try again later` errors are received from Solcast the integration will raise an ignorable issue alerting a user to the fact.
+
+This behaviour may be suppressed by setting this option to `false`.
+
 **Key: "entity_logging"**
 
 Possible values: boolean `true`/`false` (default `false`)

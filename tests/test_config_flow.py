@@ -838,6 +838,7 @@ async def test_advanced_options(
 
         _LOGGER.debug("Testing advanced options 1")
         data_file_1: dict[str, Any] = {
+            "api_raise_issues": True,
             "automated_dampening_minimum_matching_intervals": 2,
             "automated_dampening_ignore_intervals": ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"],
             "automated_dampening_insignificant_factor": 0.95,
@@ -875,6 +876,7 @@ async def test_advanced_options(
 
         _LOGGER.debug("Testing advanced options 2")
         data_file_2: dict[str, Any] = {
+            "api_raise_issues": False,
             "automated_dampening_minimum_matching_generation": 0,
             "automated_dampening_minimum_matching_intervals": 0,
             "automated_dampening_ignore_intervals": ["24:00", "12:20", "13:00", "13:00", "14:00", "14:30", "15:00", "15:30"],
@@ -910,6 +912,7 @@ async def test_advanced_options(
                 elif ADVANCED_OPTIONS[option]["type"] is bool:
                     assert f"{option}: {value} (must be bool)" not in caplog.text
 
+        assert "Advanced option set api_raise_issues: False" in caplog.text
         assert "Advanced option proposed reload_on_advanced_change: True" not in caplog.text
         assert "Advanced option set reload_on_advanced_change: True" in caplog.text
         assert "solcast_url: https://localhost" in caplog.text

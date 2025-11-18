@@ -215,6 +215,10 @@
         }
     },
     "issues": {
+        "api_unavailable": {
+            "title": "Solcast-API vorübergehend nicht verfügbar",
+            "description": "Die Solcast-API hat während eines Updates wiederholt den Status `429 / Versuchen Sie es später noch einmal` gemeldet.\n\n* Versuchen Sie nicht, diese Situation zu beheben.\n* Ändern Sie Ihren API-Schlüssel nicht.\n* Vermeiden Sie einen Neustart der Integration\n* Dies ist kein Integrationsproblem und wird sich von selbst lösen.\n\n(Um dieses Problem zu unterdrücken, erstellen Sie eine erweiterte Option api_raise_issue und setzen Sie sie auf false.)"
+        },
         "records_missing": {
             "title": "Zukunftsprognosen fehlen",
             "description": "Zukünftige Prognosedaten fehlen, was unerwartet ist, da die automatische Aktualisierung aktiviert ist."

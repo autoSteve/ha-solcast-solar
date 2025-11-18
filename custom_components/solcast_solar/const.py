@@ -17,6 +17,7 @@ ADVANCED_OPTION.LIST_TIME = "list_time"
 ADVANCED_OPTION.STR = "str"
 ADVANCED_OPTION.TIME = "time"
 ADVANCED_TYPE: Final[str] = "type"
+ADVANCED_API_RAISE_ISSUES: Final[str] = "api_raise_issues"
 ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL: Final[str] = "automated_dampening_delta_adjustment_model"
 ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY: Final[str] = "automated_dampening_generation_fetch_delay"
 ADVANCED_AUTOMATED_DAMPENING_GENERATION_HISTORY_LOAD_DAYS: Final[str] = "automated_dampening_generation_history_load_days"
@@ -42,6 +43,7 @@ ADVANCED_USER_AGENT: Final[str] = "user_agent"
 ALL: Final[str] = "all"
 API_KEY: Final[str] = "api_key"
 API_QUOTA: Final[str] = "api_quota"
+API_UNAVAILABLE: Final[str] = "api_unavailable"
 ATTR_ENTRY_TYPE: Final[str] = "entry_type"
 ATTRIBUTION: Final[str] = "Data retrieved from Solcast"
 AUTO_DAMPEN: Final[str] = "auto_dampen"
@@ -291,6 +293,7 @@ WINTER_TIME: Final[list[str]] = ["Europe/Dublin"]  # Zones that use "Winter time
 
 
 ADVANCED_OPTIONS: Final[dict[str, dict[str, Any]]] = {
+    ADVANCED_API_RAISE_ISSUES: {ADVANCED_TYPE: ADVANCED_OPTION.BOOL, DEFAULT: True},
     ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL: {ADVANCED_TYPE: ADVANCED_OPTION.INT, MINIMUM: 0, MAXIMUM: 0, DEFAULT: 0},
     ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY: {
         ADVANCED_TYPE: ADVANCED_OPTION.INT,
