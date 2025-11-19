@@ -31,7 +31,7 @@ from aiohttp.client_reqrep import ClientResponse
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.history import state_changes_during_period
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT, CONF_API_KEY
+from homeassistant.const import ATTR_ENTITY_ID, ATTR_UNIT_OF_MEASUREMENT, CONF_API_KEY
 from homeassistant.core import HomeAssistant, State
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er, issue_registry as ir
@@ -53,6 +53,8 @@ from .const import (
     ADVANCED_OPTION,
     ADVANCED_OPTIONS,
     ADVANCED_SOLCAST_URL,
+    ADVANCED_TRIGGER_ON_API_AVAILABLE,
+    ADVANCED_TRIGGER_ON_API_UNAVAILABLE,
     ADVANCED_TYPE,
     ALL,
     API_KEY,
@@ -3734,7 +3736,22 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._data[FAILURE][LAST_7D][0] += 1
         self._data[FAILURE][LAST_14D][0] += 1
 
-    async def fetch_data(
+    async def async_get_automation_entity_id_by_friendly_name(self, name: str) -> str | None:
+        """Return the first automation entity_id whose friendly_name matches name."""
+        for state in self.hass.states.async_all("automation"):
+            if state.attributes.get("friendly_name") == name:
+                return state.entity_id
+        return None
+
+    async def async_trigger_automation_by_name(self, name: str) -> bool:
+        """Trigger an automation by friendly name; returns True if found and triggered."""
+        entity_id = await self.async_get_automation_entity_id_by_friendly_name(name)
+        if not entity_id:
+            return False
+        await self.hass.services.async_call("automation", "trigger", {ATTR_ENTITY_ID: entity_id}, blocking=True)
+        return True
+
+    async def fetch_data(  # noqa: C901
         self,
         hours: int = 0,
         path: str = "error",
@@ -3862,6 +3879,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                             if issue_registry.async_get_issue(DOMAIN, API_UNAVAILABLE) is not None:
                                 _LOGGER.debug("Remove issue for %s", API_UNAVAILABLE)
                                 ir.async_delete_issue(self.hass, DOMAIN, API_UNAVAILABLE)
+                                if (trigger := self.advanced_options[ADVANCED_TRIGGER_ON_API_AVAILABLE]) and trigger:
+                                    await self.async_trigger_automation_by_name(trigger)
                             _LOGGER.debug(
                                 "Task fetch_data took %.3f seconds",
                                 time.time() - start_time,
@@ -3900,6 +3919,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                                     translation_key=API_UNAVAILABLE,
                                     learn_more_url=LEARN_MORE_MISSING_FORECAST_DATA,
                                 )
+                                if (trigger := self.advanced_options[ADVANCED_TRIGGER_ON_API_UNAVAILABLE]) and trigger:
+                                    await self.async_trigger_automation_by_name(trigger)
 
                     else:
                         _LOGGER.warning(

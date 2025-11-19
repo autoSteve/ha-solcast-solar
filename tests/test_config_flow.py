@@ -858,6 +858,8 @@ async def test_advanced_options(
             "forecast_history_max_days": 730,
             "reload_on_advanced_change": False,
             "solcast_url": "https://api.solcast.com.au",
+            "trigger_on_api_available": "",
+            "trigger_on_api_unavailable": "",
         }
         caplog.clear()
         data_file.write_text(json.dumps(data_file_1), encoding="utf-8")

@@ -218,6 +218,18 @@ Do not set this option unless you are a developer and want to utilise the Solcas
 
 Do not add a trailing `/`. An integration reload is required.
 
+**Key: "trigger_on_api_available"**
+
+Possible values: string (default `""`)
+
+When API availability has been determined (after a period of unavailability) then trigger the friendly name of an automation.
+
+**Key: "trigger_on_api_unavailable"**
+
+Possible values: string (default `""`)
+
+When API unavailability has been determined then trigger the friendly name of an automation.
+
 **Key: "user_agent"**
 
 Possible values: string (default `"default"`)
