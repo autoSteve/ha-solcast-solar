@@ -220,8 +220,8 @@
             "title": "Solcast API tymczasowo niedostępne"
         },
         "records_missing": {
-            "description": "Brak danych prognozy na przyszłość, co jest nieoczekiwane, ponieważ włączona jest automatyczna aktualizacja.",
-            "title": "Brak prognoz na przyszłość"
+            "title": "Brak prognoz na przyszłość",
+            "description": "Brakuje danych prognozy na przyszłość, co jest nieoczekiwane, ponieważ automatyczna aktualizacja jest włączona. Zbadaj przyczynę, sprawdzając dziennik Home Assistanta. Przeczytaj FAQ dotyczące rozwiązywania problemów przed zgłoszeniem problemu z integracją."
         },
         "records_missing_fixable": {
             "fix_flow": {

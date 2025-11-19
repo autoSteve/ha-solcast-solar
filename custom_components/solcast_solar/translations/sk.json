@@ -220,8 +220,8 @@
             "title": "Solcast API dočasne nedostupné"
         },
         "records_missing": {
-            "description": "Údaje budúcej prognózy chýbajú, čo je neočakávané, pretože je povolená automatická aktualizácia.",
-            "title": "Predpovede do budúcnosti chýbajú"
+            "title": "Predpovede do budúcnosti chýbajú",
+            "description": "Chýbajú údaje o budúcej predpovedi, čo je nečakané, pretože je povolená automatická aktualizácia. Preskúmajte príčinu skúmaním záznamu Home Assistant. Pred nahlásením problému s integráciou si prečítajte často kladené otázky o riešení problémov."
         },
         "records_missing_fixable": {
             "fix_flow": {
