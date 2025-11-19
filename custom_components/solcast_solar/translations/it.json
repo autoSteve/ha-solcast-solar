@@ -220,8 +220,8 @@
             "title": "API Solcast temporaneamente non disponibile"
         },
         "records_missing": {
-            "title": "Previsioni future mancanti",
-            "description": "I dati delle previsioni future mancano, il che è inaspettato perché l'aggiornamento automatico è attivato. Indaga sulla causa esaminando il registro di Home Assistant. Leggi le FAQ sulla risoluzione dei problemi prima di segnalare un problema di integrazione."
+            "description": "I dati delle previsioni future mancano, il che è inaspettato perché l'aggiornamento automatico è attivato. Indaga sulla causa esaminando il registro di Home Assistant. Leggi le FAQ sulla risoluzione dei problemi prima di segnalare un problema di integrazione.",
+            "title": "Previsioni future mancanti"
         },
         "records_missing_fixable": {
             "fix_flow": {

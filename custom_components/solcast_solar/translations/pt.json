@@ -220,8 +220,8 @@
             "title": "API Solcast temporariamente indisponível"
         },
         "records_missing": {
-            "title": "Previsões futuras em falta",
-            "description": "Faltam dados da previsão futura, o que é inesperado porque a atualização automática está ativada. Investigue a causa examinando o registo do Home Assistant. Leia as perguntas frequentes de resolução de problemas antes de levantar um problema de integração."
+            "description": "Faltam dados da previsão futura, o que é inesperado porque a atualização automática está ativada. Investigue a causa examinando o registo do Home Assistant. Leia as perguntas frequentes de resolução de problemas antes de levantar um problema de integração.",
+            "title": "Previsões futuras em falta"
         },
         "records_missing_fixable": {
             "fix_flow": {
