@@ -578,6 +578,8 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 else (False, 0.0, [0.0] * len(percentiles))
             )
 
+        inf_u = False
+        inf_d = False
         if self.solcast.options.auto_dampen and earliest_dampened_start is not None:
             if self.solcast.advanced_options[ADVANCED_ESTIMATED_ACTUALS_LOG_MAPE_BREAKDOWN]:
                 _LOGGER.debug(
