@@ -2927,7 +2927,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
             # Detect site export limiting
             if self.options.site_export_limit > 0 and self.options.site_export_entity != "":
-                _INTERVAL = 5
+                _INTERVAL = 5  # The time window in minutes to detect export limiting
 
                 entity = self.options.site_export_entity
                 r_entity = entity_registry.async_get(entity)

@@ -544,7 +544,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             generation: defaultdict[dt, dict[str, Any]],
             values: tuple[dict[str, Any], ...],
             percentiles: tuple[int, ...] = (50,),
-        ) -> tuple[float, list[float]]:
+        ) -> tuple[bool, float, list[float]]:
             """Calculate mean and percentile absolute percentage error."""
             value_day: defaultdict[dt, float] = defaultdict(float)
             error: defaultdict[dt, float] = defaultdict(float)
@@ -569,9 +569,13 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     )
             non_inf_error: dict[dt, float] = {k: v for k, v in error.items() if v != math.inf}
             return (
-                (sum(non_inf_error.values()) / len(non_inf_error), [percentile(sorted(error.values()), p) for p in percentiles])
+                (
+                    (len(error) != len(non_inf_error)),
+                    sum(non_inf_error.values()) / len(non_inf_error),
+                    [percentile(sorted(error.values()), p) for p in percentiles],
+                )
                 if len(non_inf_error) > 0
-                else (0.0, [0.0] * len(percentiles))
+                else (False, 0.0, [0.0] * len(percentiles))
             )
 
         if self.solcast.options.auto_dampen and earliest_dampened_start is not None:
@@ -583,7 +587,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                     .astimezone(self.solcast.options.tz)
                     .strftime(DATE_ONLY_FORMAT),
                 )
-            error_dampened, error_dampened_percentiles = await calculate_error(
+            inf_d, error_dampened, error_dampened_percentiles = await calculate_error(
                 generation_dampening_day,
                 generation_dampening,
                 await self.solcast.get_estimate_list(
@@ -602,7 +606,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 earliest_undampened_start.astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
                 (self.solcast.get_day_start_utc() - timedelta(minutes=30)).astimezone(self.solcast.options.tz).strftime(DATE_ONLY_FORMAT),
             )
-        error_undampened, error_undampened_percentiles = await calculate_error(
+        inf_u, error_undampened, error_undampened_percentiles = await calculate_error(
             generation_dampening_day,
             generation_dampening,
             await self.solcast.get_estimate_list(
@@ -612,7 +616,8 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
             ),
             percentiles_to_calculate,
         )
-        _LOGGER.debug("Excluding %s values", math.inf)
+        if inf_u or inf_d:
+            _LOGGER.debug("Excluding %s values", math.inf)
         _LOGGER.debug(
             "Estimated actual mean APE: %.2f%%%s", error_undampened, f", ({error_dampened:.2f}% dampened)" if error_dampened != -1.0 else ""
         )
