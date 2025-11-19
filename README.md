@@ -1240,6 +1240,7 @@ The code itself resides at `/config/custom_components/solcast_solar`, and removi
 v4.4.8
 
 * Move all cache and configuration files to `config/solcast_solar` by @autoSteve
+* Add Solcast API temporarily unavailable raised issue by @autoSteve
 * Improve 'Future forecasts missing when auto update is enabled' repair notice by @gcoan
 * Do not suggest 'fixable' repair notice for manual update after API failures by @autoSteve
 * Ignore adjusted automated dampening factors above 'insignificant' threshold by @autoSteve

@@ -480,7 +480,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
         self.async_update_listeners()
 
     async def __calculate_accuracy_metrics(self) -> None:
-        """Calculate accuracy metrics for forecasts vs actuals."""
+        """Calculate accuracy metrics for generation vs. undampened/dampened actuals."""
 
         percentiles_to_calculate = tuple(self.solcast.advanced_options[ADVANCED_ESTIMATED_ACTUALS_LOG_APE_PERCENTILES])
 

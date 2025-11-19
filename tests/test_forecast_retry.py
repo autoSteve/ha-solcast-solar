@@ -9,7 +9,10 @@ from freezegun.api import FrozenDateTimeFactory
 import pytest
 
 from homeassistant.components.recorder import Recorder
-from homeassistant.components.solcast_solar.const import DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS
+from homeassistant.components.solcast_solar.const import (
+    DOMAIN,
+    SERVICE_FORCE_UPDATE_FORECASTS,
+)
 from homeassistant.core import HomeAssistant
 
 from . import (
