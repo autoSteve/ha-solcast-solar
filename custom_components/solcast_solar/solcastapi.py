@@ -2975,14 +2975,14 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
                         for i, export in export_intervals.items():
                             export_interval = i.replace(minute=i.minute // 30 * 30)
-                            if export >= self.options.site_export_limit and generation_intervals.get(export_interval, 0) > 0:
+                            if export >= self.options.site_export_limit and generation_intervals[export_interval] > 0:
                                 export_limiting[export_interval] = True
                     else:
                         _LOGGER.debug("No site export history found for %s", entity)
 
             # Add recent generation intervals to the history.
             generation |= {
-                i: {PERIOD_START: i, GENERATION: generation, EXPORT_LIMITING: export_limiting.get(i, False)}
+                i: {PERIOD_START: i, GENERATION: generation, EXPORT_LIMITING: export_limiting[i]}
                 for i, generation in generation_intervals.items()
             }
 
@@ -3728,6 +3728,12 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         for _ in range(delay * 10):
             await asyncio.sleep(0.1)
 
+    def increment_failure_count(self):
+        """Increment all three failure counter."""
+        self._data[FAILURE][LAST_24H] += 1
+        self._data[FAILURE][LAST_7D][0] += 1
+        self._data[FAILURE][LAST_14D][0] += 1
+
     async def fetch_data(
         self,
         hours: int = 0,
@@ -3753,12 +3759,6 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         received_429: int = 0
 
         try:
-
-            def increment_failure_count():
-                self._data[FAILURE][LAST_24H] += 1
-                self._data[FAILURE][LAST_7D][0] += 1
-                self._data[FAILURE][LAST_14D][0] += 1
-
             if api_key is not None and site is not None:
                 # One site is fetched, and retries ensure that the site is actually fetched.
                 # Occasionally the Solcast API is busy, and returns a 429 status, which is a
@@ -3798,24 +3798,24 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                             except TimeoutError:
                                 _LOGGER.error("Connection error: Timed out connecting to server")
                                 status = 1000
-                                increment_failure_count()
+                                self.increment_failure_count()
                                 break
                             except ConnectionRefusedError as e:
                                 _LOGGER.error("Connection error, connection refused: %s", e)
                                 status = 1000
-                                increment_failure_count()
+                                self.increment_failure_count()
                                 break
                             except (ClientConnectionError, ClientResponseError) as e:
                                 _LOGGER.error("Client error: %s", e)
                                 status = 1000
-                                increment_failure_count()
+                                self.increment_failure_count()
                                 break
                             if status in (200, 400, 401, 403, 404, 500):  # Do not retry for these statuses.
                                 if status != 200:
-                                    increment_failure_count()
+                                    self.increment_failure_count()
                                 break
                             if status == 429:
-                                increment_failure_count()
+                                self.increment_failure_count()
                                 # Test for API limit exceeded.
                                 # {"response_status":{"error_code":"TooManyRequests","message":"You have exceeded your free daily limit.","errors":[]}}
                                 response_json = await response.json(content_type=None)
