@@ -509,7 +509,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 if gen[EXPORT_LIMITING]:
                     export_limited_intervals[self.solcast.adjusted_interval(gen)] = True
 
-        data_generation = copy.deepcopy(self.solcast.get_data_generation())
+        data_generation = copy.deepcopy(self.solcast.get_data_generation())  # Must be a copy as values are modified below
         generation_dampening: defaultdict[dt, dict[str, Any]] = defaultdict(dict[str, Any])
         generation_dampening_day: defaultdict[dt, float] = defaultdict(float)
         for record in data_generation.get(GENERATION, [])[
@@ -519,15 +519,14 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 continue
 
             interval = self.solcast.adjusted_interval_dt(record[PERIOD_START])
-            dst_offset = (
-                1
+            offset_interval = interval + (  # Explicitly ignored intervals are in local time
+                2
                 if self.solcast.dst(
                     dt.now(self.solcast.options.tz).replace(hour=interval // 2, minute=30 * (interval % 2), second=0, microsecond=0)
                 )
                 else 0
             )
-            offset_interval = interval + (2 * dst_offset)
-            if offset_interval in ignored_intervals or export_limited_intervals[offset_interval]:
+            if offset_interval in ignored_intervals or export_limited_intervals[interval]:
                 record[EXPORT_LIMITING] = True
                 continue
 
