@@ -2983,10 +2983,12 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         _LOGGER.debug("No site export history found for %s", entity)
 
             # Add recent generation intervals to the history.
-            generation |= {
-                i: {PERIOD_START: i, GENERATION: generation, EXPORT_LIMITING: export_limiting[i]}
-                for i, generation in generation_intervals.items()
-            }
+            generation.update(
+                {
+                    i: {PERIOD_START: i, GENERATION: generated, EXPORT_LIMITING: export_limiting[i]}
+                    for i, generated in generation_intervals.items()
+                }
+            )
 
         # Trim, sort and serialise.
         self._data_generation = {

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 import contextlib
+import copy
 from datetime import datetime as dt, timedelta
 from enum import Enum
 import logging
@@ -508,7 +509,7 @@ class SolcastUpdateCoordinator(DataUpdateCoordinator):
                 if gen[EXPORT_LIMITING]:
                     export_limited_intervals[self.solcast.adjusted_interval(gen)] = True
 
-        data_generation = self.solcast.get_data_generation()
+        data_generation = copy.deepcopy(self.solcast.get_data_generation())
         generation_dampening: defaultdict[dt, dict[str, Any]] = defaultdict(dict[str, Any])
         generation_dampening_day: defaultdict[dt, float] = defaultdict(float)
         for record in data_generation.get(GENERATION, [])[
