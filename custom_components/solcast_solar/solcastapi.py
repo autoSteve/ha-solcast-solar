@@ -3738,20 +3738,22 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._data[FAILURE][LAST_7D][0] += 1
         self._data[FAILURE][LAST_14D][0] += 1
 
-    async def async_get_automation_entity_id_by_friendly_name(self, name: str) -> str | None:
+    async def async_get_automation_entity_id_by_name(self, name: str) -> str | None:
         """Return the first automation entity_id whose friendly_name matches name."""
+        entity_id = None
         for state in self.hass.states.async_all("automation"):
             if state.attributes.get("friendly_name") == name:
-                return state.entity_id
-        return None
+                entity_id = state.entity_id
+        return entity_id
 
     async def async_trigger_automation_by_name(self, name: str) -> bool:
         """Trigger an automation by friendly name; returns True if found and triggered."""
-        entity_id = await self.async_get_automation_entity_id_by_friendly_name(name)
-        if not entity_id:
-            return False
-        await self.hass.services.async_call("automation", "trigger", {ATTR_ENTITY_ID: entity_id}, blocking=True)
-        return True
+        success = False
+        entity_id = await self.async_get_automation_entity_id_by_name(name)
+        if entity_id:
+            await self.hass.services.async_call("automation", "trigger", {ATTR_ENTITY_ID: entity_id}, blocking=True)
+            success = True
+        return success
 
     async def fetch_data(  # noqa: C901
         self,

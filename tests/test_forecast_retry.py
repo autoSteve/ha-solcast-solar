@@ -1,7 +1,9 @@
 """Test forecasts update retry mechanism."""
 
 from datetime import timedelta
+import json
 import logging
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
@@ -14,8 +16,11 @@ from homeassistant.components.solcast_solar.const import (
     SERVICE_FORCE_UPDATE_FORECASTS,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
 
 from . import (
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     DEFAULT_INPUT1,
     MOCK_BUSY,
     async_cleanup_integration_tests,
@@ -65,9 +70,44 @@ async def test_forecast_retry(
     try:
         freezer.move_to("2025-01-11 00:00:00")  # A pending update will be queued for 00:00:09 UTC
 
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+        Path(f"{config_dir}/solcast-advanced.json").write_text(
+            json.dumps(
+                {
+                    "trigger_on_api_unavailable": "Automation unavailable",
+                    "trigger_on_api_available": "Automation available",
+                }
+            ),
+            encoding="utf-8",
+        )
+
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
         coordinator = entry.runtime_data.coordinator
         solcast = coordinator.solcast
+
+        assert await async_setup_component(
+            hass,
+            "automation",
+            {
+                "automation": [
+                    {
+                        "id": "automation_available",
+                        "alias": "Automation available",
+                        "trigger": {"platform": "event", "event_type": "test_event"},
+                        "action": {"service": "persistent_notification.create"},
+                    },
+                    {
+                        "id": "automation_unavailable",
+                        "alias": "Automation unavailable",
+                        "trigger": {"platform": "event", "event_type": "test_event"},
+                        "action": {"service": "persistent_notification.create"},
+                    },
+                ]
+            },
+        )
+        await hass.async_block_till_done()
 
         session_set(MOCK_BUSY)
         caplog.clear()
