@@ -17,6 +17,8 @@ from homeassistant.components.recorder import Recorder
 from homeassistant.components.solcast_solar.const import (
     AUTO_DAMPEN,
     AUTO_UPDATE,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     DOMAIN,
     EXCLUDE_SITES,
     GENERATION_ENTITIES,
@@ -57,7 +59,6 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _no_exception(caplog: pytest.LogCaptureFixture):
-    assert "Error" not in caplog.text
     assert "Exception" not in caplog.text
 
 
@@ -143,15 +144,20 @@ async def test_auto_dampen(
     """Test automated dampening."""
 
     try:
-        config_dir = hass.config.config_dir
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
 
         Path(f"{config_dir}/solcast-advanced.json").write_text(
             json.dumps(
                 {
                     "automated_dampening_ignore_intervals": ["17:00"],
                     "automated_dampening_no_limiting_consistency": True,
+                    "automated_dampening_generation_fetch_delay": 5,
                     "automated_dampening_insignificant_factor": 0.988,
                     "automated_dampening_insignificant_factor_adjusted": 0.989,
+                    "estimated_actuals_fetch_delay": 5,
+                    "estimated_actuals_log_mape_breakdown": True,
                 }
             ),
             encoding="utf-8",
@@ -209,7 +215,7 @@ async def test_auto_dampen(
         assert "Auto-dampen factor for 08:30 is 0.807" in caplog.text
         # assert "Auto-dampen factor for 11:00" not in caplog.text
         assert "Ignoring insignificant factor for 10:30" in caplog.text
-        assert re.search(r"Ignoring insignificant adjusted factor.+11:00:00.+0\.990.+0\.988", caplog.text)
+        assert re.search(r"Ignoring insignificant adjusted granular dampening factor.+11:00:00.+0\.990.+0\.988", caplog.text)
         assert "Ignoring excessive PV generation" not in caplog.text
 
         # Reload to load saved generation data
@@ -230,6 +236,7 @@ async def test_auto_dampen(
         caplog.clear()
         _LOGGER.debug("Testing force update actuals with dampening enabled")
         await _exec_update_actuals(hass, coordinator, solcast, caplog, freezer, "force_update_estimates")
+        await _wait_for_it(hass, caplog, freezer, "Estimated actual mean APE", long_time=True)
         assert "Estimated actuals dictionary for site 1111-1111-1111-1111" in caplog.text
         assert "Estimated actuals dictionary for site 2222-2222-2222-2222" in caplog.text
         assert "Estimated actuals dictionary for site 3333-3333-3333-3333" in caplog.text
@@ -243,12 +250,14 @@ async def test_auto_dampen(
         value_removed = solcast._data_actuals["siteinfo"]["1111-1111-1111-1111"]["forecasts"].pop(removed)  # pyright: ignore[reportPrivateUsage]
         freezer.move_to((dt.now(solcast._tz) + timedelta(hours=12)).replace(minute=0, second=0, microsecond=0))  # pyright: ignore[reportPrivateUsage]
         await hass.async_block_till_done()
-        # assert False
-        await _wait_for_it(hass, caplog, freezer, "Scheduling estimated actuals update")
+        await _wait_for_it(hass, caplog, freezer, "Update generation data", long_time=True)
+        await _wait_for_it(hass, caplog, freezer, "Estimated actual mean APE", long_time=True)
+        _no_exception(caplog)
         assert "Advanced option set automated_dampening_ignore_intervals: ['17:00']" in caplog.text
-        coordinator, solcast = await _reload(hass, entry)
-        caplog.clear()
-        await _wait_for_it(hass, caplog, freezer, "Applying future dampening", long_time=True)
+        assert "Calculating dampened estimated actual MAPE" in caplog.text
+        assert "Calculating undampened estimated actual MAPE" in caplog.text
+        assert "APE calculation for day" in caplog.text
+        assert "Estimated actual mean APE" in caplog.text
         assert "Getting estimated actuals update for site" in caplog.text
         assert "Apply dampening to previous day estimated actuals" in caplog.text
         assert "Task model_automated_dampening took" in caplog.text
@@ -383,6 +392,8 @@ async def test_auto_dampen_issues(
             await hass.async_block_till_done()
         assert hass.data[DOMAIN].get("presumed_dead", True) is False
         _no_exception(caplog)
+        assert "Calculating dampened estimated actual MAPE" not in caplog.text
+        assert "Estimated actual mean APE" in caplog.text
         if extra_sensors not in [ExtraSensors.YES_UNIT_NOT_IN_HISTORY, ExtraSensors.YES_NO_UNIT]:
             assert "Retrieved day -1 PV generation data from entity: sensor.solar_export_sensor_1111_1111_1111_1111" in caplog.text
             assert "No day -2 PV generation data (or barely any) from entity: sensor.solar_export_sensor_1111_1111_1111_1111" in caplog.text

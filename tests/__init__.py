@@ -1,5 +1,6 @@
 """Tests setup for Solcast Solar integration."""
 
+import contextlib
 import copy
 from datetime import UTC, datetime as dt, timedelta
 from enum import Enum
@@ -26,6 +27,8 @@ from homeassistant.components.solcast_solar.const import (
     BRK_HOURLY,
     BRK_SITE,
     BRK_SITE_DETAILED,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     CONFIG_VERSION,
     CUSTOM_HOUR_SENSOR,
     DOMAIN,
@@ -182,6 +185,48 @@ class ExtraSensors(Enum):
 _LOGGER = logging.getLogger(__name__)
 
 simulated: SimulatedSolcast = SimulatedSolcast()
+
+
+def verify_data_schema(data: dict[str, Any]) -> None:
+    """Verify the schema of data sets."""
+
+    SCHEMA: dict[str, Any] = {
+        "siteinfo": {"type": dict},
+        "version": {"type": int},
+        "last_updated": {"type": dt},
+        "last_attempt": {"type": dt},
+        "auto_updated": {"type": int},
+        "failure": {"type": dict, "members": ["last_24h", "last_7d", "last_14d"]},
+    }
+
+    fail = False
+
+    for key, rules in SCHEMA.items():
+        if key not in data:
+            _LOGGER.error("Missing key in data: %s", key)
+            fail = True
+            continue
+        if not isinstance(data[key], rules["type"]):
+            _LOGGER.error("Incorrect type for key %s: expected %s, got %s", key, rules["type"], type(data[key]))
+            fail = True
+        if "members" in rules:
+            for member in rules["members"]:
+                if member not in data[key]:
+                    _LOGGER.error("Missing member %s in key %s", member, key)
+                    fail = True
+    for key, value in data.items():
+        if key not in SCHEMA:
+            _LOGGER.error("Unexpected key in schema: %s", key)
+            fail = True
+        if SCHEMA.get(key):
+            if "members" in SCHEMA[key]:
+                for member in value:
+                    if member not in SCHEMA[key]["members"]:
+                        _LOGGER.error("Unexpected member %s in key %s", member, key)
+                        fail = True
+
+    if fail:
+        raise AssertionError("Schema verification failed")
 
 
 def _check_abend(api_key: str, site: str | None = None) -> CallbackResult | None:
@@ -607,7 +652,7 @@ async def async_init_integration(
 async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
-    config_dir = hass.config.config_dir
+    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
 
     def list_files() -> list[str]:
         return [str(cache) for cache in Path(config_dir).glob("solcast*.json")]
@@ -630,12 +675,14 @@ async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -
 async def async_cleanup_integration_tests(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
-    config_dir = hass.config.config_dir
+    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
 
     def list_files() -> list[str]:
         return [str(cache) for cache in Path(config_dir).glob("solcast*.json")]
 
     try:
+        leave_dir = False
+
         for s in mock_session_default:  # Reset mock session settings
             if s != "aioresponses":
                 MOCK_SESSION_CONFIG[s] = copy.deepcopy(mock_session_default[s])
@@ -644,11 +691,16 @@ async def async_cleanup_integration_tests(hass: HomeAssistant, **kwargs: Any) ->
         caches = await hass.async_add_executor_job(list_files)
         for cache in caches:
             if not kwargs.get("solcast_dampening", True) and "solcast-dampening" in cache:
+                leave_dir = True
                 continue
             if not kwargs.get("solcast_sites", True) and "solcast-sites" in cache:
+                leave_dir = True
                 continue
             _LOGGER.debug("Removing cache file: %s", cache)
             Path(cache).unlink()
+        if not leave_dir and CONFIG_FOLDER_DISCRETE:
+            with contextlib.suppress(OSError):
+                Path(config_dir).rmdir()
     except Exception as e:  # noqa: BLE001
         _LOGGER.error("Error cleaning up Solcast Solar caches: %s", e)
         return False

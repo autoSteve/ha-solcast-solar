@@ -9,7 +9,11 @@ from freezegun.api import FrozenDateTimeFactory
 import pytest
 
 from homeassistant.components.recorder import Recorder
-from homeassistant.components.solcast_solar.const import FORECAST_DAYS
+from homeassistant.components.solcast_solar.const import (
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
+    DEFAULT_FORECAST_DAYS,
+)
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
 from homeassistant.core import HomeAssistant
 
@@ -38,10 +42,14 @@ async def test_midnight(
     """Test midnight updates."""
 
     try:
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+
         # Test midnight UTC usage reset.
         freezer.move_to("2025-01-10 23:59:59")
 
-        Path(f"{hass.config.config_dir}/solcast-advanced.json").write_text(json.dumps({"entity_logging": True}), encoding="utf-8")
+        Path(f"{config_dir}/solcast-advanced.json").write_text(json.dumps({"entity_logging": True}), encoding="utf-8")
 
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
         coordinator: SolcastUpdateCoordinator = entry.runtime_data.coordinator
@@ -125,7 +133,7 @@ async def test_timezone_transition(
             in caplog.text
         )
         assert (
-            f"Forecast data from {scenario['start_date']} to {scenario['start_date'][:-2]}{int(scenario['start_date'][-2:]) - 2 + FORECAST_DAYS:02d} contains all intervals"
+            f"Forecast data from {scenario['start_date']} to {scenario['start_date'][:-2]}{int(scenario['start_date'][-2:]) - 2 + DEFAULT_FORECAST_DAYS:02d} contains all intervals"
             in caplog.text
         )
 
@@ -146,7 +154,7 @@ async def test_timezone_transition(
             in caplog.text
         )
         assert (
-            f"Forecast data from {scenario['end_date']} to {scenario['end_date'][:-2]}{int(scenario['end_date'][-2:]) - 1 + FORECAST_DAYS - 1:02d} contains all intervals"
+            f"Forecast data from {scenario['end_date']} to {scenario['end_date'][:-2]}{int(scenario['end_date'][-2:]) - 1 + DEFAULT_FORECAST_DAYS - 1:02d} contains all intervals"
             in caplog.text
         )
 
