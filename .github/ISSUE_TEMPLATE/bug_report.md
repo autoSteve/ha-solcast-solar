@@ -1,22 +1,32 @@
 ---
 name: Bug report
-about: Create a report when you think you've found a bug in the Solcast integration
+about: Create an issue  when you think you've found a bug in the Solcast integration
 title: ''
 labels: ''
 assignees: ''
 
 ---
-## Help us help you.
+### Help us help you.
 
-#### This bug report requests debug logs.  If you don't provide them don't expect any help, unless you are an expert developer and know why they're not required.  And, if you're an expert developer, know that they're not required, and you're wrong, don't expect any help.
+#### Do not create issues for questions on how to use or set up this integration.
+
+Use the discussions for general support.  Only create issues to report geniune suspected bugs in the integration.
+
+#### This issue template requests debug logs.  Please provide them.
+
+Please don't provide just screenshots of logs (they're hard to read), or say "_logs look clean_" or assume they're not needed.  This integration works extremely well except when it fails, and when it fails, unless debug logs are provided - as ` ```back-ticked text``` `, or attachments - our chances of working out why it has failed are close to zero.
 
 Note the instructions for getting debug logs, and follow them.
 
+If you fail  to provide debug logs, you're providing us with permission to ignore you, or, at best, for us to say **_debug logs required_**, and then ignore you until you provide debug logs.
+
+By being lazy and not bothering to fill in **all** of the data requested for an issue (such as the version of the integration you're running, or the type of home assistant installation you're running), you're encouraging us to be lazy and not bother responding.
+
 #### Fill in **all** of the data requested.
 
-By failing to provide debug logs, you're providing us with permission to ignore you, or, at best, say debug logs required, and then ignore you.  By being lazy and not bothering to fill in data, you're encouraging us to be lazy and not bother responding.
+Feel free to delete everything above this line.
 
-
+---
 
 ## Describe the bug
 

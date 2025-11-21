@@ -18,6 +18,15 @@ It is a mature integration with an active community, and responsive developers.
 
 This integration is not created by, maintained, endorsed nor approved by Solcast.
 
+> [!TIP]
+> #### Support Instructions
+> Please check the [FAQ](https://github.com/BJReplay/ha-solcast-solar/blob/main/FAQ.md) for common problems and solutions, review any pinned and active [discussions](https://github.com/BJReplay/ha-solcast-solar/discussions), and review any open [issues](https://github.com/BJReplay/ha-solcast-solar/issues) before creating a new issue or discussion.
+>
+> Always consider whether you should raise an issue for a bug in the integration or if you need help setting things up or configuring your integration.
+> If you require support, please check if there is an existing discussion that has an answer for your question, or ask a question in the disscussion section.
+>
+> If you believe you have found an issue that is a bug, please make sure you follow the instructions in the issue template when raising your issue.
+
 [<img src="https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/solar_production.png">](https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/solar_production.png)
 
 > [!NOTE]
@@ -195,7 +204,7 @@ Beta versions may be available that fix issues.
 
 Check https://github.com/BJReplay/ha-solcast-solar/releases to see if an issue has already been resolved. If so, enable the `Solcast PV Pre-release` entity to enable beta upgrade (or for HACS v1 turn on `Show beta versions` when re-downloading).
 
-Your feedback from testing betas is most welcome in the repository discussions at https://github.com/BJReplay/ha-solcast-solar/discussions, where a discussion will exist for any active beta.
+Your feedback from testing betas is most welcome in the repository [discussions](https://github.com/BJReplay/ha-solcast-solar/discussions), where a discussion will exist for any active beta.
 
 ## Configuration
 
