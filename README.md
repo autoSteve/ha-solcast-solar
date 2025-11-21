@@ -22,6 +22,8 @@ This integration is not created by, maintained, endorsed nor approved by Solcast
 > #### Support Instructions
 > Please check the [FAQ](https://github.com/BJReplay/ha-solcast-solar/blob/main/FAQ.md) for common problems and solutions, review any pinned and active [discussions](https://github.com/BJReplay/ha-solcast-solar/discussions), and review any open [issues](https://github.com/BJReplay/ha-solcast-solar/issues) before creating a new issue or discussion.
 >
+> Do not post "me too" comments on existing issues (but feel free to thumbs up or subscribe to notifications on issues where you have the same issue) or assume that if you have a similar error, that it is the same - unless the error is identical, it is probably not the same error.
+> 
 > Always consider whether you should raise an issue for a bug in the integration or if you need help setting things up or configuring your integration.
 > If you require support, please check if there is an existing discussion that has an answer for your question, or ask a question in the disscussion section.
 >
