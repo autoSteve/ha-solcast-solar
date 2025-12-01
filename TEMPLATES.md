@@ -249,6 +249,10 @@ Add the following **additional** YAML code to your Apex chart:
           });
 ```
 
+> [!NOTE]
+>
+> You *must* add the above YAML for the undampened line *before* all the 'header_only' entities in the Apex chart code.  If you add the YAML at the end of the chart code then due to a bug in the Apex charts, the y-axis scale will change, and the chart won't be correctly scaled to the maximum forecast or generated power.
+
 This adds the undamped forecast as a blue dashed line:
 
 [<img src="https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/undampened_forecast_today.jpeg">](https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/undampened_forecast_today.jpeg)
