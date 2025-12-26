@@ -966,7 +966,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     for site in response_json.get(SITES, []):
                         site[API_KEY] = api_key
                         site[DISMISSAL] = self._dismissal.get(site[RESOURCE_ID], False)
-                    if response_json[TOTAL_RECORDS] > 0:
+                    if response_json.get(TOTAL_RECORDS, 0) > 0:
                         set_sites(response_json, api_key)
                         _ = check_rekey(response_json, api_key)
                         await save_cache(cache_filename, response_json)
@@ -974,8 +974,11 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                         self.sites_status = SitesStatus.OK
                     else:
                         _LOGGER.error(
-                            "No sites for the API key %s are configured at solcast.com",
+                            "No sites for the API key %s are configured at solcast.com%s",
                             redact_api_key(api_key),
+                            f" (did not find total records in response: {redact_msg_api_key(str(response_json), api_key)})"
+                            if response_json.get(TOTAL_RECORDS) is None
+                            else "",
                         )
                         cache_exists = False  # Prevent cache load if no sites
                         self.sites_status = SitesStatus.NO_SITES
