@@ -303,7 +303,12 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self.tasks: dict[str, Any] = {}
         self.usage_status: UsageStatus = UsageStatus.UNKNOWN
 
-        file_path = Path(options.file_path)
+        self._config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        (Path(self._config_dir).mkdir(parents=False, exist_ok=True)) if CONFIG_FOLDER_DISCRETE else None
+        _LOGGER.debug("Configuration directory is %s", self._config_dir)
+        self.migrate_config_files()
+
+        file_path = Path(self._config_dir) / Path(options.file_path).name
         self.set_default_advanced_options()
 
         self._aiohttp_session = aiohttp_session
@@ -328,7 +333,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._dismissal: dict[str, bool] = {}
         self._extant_sites: defaultdict[str, list[dict[str, Any]]] = defaultdict(list[dict[str, Any]])
         self._extant_usage: defaultdict[str, dict[str, Any]] = defaultdict(dict[str, Any])
-        self._filename = options.file_path
+        self._filename = f"{file_path}"
         self._filename_actuals = f"{file_path.parent / file_path.stem}-actuals{file_path.suffix}"
         self._filename_actuals_dampened = f"{file_path.parent / file_path.stem}-actuals-dampened{file_path.suffix}"
         self._filename_advanced = f"{file_path.parent / file_path.stem}-advanced{file_path.suffix}"
@@ -354,11 +359,6 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self._tally: dict[str, float | None] = {}
         self._tz = options.tz
         self._use_forecast_confidence = f"pv_{options.key_estimate}"
-
-        self._config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
-        (Path(self._config_dir).mkdir(parents=False, exist_ok=True)) if CONFIG_FOLDER_DISCRETE else None
-        _LOGGER.debug("Configuration directory is %s", self._config_dir)
-        self.migrate_config_files()
 
     def migrate_config_files(self) -> None:
         """Migrate config files to discrete folder if required."""
