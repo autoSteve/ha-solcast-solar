@@ -53,12 +53,12 @@ from homeassistant.components.solcast_solar.const import (
     USE_ACTUALS,
     VALUE_ADAPTIVE_DAMPENING_NO_DELTA,
 )
-from homeassistant.components.solcast_solar.solcastapi import SolcastApi
-from homeassistant.components.solcast_solar.util import (
+from homeassistant.components.solcast_solar.dates import (
     DateTimeEncoder,
     JSONDecoder,
     NoIndentEncoder,
 )
+from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 

@@ -1,6 +1,5 @@
 """Solcast adaptive dampening model evaluation and history management."""
 
-
 import asyncio
 from collections import defaultdict
 from datetime import datetime as dt, timedelta
@@ -46,7 +45,8 @@ from .const import (
     VALUE_ADAPTIVE_DAMPENING_CONFIG_UNCHANGED,
     VALUE_ADAPTIVE_DAMPENING_NO_DELTA,
 )
-from .util import NoIndentEncoder, ordinal
+from .dates import NoIndentEncoder
+from .util import ordinal
 
 if TYPE_CHECKING:
     from .dampen import Dampening
@@ -1002,4 +1002,4 @@ class DampeningAdaptive:
 
 
 # Local import alias to avoid circular import at module level
-from .util import JSONDecoder as _JSONDecoder  # noqa: E402
+from .dates import JSONDecoder as _JSONDecoder  # noqa: E402

@@ -2,6 +2,7 @@
 
 from collections.abc import Awaitable, Callable
 import contextlib
+from dataclasses import dataclass
 from datetime import datetime as dt, timedelta
 import json
 import logging
@@ -78,16 +79,10 @@ from .const import (
     VERSION,
 )
 from .coordinator import SolcastUpdateCoordinator
+from .crash_state import raise_and_record
+from .enums import AutoUpdate, HistoryType, SitesStatus, UsageStatus
+from .issues import sync_actuals_api_limit_issue
 from .solcastapi import ConnectionOptions, SolcastApi
-from .util import (
-    AutoUpdate,
-    HistoryType,
-    SitesStatus,
-    SolcastData,
-    UsageStatus,
-    raise_and_record,
-    sync_actuals_api_limit_issue,
-)
 
 DAMPENING_ADAPTATIONS_DEVELOPMENT: Final = False  # For development, to force re-modelling of dampening adaptations at startup
 ENTRY_OPTIONS_DEVELOPMENT: Final = False  # For development, to force a re-upgrade of options at startup
@@ -98,6 +93,14 @@ PLATFORMS: Final = [
 ]
 
 _LOGGER = logging.getLogger(__name__)
+
+
+@dataclass
+class _SolcastData:
+    """Runtime data definition."""
+
+    coordinator: SolcastUpdateCoordinator
+
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -377,7 +380,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await solcast.fetcher.build_forecast_and_actuals(raise_exc=True)
 
     coordinator = SolcastUpdateCoordinator(hass, entry, solcast, version)
-    entry.runtime_data = SolcastData(coordinator=coordinator)
+    entry.runtime_data = _SolcastData(coordinator=coordinator)
     await coordinator.setup()
     await coordinator.async_config_entry_first_refresh()
 

@@ -33,7 +33,7 @@ from homeassistant.components.solcast_solar.const import (
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
 from homeassistant.components.solcast_solar.dampen import Dampening
-from homeassistant.components.solcast_solar.util import DateTimeHelper
+from homeassistant.components.solcast_solar.dates import DateTimeHelper
 
 
 @pytest.fixture(autouse=True)

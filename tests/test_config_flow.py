@@ -110,8 +110,8 @@ from homeassistant.components.solcast_solar.const import (
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
+from homeassistant.components.solcast_solar.enums import HistoryType
 from homeassistant.components.solcast_solar.solcastapi import SitesStatus, SolcastApi
-from homeassistant.components.solcast_solar.util import HistoryType
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant

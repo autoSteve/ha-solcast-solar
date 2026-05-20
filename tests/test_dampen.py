@@ -63,11 +63,13 @@ from homeassistant.components.solcast_solar.const import (
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.dampen import Dampening
-from homeassistant.components.solcast_solar.util import (
+from homeassistant.components.solcast_solar.dates import (
     DateTimeEncoder,
     DateTimeHelper,
     JSONDecoder,
-    SolcastApiStatus,
+)
+from homeassistant.components.solcast_solar.enums import SolcastApiStatus
+from homeassistant.components.solcast_solar.util import (
     compute_energy_intervals,
     compute_power_intervals,
 )

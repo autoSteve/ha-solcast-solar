@@ -20,7 +20,7 @@ from homeassistant.components.solcast_solar.const import (
     SITE_INFO,
     VERSION,
 )
-from homeassistant.components.solcast_solar.util import (
+from homeassistant.components.solcast_solar.migration import (
     SchemaIncompatibleError,
     upgrade_cache_schema,
 )

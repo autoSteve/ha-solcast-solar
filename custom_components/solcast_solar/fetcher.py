@@ -3,6 +3,7 @@
 import asyncio
 import copy
 from datetime import UTC, datetime as dt, timedelta
+from enum import Enum
 from hashlib import md5
 import json
 import logging
@@ -66,25 +67,28 @@ from .const import (
     UPDATE_BACKOFF,
     UPDATE_TRIES,
 )
+from .crash_state import raise_and_record
+from .enums import AutoUpdate, SolcastApiStatus, UpdateOutcome, UpdateResult
+from .redact import redact_api_key, redact_msg_api_key
 from .util import (
-    AutoUpdate,
-    DataCallStatus,
-    SolcastApiStatus,
-    UpdateOutcome,
-    UpdateResult,
     async_trigger_automation_by_name,
     forecast_entry_update,
     get_solcast_base_url,
     http_status_translate,
-    raise_and_record,
-    redact_api_key,
-    redact_msg_api_key,
 )
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class _DataCallStatus(Enum):
+    """The result of a data call."""
+
+    SUCCESS = 0
+    FAIL = 1
+    ABORT = 2
 
 
 class Fetcher:
@@ -145,7 +149,7 @@ class Fetcher:
     async def update_estimated_actuals(self, dampen_yesterday: bool = False) -> None:
         """Update estimated actuals."""
 
-        status: DataCallStatus = DataCallStatus.SUCCESS
+        status: _DataCallStatus = _DataCallStatus.SUCCESS
         reason: str = ""
         recovered_periods_by_site: dict[str, set[float]] = {}
         yesterday_start = self.api.dt_helper.day_start_utc(future=-1)
@@ -177,7 +181,7 @@ class Fetcher:
             if not isinstance(act_response, dict):
                 _LOGGER.error("No valid data was returned for estimated_actuals so this may cause issues")
                 _LOGGER.debug("API did not return a json object, returned `%s`", act_response)
-                status = DataCallStatus.FAIL
+                status = _DataCallStatus.FAIL
                 reason = "No valid json returned"
                 break
 
@@ -224,13 +228,13 @@ class Fetcher:
             _LOGGER.debug("Estimated actuals dictionary for site %s length %s", site[RESOURCE_ID], len(actuals))
             self.increment_success_count(force=False, api_key=api_key, actuals=True)
 
-        if status == DataCallStatus.SUCCESS and dampen_yesterday:
+        if status == _DataCallStatus.SUCCESS and dampen_yesterday:
             # Backfill recovered historical actuals with the latest dampening factors if needed, then
             # apply normal yesterday dampening.
             await self.api.dampening.apply_recovered_history(recovered_periods_by_site)
             await self.api.dampening.apply_yesterday()
 
-        if status != DataCallStatus.SUCCESS:
+        if status != _DataCallStatus.SUCCESS:
             self._log_failure("Update estimated actuals failed: %s", reason)
         else:
             now = dt.now(UTC).replace(microsecond=0)
@@ -292,7 +296,7 @@ class Fetcher:
                 do_past_hours=do_past_hours,
                 force=force,
             )
-            if result == DataCallStatus.FAIL:
+            if result == _DataCallStatus.FAIL:
                 failure = True
                 (_LOGGER.warning if len(self.api.sites) > 1 and sites_succeeded and not force else _LOGGER.debug)(
                     "Forecast update for site %s failed%s%s",
@@ -302,10 +306,10 @@ class Fetcher:
                 )
                 status = "At least one site forecast get failed" if len(self.api.sites) > 1 else "Forecast get failed"
                 break
-            if result == DataCallStatus.ABORT:
+            if result == _DataCallStatus.ABORT:
                 _LOGGER.info("Forecast update aborted%s", next_update())
                 return UpdateResult(UpdateOutcome.ABORTED, "Forecast update aborted")
-            if result == DataCallStatus.SUCCESS:
+            if result == _DataCallStatus.SUCCESS:
                 sites_succeeded += 1
                 self.increment_success_count(force, site[API_KEY])
                 if force:
@@ -376,7 +380,7 @@ class Fetcher:
         api_key: str | None = None,
         do_past_hours: int = 0,
         force: bool = False,
-    ) -> tuple[DataCallStatus, str]:
+    ) -> tuple[_DataCallStatus, str]:
         """Request forecast data via the Solcast API.
 
         Arguments:
@@ -386,7 +390,7 @@ class Fetcher:
             force (bool): A forced update, which does not update the internal API use counter.
 
         Returns:
-            tuple[DataCallStatus, str]: A flag indicating success, failure or abort, and a reason for failure.
+            tuple[_DataCallStatus, str]: A flag indicating success, failure or abort, and a reason for failure.
         """
         failure = False
 
@@ -427,7 +431,7 @@ class Fetcher:
                         "No valid data was returned for estimated_actuals so this will cause issues (API limit may be exhausted, or Solcast might have a problem)"
                     )
                     _LOGGER.debug("API did not return a json object, returned `%s`", act_response)
-                    return DataCallStatus.FAIL, "No valid json returned"
+                    return _DataCallStatus.FAIL, "No valid json returned"
 
                 estimate_actuals: list[dict[str, Any]] = act_response.get(ESTIMATED_ACTUALS, [])
 
@@ -467,7 +471,7 @@ class Fetcher:
             response: dict[str, Any] | None = None
             if self.api.tasks.get(TASK_FORECASTS_FETCH) is not None:
                 _LOGGER.warning("A fetch task is already running, so aborting forecast update")
-                return DataCallStatus.ABORT, "Fetch already running"
+                return _DataCallStatus.ABORT, "Fetch already running"
             try:
                 self.api.tasks[TASK_FORECASTS_FETCH] = asyncio.create_task(
                     self.fetch_data(
@@ -488,8 +492,8 @@ class Fetcher:
                 failure = True
                 _LOGGER.debug("API did not return a json object. Returned %s", response)
                 if isinstance(response, str) and response:
-                    return DataCallStatus.FAIL, response
-                return DataCallStatus.FAIL, "No valid json returned"
+                    return _DataCallStatus.FAIL, response
+                return _DataCallStatus.FAIL, "No valid json returned"
 
             latest_forecasts = response.get(FORECASTS, [])
 
@@ -553,7 +557,7 @@ class Fetcher:
                     learn_more_url=LEARN_MORE_MISSING_FORECAST_DATA,
                 )
 
-        return DataCallStatus.SUCCESS, ""
+        return _DataCallStatus.SUCCESS, ""
 
     async def _sleep(self, delay: int):
         """Sleep for a specified number of seconds."""

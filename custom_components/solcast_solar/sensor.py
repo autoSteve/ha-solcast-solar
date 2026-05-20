@@ -1,6 +1,5 @@
 """Solcast sensor platform."""
 
-
 from datetime import datetime as dt
 from enum import Enum
 import logging
@@ -66,11 +65,17 @@ from .const import (
 )
 from .coordinator import SolcastUpdateCoordinator
 from .entity import build_service_device_info
-from .util import api_key_last_six, format_site_key, redact_api_key
+from .redact import format_site_key, redact_api_key
 
 _LOGGER = logging.getLogger(__name__)
 
 PARALLEL_UPDATES = 0
+
+
+def _api_key_last_six(api_key: str) -> str:
+    """Return last six characters of API key."""
+    return api_key[-6:]
+
 
 NAMES: Final[dict[str, str]] = {
     ENTITY_API_COUNTER: "API Used",
@@ -377,7 +382,7 @@ async def async_setup_entry(
         for api_key in coordinator.solcast.options.api_key.split(","):
             k = {
                 DESCRIPTION: SensorEntityDescription(
-                    key="hard_limit_" + api_key_last_six(api_key),
+                    key="hard_limit_" + _api_key_last_six(api_key),
                     translation_key=HARD_LIMIT_API,
                     translation_placeholders={
                         CONF_API_KEY: redact_api_key(api_key),
@@ -387,7 +392,7 @@ async def async_setup_entry(
             }
             sen = SolcastSensor(coordinator, entry, k)
             entities.append(sen)
-        expecting_limits = [f"hard_limit_{api_key_last_six(api_key)}" for api_key in coordinator.solcast.options.api_key.split(",")]
+        expecting_limits = [f"hard_limit_{_api_key_last_six(api_key)}" for api_key in coordinator.solcast.options.api_key.split(",")]
 
     # Clean up.
     entity_registry = er.async_get(hass)

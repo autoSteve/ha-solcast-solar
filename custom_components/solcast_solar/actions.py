@@ -118,16 +118,15 @@ from .const import (
     USE_ACTUALS,
 )
 from .coordinator import SolcastUpdateCoordinator
+from .enums import AutoUpdate, UsageStatus
+from .migration import sync_legacy_keys
 from .solcastapi import SolcastApi
 from .updater import Updater
 from .util import (
-    AutoUpdate,
-    UsageStatus,
     async_is_allow_exceed_api_limit,
     azimuth_to_compass_degrees,
     azimuth_to_compass_direction,
     split_and_strip,
-    sync_legacy_keys,
 )
 from .validators import (
     validate_api_key_value,

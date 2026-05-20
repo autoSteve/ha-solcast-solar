@@ -79,13 +79,10 @@ from .const import (
     UNKNOWN,
     USE_ACTUALS,
 )
+from .enums import HistoryType, SitesStatus
+from .migration import sync_legacy_keys
 from .solcastapi import ConnectionOptions, SolcastApi
-from .util import (
-    HistoryType,
-    SitesStatus,
-    async_is_allow_exceed_api_limit,
-    sync_legacy_keys,
-)
+from .util import async_is_allow_exceed_api_limit
 from .validators import (
     validate_api_key,
     validate_api_limit,

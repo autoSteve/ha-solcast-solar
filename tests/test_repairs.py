@@ -37,11 +37,9 @@ from homeassistant.components.solcast_solar.const import (
     SITE_INFO,
     SITES,
 )
+from homeassistant.components.solcast_solar.issues import check_unusual_azimuth
+from homeassistant.components.solcast_solar.redact import redact_lat_lon_simple
 from homeassistant.components.solcast_solar.repairs import async_create_fix_flow
-from homeassistant.components.solcast_solar.util import (
-    check_unusual_azimuth,
-    redact_lat_lon_simple,
-)
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import issue_registry as ir

@@ -72,9 +72,9 @@ from .const import (
     UNDAMPENED_PERCENTILES,
     VALUE,
 )
+from .enums import AutoUpdate
 from .solcastapi import SolcastApi
 from .updater import Updater
-from .util import AutoUpdate
 from .watch import FileWatcher
 
 _LOGGER = logging.getLogger(__name__)

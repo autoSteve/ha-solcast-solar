@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime as dt
 from typing import Any, TypedDict
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import (
     ConfigEntryAuthFailed,
@@ -117,3 +118,23 @@ async def async_get(hass: HomeAssistant, entry_id: str) -> CrashStateStore:
         await store.async_load()
         _STORES[entry_id] = store
     return store
+
+
+async def raise_and_record(
+    hass: HomeAssistant,
+    entry: ConfigEntry | None,
+    exception: type[IntegrationError],
+    translation_key: str,
+    translation_placeholders: dict | None = None,
+) -> None:
+    """Record the exception details on the crash-state store and raise.
+
+    When entry is None (only possible in tests) the crash is still raised but no state is persisted.
+    """
+    if entry is not None:
+        store = await async_get(hass, entry.entry_id)
+        store.state.exception_class = exception
+        store.state.translation_key = translation_key
+        store.state.translation_placeholders = translation_placeholders
+        await store.async_save()
+    raise exception(translation_domain=DOMAIN, translation_key=translation_key, translation_placeholders=translation_placeholders)

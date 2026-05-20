@@ -1,6 +1,5 @@
 """Solcast automated dampening."""
 
-
 import asyncio
 from collections import OrderedDict, defaultdict
 import copy
@@ -75,14 +74,14 @@ from .const import (
     VERSION,
 )
 from .dampen_adapt import DampeningAdaptive
+from .dates import JSONDecoder, NoIndentEncoder
+from .enums import EnergyResult
+from .redact import format_site_key
 from .util import (
-    JSONDecoder,
-    NoIndentEncoder,
     compute_energy_intervals,
     compute_power_intervals,
     diff,
     forecast_entry_update,
-    format_site_key,
     percentile,
 )
 
@@ -677,7 +676,7 @@ class Dampening:
                     sample_generation[0] = 0.0
                     sample_timedelta[0] = 0
 
-                result = compute_energy_intervals(
+                result: EnergyResult = compute_energy_intervals(
                     sample_time,
                     sample_generation,
                     sample_generation_time,

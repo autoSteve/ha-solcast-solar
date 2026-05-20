@@ -37,13 +37,9 @@ from .const import (
     SITE_ATTRIBUTE_TILT,
     SITE_INFO,
 )
-from .util import (
-    HistoryType,
-    azimuth_to_compass_degrees,
-    azimuth_to_compass_direction,
-    cubic_interp,
-    format_site_key,
-)
+from .enums import HistoryType
+from .redact import format_site_key
+from .util import azimuth_to_compass_degrees, azimuth_to_compass_direction, diff
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
@@ -547,6 +543,71 @@ class ForecastQuery:
             end_index = 0
         return start_index, end_index
 
+    @staticmethod
+    def _cubic_interp(x0: list[Any], x: list[Any], y: list[Any]) -> list[Any]:
+        """Interpolate y(x) at points x0 using a natural cubic spline.
+
+        Solves the symmetric tri-diag system for the second-derivatives at each knot
+        via a decomposition, then evaluates the resulting cubic at each query point.
+
+        TL>DR: Does much math to give much smooth for interpolation.
+
+        Arguments:
+            x0 (list): Query points to interpolate at.
+            x (list): Knot positions in strictly increasing order.
+            y (list): Knot values, same length as x.
+
+        Returns:
+            list: Interpolated y(x0) values, rounded to 4 decimal places.
+
+        """
+
+        n_knots: int = len(x)
+        widths: list[Any] = diff(x, non_negative=False)  # widths[i] = x[i+1] - x[i]
+        dy: list[Any] = diff(y, non_negative=False)
+
+        # Factors of the spline's tri-diagonal system, and the second-derivative at each knot.
+        chol_diag: list[Any] = [0] * n_knots
+        chol_sub: list[Any] = [0] * (n_knots - 1)
+        moments: list[Any] = [0] * n_knots
+
+        chol_diag[0] = math.sqrt(2 * widths[0])
+        chol_sub[0] = 0.0
+        moments[0] = 0.0
+
+        # Forward sweep: factorise and forward-substitute.
+        for i in range(1, n_knots - 1):
+            chol_sub[i] = widths[i - 1] / chol_diag[i - 1]
+            chol_diag[i] = math.sqrt(2 * (widths[i - 1] + widths[i]) - chol_sub[i - 1] ** 2)
+            rhs = 6 * (dy[i] / widths[i] - dy[i - 1] / widths[i - 1])
+            moments[i] = (rhs - chol_sub[i - 1] * moments[i - 1]) / chol_diag[i]
+
+        last = n_knots - 1
+        chol_sub[last - 1] = widths[-1] / chol_diag[last - 1]
+        chol_diag[last] = math.sqrt(2 * widths[-1] - chol_sub[last - 1] ** 2)
+        moments[last] = -chol_sub[last - 1] * moments[last - 1] / chol_diag[last]
+
+        # Back-sub to recover the moments.
+        moments[-1] /= chol_diag[-1]
+        for i in range(n_knots - 2, -1, -1):
+            moments[i] = (moments[i] - chol_sub[i] * moments[i + 1]) / chol_diag[i]
+
+        # Evaluate the cubic on segment [x[i-1], x[i]] at each query point.
+        return [
+            round(
+                moments[i - 1] / (6 * (h := x[i] - x[i - 1])) * (x[i] - x_) ** 3
+                + moments[i] / (6 * h) * (x_ - x[i - 1]) ** 3
+                + (y[i] / h - moments[i] * h / 6) * (x_ - x[i - 1])
+                + (y[i - 1] / h - moments[i - 1] * h / 6) * (x[i] - x_),
+                4,
+            )
+            for i, x_ in zip(
+                [max(1, min(next((j for j, val in enumerate(x) if item <= val), n_knots), n_knots - 1)) for item in x0],
+                x0,
+                strict=True,
+            )
+        ]
+
     def _get_spline(
         self,
         spline: dict[str, list[float]],
@@ -573,7 +634,7 @@ class ForecastQuery:
                 if reducing:
                     # Build a decreasing set of forecasted values instead.
                     y = [0.5 * sum(y[index:]) for index in range(spline_period_length)]
-                spline[forecast_confidence] = cubic_interp(xx, self._spline_period[-spline_period_length:], y)
+                spline[forecast_confidence] = self._cubic_interp(xx, self._spline_period[-spline_period_length:], y)
                 spline[forecast_confidence] = [0] * (len(self._spline_period) - len(xx)) + spline[forecast_confidence]
                 self._sanitise_spline(spline, forecast_confidence, xx, y, reducing=reducing)
                 continue

@@ -18,7 +18,7 @@ from homeassistant.components.solcast_solar.const import (
     LAST_UPDATED,
     SERVICE_FORCE_UPDATE_FORECASTS,
 )
-from homeassistant.components.solcast_solar.util import UpdateOutcome, UpdateResult
+from homeassistant.components.solcast_solar.enums import UpdateOutcome, UpdateResult
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 

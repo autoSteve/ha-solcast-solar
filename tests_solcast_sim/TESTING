@@ -1,1 +1,1 @@
-pytest --cov-config=.coveragerc --cov --cov-report term-missing
+pytest -n 10 --cov-config=.coveragerc --cov --cov-report term-missing

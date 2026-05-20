@@ -1,6 +1,5 @@
 """Solcast advanced options."""
 
-
 import asyncio
 import contextlib
 import copy
@@ -40,11 +39,8 @@ from .const import (
     REQUIRED_KEYS,
     STOPS_WORKING,
 )
-from .util import (
-    clear_cache,
-    raise_or_clear_advanced_deprecated,
-    raise_or_clear_advanced_problems,
-)
+from .issues import raise_or_clear_advanced_deprecated, raise_or_clear_advanced_problems
+from .migration import clear_cache
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
