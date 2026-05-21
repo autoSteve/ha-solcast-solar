@@ -73,6 +73,7 @@ from homeassistant.components.solcast_solar.dates import (
     JSONDecoder,
 )
 from homeassistant.components.solcast_solar.enums import SolcastApiStatus
+from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
@@ -460,6 +461,7 @@ async def test_apply_recovered_history_backfills_missing_actuals(caplog: pytest.
         },
         data_actuals_dampened={SITE_INFO: {site_id: {FORECASTS: []}}},
         advanced_options={ADVANCED_HISTORY_MAX_DAYS: 30},
+        forecast_entry_update=SolcastApi.forecast_entry_update,
         fetcher=SimpleNamespace(sort_and_prune=sort_and_prune),
     )
     dampening.get_factor = lambda _site, _period_start, _interval_pv50: 0.6 if _interval_pv50 == 1.0 else 0.8  # pyright: ignore[reportAttributeAccessIssue]
@@ -501,6 +503,7 @@ async def test_apply_recovered_history_logs_nonconsecutive_date_spans(caplog: py
         },
         data_actuals_dampened={SITE_INFO: {site_id: {FORECASTS: []}}},
         advanced_options={ADVANCED_HISTORY_MAX_DAYS: 30},
+        forecast_entry_update=SolcastApi.forecast_entry_update,
         fetcher=SimpleNamespace(sort_and_prune=sort_and_prune),
     )
     dampening.get_factor = lambda _site, _period_start, _interval_pv50: 0.6 if _interval_pv50 == 1.0 else 0.8  # pyright: ignore[reportAttributeAccessIssue]

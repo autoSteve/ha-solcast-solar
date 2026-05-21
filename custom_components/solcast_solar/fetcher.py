@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import ClientConnectionError, ClientResponseError
 from aiohttp.client_reqrep import ClientResponse
 
+from homeassistant.const import ATTR_ENTITY_ID
+from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import issue_registry as ir
 
@@ -70,12 +72,25 @@ from .const import (
 from .crash_state import raise_and_record
 from .enums import AutoUpdate, SolcastApiStatus, UpdateOutcome, UpdateResult
 from .redact import redact_api_key, redact_msg_api_key
-from .util import async_trigger_automation_by_name, forecast_entry_update
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_trigger_automation_by_name(hass: HomeAssistant, name: str) -> bool:
+    """Trigger an automation by friendly name or entity ID; returns True if found and triggered."""
+    success = False
+    entity_id = None
+    for state in hass.states.async_all("automation"):
+        if state.entity_id == name or state.attributes.get("friendly_name") == name:
+            entity_id = state.entity_id
+            break
+    if entity_id:
+        await hass.services.async_call("automation", "trigger", {ATTR_ENTITY_ID: entity_id}, blocking=True)
+        success = True
+    return success
 
 
 class _DataCallStatus(Enum):
@@ -208,7 +223,7 @@ class Fetcher:
                 else {}
             )
             for actual in new_data:
-                forecast_entry_update(
+                self.api.forecast_entry_update(
                     actuals,
                     actual[PERIOD_START],
                     round(actual[ESTIMATE], 4),
@@ -450,7 +465,7 @@ class Fetcher:
                     period_start = actual[PERIOD_START]
 
                     # Add or update the new entries.
-                    forecast_entry_update(
+                    self.api.forecast_entry_update(
                         actuals,
                         period_start,
                         round(actual[ESTIMATE], 4),
@@ -521,7 +536,7 @@ class Fetcher:
             # Add new data to the undampened forecasts.
             for forecast in new_data:
                 period_start = forecast[PERIOD_START]
-                forecast_entry_update(
+                self.api.forecast_entry_update(
                     forecasts_undampened,
                     period_start,
                     round(forecast[ESTIMATE], 4),

@@ -16,7 +16,6 @@ from homeassistant.components.solcast_solar.util import (
     azimuth_to_compass_degrees,
     azimuth_to_compass_direction,
     diff,
-    forecast_entry_update,
     interquartile_bounds,
     ordinal,
     percentile,
@@ -136,7 +135,7 @@ class TestForecastEntryUpdate:
         """A new entry with only p50 should contain pv_estimate but no p10/p90 keys."""
         forecasts: dict = {}
         ts = dt(2025, 6, 1, 0, 0, tzinfo=UTC)
-        forecast_entry_update(forecasts, ts, 1.5)
+        SolcastApi.forecast_entry_update(forecasts, ts, 1.5)
         assert forecasts[ts][ESTIMATE] == 1.5, "pv_estimate must be stored with the provided value"
         assert ESTIMATE10 not in forecasts[ts], "pv_estimate10 must not be present when p10 was not supplied"
 
@@ -144,7 +143,7 @@ class TestForecastEntryUpdate:
         """A new entry created with all three estimates should store each under its constant key."""
         forecasts: dict = {}
         ts = dt(2025, 6, 1, 0, 30, tzinfo=UTC)
-        forecast_entry_update(forecasts, ts, 1.5, pv10=1.0, pv90=2.0)
+        SolcastApi.forecast_entry_update(forecasts, ts, 1.5, pv10=1.0, pv90=2.0)
         assert forecasts[ts][ESTIMATE] == 1.5, "p50 estimate must be stored under ESTIMATE"
         assert forecasts[ts][ESTIMATE10] == 1.0, "p10 estimate must be stored under ESTIMATE10"
         assert forecasts[ts][ESTIMATE90] == 2.0, "p90 estimate must be stored under ESTIMATE90"
@@ -153,14 +152,14 @@ class TestForecastEntryUpdate:
         """Calling forecast_entry_update on an existing entry must overwrite the p50 estimate."""
         ts = dt(2025, 6, 1, 1, 0, tzinfo=UTC)
         forecasts: dict = {ts: {PERIOD_START: ts, ESTIMATE: 1.0}}
-        forecast_entry_update(forecasts, ts, 2.5)
+        SolcastApi.forecast_entry_update(forecasts, ts, 2.5)
         assert forecasts[ts][ESTIMATE] == 2.5, f"ESTIMATE should be updated to 2.5, got {forecasts[ts][ESTIMATE]!r}"
 
     def test_updates_existing_entry_p10_p90(self) -> None:
         """Calling forecast_entry_update on an existing entry must overwrite p10 and p90."""
         ts = dt(2025, 6, 1, 1, 30, tzinfo=UTC)
         forecasts: dict = {ts: {PERIOD_START: ts, ESTIMATE: 1.0, ESTIMATE10: 0.5, ESTIMATE90: 1.5}}
-        forecast_entry_update(forecasts, ts, 2.0, pv10=1.5, pv90=2.5)
+        SolcastApi.forecast_entry_update(forecasts, ts, 2.0, pv10=1.5, pv90=2.5)
         assert forecasts[ts][ESTIMATE10] == 1.5, f"ESTIMATE10 should be updated to 1.5, got {forecasts[ts][ESTIMATE10]!r}"
         assert forecasts[ts][ESTIMATE90] == 2.5, f"ESTIMATE90 should be updated to 2.5, got {forecasts[ts][ESTIMATE90]!r}"
 

@@ -193,6 +193,36 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
 
         return (f"{status}/{_STATUS_TRANSLATE[status]}") if _STATUS_TRANSLATE.get(status) else status
 
+    @staticmethod
+    def forecast_entry_update(
+        forecasts: dict[dt, Any],
+        period_start: dt,
+        pv: float,
+        pv10: float | None = None,
+        pv90: float | None = None,
+    ) -> None:
+        """Update an individual forecast entry."""
+
+        extant = forecasts.get(period_start)
+        if extant:  # Update existing.
+            forecasts[period_start][ESTIMATE] = pv
+            if pv10 is not None:
+                forecasts[period_start][ESTIMATE10] = pv10
+            if pv90 is not None:
+                forecasts[period_start][ESTIMATE90] = pv90
+        elif pv10 is not None:
+            forecasts[period_start] = {
+                "period_start": period_start,
+                "pv_estimate": pv,
+                "pv_estimate10": pv10,
+                "pv_estimate90": pv90,
+            }
+        else:
+            forecasts[period_start] = {
+                "period_start": period_start,
+                "pv_estimate": pv,
+            }
+
     def __init__(
         self,
         aiohttp_session: ClientSession,

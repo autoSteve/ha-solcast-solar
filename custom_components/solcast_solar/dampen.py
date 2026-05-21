@@ -77,7 +77,7 @@ from .dampen_adapt import DampeningAdaptive
 from .dates import JSONDecoder, NoIndentEncoder
 from .enums import EnergyResult
 from .redact import format_site_key
-from .util import diff, forecast_entry_update, interquartile_bounds, percentile
+from .util import diff, interquartile_bounds, percentile
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
@@ -425,9 +425,9 @@ class Dampening:
                         pv90_dampened = round(pv90 * dampening_factor, 4)
 
                         # Add or update the new entries.
-                        forecast_entry_update(forecasts, period_start, pv_dampened, pv10_dampened, pv90_dampened)
+                        self.api.forecast_entry_update(forecasts, period_start, pv_dampened, pv10_dampened, pv90_dampened)
                     else:
-                        forecast_entry_update(
+                        self.api.forecast_entry_update(
                             forecasts,
                             period_start,
                             round(forecast[ESTIMATE], 4),
@@ -498,7 +498,7 @@ class Dampening:
                     ),
                     4,
                 )
-                forecast_entry_update(extant_actuals, period_start, dampened)
+                self.api.forecast_entry_update(extant_actuals, period_start, dampened)
 
             await self.api.fetcher.sort_and_prune(
                 site[RESOURCE_ID],
@@ -600,7 +600,7 @@ class Dampening:
                     undampened_interval_pv50.get(period_start, -1.0),
                 )
                 dampened = round(undampened * factor, 4)
-                forecast_entry_update(extant_actuals, period_start, dampened)
+                self.api.forecast_entry_update(extant_actuals, period_start, dampened)
 
             await self.api.fetcher.sort_and_prune(
                 site[RESOURCE_ID],

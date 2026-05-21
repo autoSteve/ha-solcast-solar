@@ -1,15 +1,8 @@
 """Solcast utilities."""
 
-# pylint: disable=consider-using-enumerate
-from datetime import datetime as dt
 import logging
 import math
 from typing import Any
-
-from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import HomeAssistant
-
-from .const import ESTIMATE, ESTIMATE10, ESTIMATE90
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -56,44 +49,6 @@ def azimuth_to_compass_direction(azimuth: Any) -> str | None:
         "NNW",
     )
     return directions[int((compass_degrees + 11.25) // 22.5) % len(directions)]
-
-
-def forecast_entry_update(forecasts: dict[dt, Any], period_start: dt, pv: float, pv10: float | None = None, pv90: float | None = None):
-    """Update an individual forecast entry."""
-
-    extant = forecasts.get(period_start)
-    if extant:  # Update existing.
-        forecasts[period_start][ESTIMATE] = pv
-        if pv10 is not None:
-            forecasts[period_start][ESTIMATE10] = pv10
-        if pv90 is not None:
-            forecasts[period_start][ESTIMATE90] = pv90
-    elif pv10 is not None:
-        forecasts[period_start] = {
-            "period_start": period_start,
-            "pv_estimate": pv,
-            "pv_estimate10": pv10,
-            "pv_estimate90": pv90,
-        }
-    else:
-        forecasts[period_start] = {
-            "period_start": period_start,
-            "pv_estimate": pv,
-        }
-
-
-async def async_trigger_automation_by_name(hass: HomeAssistant, name: str) -> bool:
-    """Trigger an automation by friendly name or entity ID; returns True if found and triggered."""
-    success = False
-    entity_id = None
-    for state in hass.states.async_all("automation"):
-        if state.entity_id == name or state.attributes.get("friendly_name") == name:
-            entity_id = state.entity_id
-            break
-    if entity_id:
-        await hass.services.async_call("automation", "trigger", {ATTR_ENTITY_ID: entity_id}, blocking=True)
-        success = True
-    return success
 
 
 def percentile(data: list[Any], _percentile: float) -> float | int:
