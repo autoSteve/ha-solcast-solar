@@ -70,12 +70,7 @@ from .const import (
 from .crash_state import raise_and_record
 from .enums import AutoUpdate, SolcastApiStatus, UpdateOutcome, UpdateResult
 from .redact import redact_api_key, redact_msg_api_key
-from .util import (
-    async_trigger_automation_by_name,
-    forecast_entry_update,
-    get_solcast_base_url,
-    http_status_translate,
-)
+from .util import async_trigger_automation_by_name, forecast_entry_update
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
@@ -638,7 +633,7 @@ class Fetcher:
                     issue_registry = ir.async_get(self.api.hass)
 
                     if self.api.api_used[api_key] < self.api.api_limits[api_key] or force:
-                        base_url = get_solcast_base_url(
+                        base_url = self.api.get_solcast_base_url(
                             self.api.advanced_options[ADVANCED_SOLCAST_URL],
                             self.api.advanced_options[ADVANCED_SOLCAST_PORT],
                         )
@@ -699,7 +694,7 @@ class Fetcher:
                                 else:
                                     received_429 += 1
                             if counter >= tries:
-                                failure_reason = f"{http_status_translate(status)} after {tries} attempts"
+                                failure_reason = f"{self.api.http_status_translate(status)} after {tries} attempts"
                                 if not self.api.advanced_options[ADVANCED_LOG_UPDATE_FAILURE_ONLY]:
                                     _LOGGER.error("API was tried %d times, but all attempts failed", tries)
                                 break
@@ -708,7 +703,7 @@ class Fetcher:
                             delay: int = (counter * backoff) + random.randrange(0, 15)
                             (_LOGGER.debug if self.api.advanced_options[ADVANCED_LOG_UPDATE_FAILURE_ONLY] else _LOGGER.warning)(
                                 "Call status %s, pausing %d seconds before retry",
-                                http_status_translate(status),
+                                self.api.http_status_translate(status),
                                 delay,
                             )
                             await self._sleep(delay)
@@ -736,7 +731,7 @@ class Fetcher:
                             )
                             return response_json
                         elif status in (400, 404):  # noqa: RET505
-                            _LOGGER.error("Unexpected error getting sites, status %s returned", http_status_translate(status))
+                            _LOGGER.error("Unexpected error getting sites, status %s returned", self.api.http_status_translate(status))
                         elif status == 403:  # Forbidden.
                             _LOGGER.error("API key %s is forbidden, re-authentication required", redact_api_key(api_key))
                             self.api.reauth_required = True
@@ -751,11 +746,11 @@ class Fetcher:
                         else:  # Other, or unknown status.
                             (_LOGGER.debug if self.api.advanced_options[ADVANCED_LOG_UPDATE_FAILURE_ONLY] else _LOGGER.error)(
                                 "Call status %s, API used is %d/%d",
-                                http_status_translate(status),
+                                self.api.http_status_translate(status),
                                 self.api.api_used[api_key],
                                 self.api.api_limits[api_key],
                             )
-                            _LOGGER.debug("HTTP session status %s", http_status_translate(status))
+                            _LOGGER.debug("HTTP session status %s", self.api.http_status_translate(status))
 
                             if received_429 == tries:
                                 if self.api.advanced_options[ADVANCED_API_RAISE_ISSUES]:

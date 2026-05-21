@@ -153,7 +153,6 @@ from homeassistant.components.solcast_solar.solcastapi import (
     ConnectionOptions,
     SolcastApi,
 )
-from homeassistant.components.solcast_solar.util import get_solcast_base_url
 from homeassistant.components.solcast_solar.watch import FileWatcher
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_API_KEY
@@ -3826,7 +3825,7 @@ async def test_forecast_accuracy_sensor_no_data(
 )
 def test_get_solcast_base_url(url: str, port: int, expected: str) -> None:
     """Test get_solcast_base_url covers all branches."""
-    assert get_solcast_base_url(url, port) == expected
+    assert SolcastApi.get_solcast_base_url(url, port) == expected
 
 
 @pytest.mark.asyncio

@@ -21,6 +21,7 @@ from homeassistant.helpers import (
 )
 from homeassistant.util import dt as dt_util
 
+from .advanced import async_is_allow_exceed_api_limit
 from .const import (
     ACTION,
     ACTUALS_ATTEMPT,
@@ -123,7 +124,6 @@ from .migration import sync_legacy_keys
 from .solcastapi import SolcastApi
 from .updater import Updater
 from .util import (
-    async_is_allow_exceed_api_limit,
     azimuth_to_compass_degrees,
     azimuth_to_compass_direction,
     split_and_strip,

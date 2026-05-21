@@ -62,22 +62,23 @@ from homeassistant.components.solcast_solar.const import (
     SITE_INFO,
     USE_ACTUALS,
 )
-from homeassistant.components.solcast_solar.dampen import Dampening
+from homeassistant.components.solcast_solar.dampen import (
+    Dampening,
+    compute_energy_intervals,
+    compute_power_intervals,
+)
 from homeassistant.components.solcast_solar.dates import (
     DateTimeEncoder,
     DateTimeHelper,
     JSONDecoder,
 )
 from homeassistant.components.solcast_solar.enums import SolcastApiStatus
-from homeassistant.components.solcast_solar.util import (
-    compute_energy_intervals,
-    compute_power_intervals,
-)
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
+from tests.common import MockConfigEntry
 
 from . import (
     DEFAULT_INPUT2,
@@ -95,8 +96,6 @@ from . import (
     wait_for_it,
     write_advanced_options,
 )
-
-from tests.common import MockConfigEntry
 
 ZONE = ZoneInfo(ZONE_RAW)
 NOW = dt.now(ZONE)

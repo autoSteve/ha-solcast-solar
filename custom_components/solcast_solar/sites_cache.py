@@ -88,7 +88,7 @@ from .redact import (
     redact_lat_lon_simple,
     redact_msg_api_key,
 )
-from .util import get_solcast_base_url, http_status_translate, split_and_strip
+from .util import split_and_strip
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
@@ -857,7 +857,7 @@ class SitesCache:
 
                 if not prior_crash:
                     url = (
-                        f"{get_solcast_base_url(self.api.advanced_options[ADVANCED_SOLCAST_URL], self.api.advanced_options[ADVANCED_SOLCAST_PORT])}"
+                        f"{self.api.get_solcast_base_url(self.api.advanced_options[ADVANCED_SOLCAST_URL], self.api.advanced_options[ADVANCED_SOLCAST_PORT])}"
                         "/rooftop_sites"
                     )
                     params = {FORMAT: JSON, API_KEY: api_key}
@@ -868,7 +868,7 @@ class SitesCache:
                     status = response.status
                     (_LOGGER.debug if status == 200 else _LOGGER.warning)(
                         "HTTP session returned status %s for API key %s%s",
-                        http_status_translate(status),
+                        self.api.http_status_translate(status),
                         redact_api_key(api_key),
                         ", trying cache" if status not in (200, 403) and cache_exists and use_cache else "",
                     )
@@ -910,12 +910,12 @@ class SitesCache:
                     if cache_exists and use_cache:
                         _LOGGER.warning(
                             "Get sites failed, last call result: %s, using cached data",
-                            http_status_translate(status),
+                            self.api.http_status_translate(status),
                         )
                     else:
                         _LOGGER.error(
                             "Get sites failed, last call result: %s",
-                            http_status_translate(status),
+                            self.api.http_status_translate(status),
                         )
                     if status != 200:
                         api_key_in_error = redact_api_key(api_key)
@@ -988,7 +988,7 @@ class SitesCache:
             _LOGGER.error("Exception in _sites_data(): %s: %s", e, traceback.format_exc())
             return 999, f"Exception in _sites_data(): {e}", ""
 
-        return status, http_status_translate(status), api_key_in_error
+        return status, self.api.http_status_translate(status), api_key_in_error
 
     async def _sites_usage(self) -> None:
         """Load api usage cache.

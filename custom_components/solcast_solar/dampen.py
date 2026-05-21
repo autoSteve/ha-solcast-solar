@@ -77,13 +77,7 @@ from .dampen_adapt import DampeningAdaptive
 from .dates import JSONDecoder, NoIndentEncoder
 from .enums import EnergyResult
 from .redact import format_site_key
-from .util import (
-    compute_energy_intervals,
-    compute_power_intervals,
-    diff,
-    forecast_entry_update,
-    percentile,
-)
+from .util import diff, forecast_entry_update, interquartile_bounds, percentile
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
@@ -99,6 +93,150 @@ _SUPPRESSION_ENTITY_STATES: Final[tuple[str, ...]] = ("on", "off", "1", "0", "tr
 _SITE_EXPORT_INTERVAL_MINUTES: Final[int] = 5
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def compute_power_intervals(
+    power_readings: list[tuple[dt, float]],
+    generation_intervals: dict[dt, float],
+) -> bool:
+    """Compute time-weighted average power per 30-minute interval and add kWh to generation_intervals.
+
+    Returns True if power readings were sufficient, False otherwise.
+    """
+
+    if len(power_readings) <= 1:
+        return False
+
+    for interval_start in generation_intervals:
+        interval_end = interval_start + timedelta(minutes=30)
+        weighted_sum = 0.0
+        total_weight = 0.0
+
+        for i, (reading_time, power_kw) in enumerate(power_readings):
+            if i + 1 < len(power_readings):
+                next_time = power_readings[i + 1][0]
+            else:
+                next_time = interval_end
+
+            seg_start = max(reading_time, interval_start)
+            seg_end = min(next_time, interval_end)
+
+            if seg_start < seg_end:
+                duration = (seg_end - seg_start).total_seconds()
+                weighted_sum += power_kw * duration
+                total_weight += duration
+
+        if total_weight > 0:
+            avg_power_kw = weighted_sum / total_weight
+            generation_intervals[interval_start] += avg_power_kw * 0.5
+
+    return True
+
+
+def compute_energy_intervals(
+    sample_time: list[dt],
+    sample_generation: list[float],
+    sample_generation_time: list[dt],
+    sample_timedelta: list[int],
+    generation_intervals: dict[dt, float],
+    period_start: dt,
+    period_end: dt,
+) -> EnergyResult:
+    """Distribute energy deltas across 30-minute intervals, filtering excessive jumps.
+
+    Modifies generation_intervals in place. Returns an EnergyResult with diagnostic info.
+    """
+
+    # Determine generation-consistent or time-consistent increments.
+    uniform_increment = False
+    non_zero_samples = sorted([round(sample, 5) for sample in sample_generation if sample > 0.0003])
+    if percentile(non_zero_samples, 25) == percentile(non_zero_samples, 75):
+        uniform_increment = True
+    else:
+        non_zero_samples = sorted([sample for sample in sample_timedelta if sample > 0])
+    _, upper = interquartile_bounds(non_zero_samples, factor=(1.5 if uniform_increment else 2.2))
+    upper += 0.1 if uniform_increment else 1
+    time_delta_samples = [sample for sample in sample_timedelta if sample > 0]
+    if time_delta_samples:
+        _, time_upper = interquartile_bounds(time_delta_samples, factor=2.2)
+        time_upper += 1
+    else:
+        time_upper = 0
+
+    ignored: dict[dt, bool] = {}
+    last_interval: dt | None = None
+    prev_report_time: dt | None = None
+
+    if (
+        len(sample_time) == len(sample_generation)
+        and len(sample_time) == len(sample_generation_time)
+        and len(sample_time) == len(sample_timedelta)
+    ):
+        for idx, (interval, kWh, report_time, time_delta) in enumerate(
+            zip(sample_time, sample_generation, sample_generation_time, sample_timedelta, strict=True)
+        ):
+            is_excessive = False
+            if interval != last_interval:
+                last_interval = interval
+                if uniform_increment:
+                    if round(kWh, 4) > upper:
+                        is_excessive = True
+                        ignored[interval] = True
+                elif time_delta > upper and kWh > 0.0003:
+                    if kWh > 0.14:
+                        is_excessive = True
+                        ignored[interval] = True
+                if is_excessive:
+                    ignored[interval - timedelta(minutes=30)] = True
+
+            if not is_excessive and idx > 0 and prev_report_time is not None:
+                delta_start = prev_report_time
+                delta_end = report_time
+                current_interval_start = interval
+                prev_interval_start = delta_start.replace(minute=delta_start.minute // 30 * 30, second=0, microsecond=0)
+
+                if prev_report_time == period_start:
+                    generation_intervals[current_interval_start] += kWh
+                    prev_report_time = report_time
+                    continue
+
+                if report_time == period_end:
+                    if prev_interval_start in generation_intervals:
+                        generation_intervals[prev_interval_start] += kWh
+                    prev_report_time = report_time
+                    continue
+
+                if time_upper and time_delta > time_upper and kWh > 0.0003:
+                    generation_intervals[current_interval_start] += kWh
+                elif prev_interval_start == current_interval_start:
+                    generation_intervals[interval] += kWh
+                else:
+                    total_seconds = (delta_end - delta_start).total_seconds()
+                    if total_seconds > 0:
+                        intervals_crossed = []
+                        temp_interval = prev_interval_start
+                        while temp_interval <= current_interval_start:
+                            interval_end = temp_interval + timedelta(minutes=30)
+                            overlap_start = max(delta_start, temp_interval)
+                            overlap_end = min(delta_end, interval_end)
+                            if overlap_start < overlap_end:
+                                overlap_seconds = (overlap_end - overlap_start).total_seconds()
+                                proportion = overlap_seconds / total_seconds
+                                intervals_crossed.append((temp_interval, proportion))
+                            temp_interval = interval_end
+
+                        for crossed_interval, proportion in intervals_crossed:
+                            if crossed_interval in generation_intervals:
+                                generation_intervals[crossed_interval] += kWh * proportion
+            elif not is_excessive and idx == 0:
+                generation_intervals[interval] += kWh
+
+            prev_report_time = report_time
+
+        for interval in ignored:
+            generation_intervals[interval] = 0.0
+
+    return EnergyResult(uniform_increment=uniform_increment, upper=upper, ignored=ignored)
 
 
 class Dampening:

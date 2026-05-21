@@ -33,6 +33,7 @@ from homeassistant.helpers.selector import (
 from homeassistant.util import dt as dt_util
 
 from . import crash_state, entry_state, get_session_headers, get_version
+from .advanced import async_is_allow_exceed_api_limit
 from .const import (
     AFFIRMATION_REAUTH_SUCCESSFUL,
     AFFIRMATION_RECONFIGURED,
@@ -82,7 +83,6 @@ from .const import (
 from .enums import HistoryType, SitesStatus
 from .migration import sync_legacy_keys
 from .solcastapi import ConnectionOptions, SolcastApi
-from .util import async_is_allow_exceed_api_limit
 from .validators import (
     validate_api_key,
     validate_api_limit,

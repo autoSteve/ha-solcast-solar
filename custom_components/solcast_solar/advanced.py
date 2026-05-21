@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any
 
 import aiofiles
 
+from homeassistant.core import HomeAssistant
+
 from .const import (
     ADVANCED_ALLOW_EXCEED_API_LIMIT_MAXIMUM,
     ADVANCED_AUTOMATED_DAMPENING_ADAPTIVE_MODEL_CONFIGURATION,
@@ -23,6 +25,8 @@ from .const import (
     ADVANCED_SOLCAST_URL,
     ADVANCED_TYPE,
     ALIASES,
+    CONFIG_DISCRETE_NAME,
+    CONFIG_FOLDER_DISCRETE,
     CURRENT_NAME,
     DEFAULT,
     DEFAULT_KEYS,
@@ -46,6 +50,29 @@ if TYPE_CHECKING:
     from .solcastapi import SolcastApi
 
 _LOGGER = logging.getLogger(__name__)
+
+
+async def async_is_allow_exceed_api_limit(hass: HomeAssistant) -> bool:
+    """Return whether the advanced API limit override is enabled."""
+
+    config_dir = Path(hass.config.config_dir)
+    advanced_dir = config_dir / CONFIG_DISCRETE_NAME if CONFIG_FOLDER_DISCRETE else config_dir
+    advanced_file = advanced_dir / "solcast-advanced.json"
+    if not advanced_file.exists():
+        return False
+
+    def _read_advanced_setting() -> bool:
+        with open(advanced_file, encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, dict):
+                return False
+            value = data.get(ADVANCED_ALLOW_EXCEED_API_LIMIT_MAXIMUM, False)
+            return (isinstance(value, bool) and value is True) or False
+
+    try:
+        return await hass.async_add_executor_job(_read_advanced_setting)
+    except OSError, json.JSONDecodeError, ValueError:
+        return False
 
 
 class AdvancedOptions:

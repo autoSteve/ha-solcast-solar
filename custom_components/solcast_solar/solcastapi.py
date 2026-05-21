@@ -14,6 +14,7 @@ import time
 import traceback
 from types import MappingProxyType
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from aiohttp import ClientSession
 
@@ -95,6 +96,30 @@ from .sites_cache import FRESH_DATA, SitesCache
 
 _LOGGER = logging.getLogger(__name__)
 
+# Status code translation, HTTP and more.
+# A HTTP 418 error is included here for fun. This was introduced in RFC2324#section-2.3.2 as an April Fools joke in 1998.
+# A HTTP 420 error is a Demolition Man reference previously used by Twitter to indicate rate limiting, seen rarely (and oddly) by this integration.
+# 400-599 = HTTP
+# 900-999 = Integration-specific situation to be potentially handled with retries.
+_STATUS_TRANSLATE: dict[int, str] = {
+    200: "Success",
+    400: "Bad request",
+    401: "Unauthorized",
+    403: "Forbidden",
+    404: "Not found",
+    418: "I'm a teapot",
+    420: "Enhance your calm",
+    429: "Try again later",
+    500: "Internal web server error",
+    501: "Not implemented",
+    502: "Bad gateway",
+    503: "Service unavailable",
+    504: "Gateway timeout",
+    996: "Connection refused",
+    997: "Connect call failed",
+    999: "Prior crash",
+}
+
 # Return the function name at a specified caller depth. 0=current, 1=caller, 2=caller of caller, etc.
 FunctionName = lambda n=0: sys._getframe(n + 1).f_code.co_name  # noqa: E731, SLF001 # type: ignore[no-redef]
 
@@ -131,6 +156,42 @@ class ConnectionOptions:
 
 class SolcastApi:  # pylint: disable=too-many-public-methods
     """The Solcast API."""
+
+    @staticmethod
+    def get_solcast_base_url(url: str, port: int) -> str:
+        """Return the Solcast base URL with an optional TCP port override."""
+
+        url = url.rstrip("/")
+        if port <= 0:
+            return url
+
+        split_url = urlsplit(url)
+        if not split_url.netloc:
+            return url
+
+        hostname = split_url.hostname or split_url.netloc
+        if ":" in hostname and not hostname.startswith("["):
+            hostname = f"[{hostname}]"
+
+        auth = ""
+        if "@" in split_url.netloc:
+            auth = f"{split_url.netloc.rsplit('@', 1)[0]}@"
+
+        return urlunsplit(
+            (
+                split_url.scheme,
+                f"{auth}{hostname}:{port}",
+                split_url.path.rstrip("/"),
+                split_url.query,
+                split_url.fragment,
+            )
+        ).rstrip("/")
+
+    @staticmethod
+    def http_status_translate(status: int) -> str | Any:
+        """Translate HTTP status code to a human-readable translation."""
+
+        return (f"{status}/{_STATUS_TRANSLATE[status]}") if _STATUS_TRANSLATE.get(status) else status
 
     def __init__(
         self,

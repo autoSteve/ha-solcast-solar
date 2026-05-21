@@ -11,13 +11,12 @@ from homeassistant.components.solcast_solar.const import (
     ESTIMATE90,
     PERIOD_START,
 )
+from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.components.solcast_solar.util import (
     azimuth_to_compass_degrees,
     azimuth_to_compass_direction,
     diff,
     forecast_entry_update,
-    get_solcast_base_url,
-    http_status_translate,
     interquartile_bounds,
     ordinal,
     percentile,
@@ -30,32 +29,34 @@ class TestGetSolcastBaseUrl:
 
     def test_no_port_returns_url_unchanged(self) -> None:
         """Port <= 0 must return the URL with no modification."""
-        assert get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, 0) == DEFAULT_SOLCAST_HTTPS_URL, "Port 0 should leave the URL unchanged"
-        assert get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, -1) == DEFAULT_SOLCAST_HTTPS_URL, (
+        assert SolcastApi.get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, 0) == DEFAULT_SOLCAST_HTTPS_URL, (
+            "Port 0 should leave the URL unchanged"
+        )
+        assert SolcastApi.get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, -1) == DEFAULT_SOLCAST_HTTPS_URL, (
             "Negative port should leave the URL unchanged"
         )
 
     def test_trailing_slash_stripped(self) -> None:
         """Trailing slashes on the base URL should be removed."""
-        assert get_solcast_base_url("https://api.solcast.com.au/", 0) == DEFAULT_SOLCAST_HTTPS_URL, (
+        assert SolcastApi.get_solcast_base_url("https://api.solcast.com.au/", 0) == DEFAULT_SOLCAST_HTTPS_URL, (
             "Trailing slash must be stripped from the base URL"
         )
 
     def test_port_injected_into_netloc(self) -> None:
         """A positive port should appear in the returned URL."""
-        result = get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, 8080)
+        result = SolcastApi.get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, 8080)
         assert ":8080" in result, f"Port 8080 should appear in the netloc of {result!r}"
         assert result.startswith("https://"), f"Scheme must be preserved as https://, got {result!r}"
 
     def test_path_preserved_with_port(self) -> None:
         """Any path component must be preserved when a port is injected."""
-        result = get_solcast_base_url("https://api.solcast.com.au/v2", 9000)
+        result = SolcastApi.get_solcast_base_url("https://api.solcast.com.au/v2", 9000)
         assert "/v2" in result, f"Path '/v2' must be preserved in {result!r}"
         assert ":9000" in result, f"Port 9000 must appear in {result!r}"
 
     def test_ipv6_address_bracketed(self) -> None:
         """IPv6 addresses must be wrapped in brackets when a port is added."""
-        result = get_solcast_base_url("https://[::1]", 8080)
+        result = SolcastApi.get_solcast_base_url("https://[::1]", 8080)
         assert "[::1]:8080" in result, f"IPv6 address with port should appear as '[::1]:8080' in {result!r}"
 
 
@@ -64,18 +65,18 @@ class TestHttpStatusTranslate:
 
     def test_known_code_returns_string(self) -> None:
         """Known HTTP status codes should return a slash-delimited description string."""
-        assert http_status_translate(200) == "200/Success", "HTTP 200 should map to '200/Success'"
-        assert http_status_translate(429) == "429/Try again later", "HTTP 429 should map to '429/Try again later'"
-        assert http_status_translate(418) == "418/I'm a teapot", "HTTP 418 should map to the teapot status string"
+        assert SolcastApi.http_status_translate(200) == "200/Success", "HTTP 200 should map to '200/Success'"
+        assert SolcastApi.http_status_translate(429) == "429/Try again later", "HTTP 429 should map to '429/Try again later'"
+        assert SolcastApi.http_status_translate(418) == "418/I'm a teapot", "HTTP 418 should map to the teapot status string"
 
     def test_unknown_code_returns_int(self) -> None:
         """HTTP 999 is a sentinel for a prior crash and should contain that text."""
-        result = http_status_translate(999)
+        result = SolcastApi.http_status_translate(999)
         assert "Prior crash" in str(result), f"HTTP 999 result {result!r} should contain 'Prior crash'"
 
     def test_completely_unknown_code_returns_int(self) -> None:
         """A status code with no translation entry should be returned as-is."""
-        result = http_status_translate(599)
+        result = SolcastApi.http_status_translate(599)
         assert result == 599, f"Unknown status 599 should be returned unchanged, got {result!r}"
 
 
