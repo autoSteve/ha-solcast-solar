@@ -1,7 +1,17 @@
-"""Unit tests for util.py."""
+"""Unit tests for Solcast helper functions and methods."""
+
+from datetime import UTC, datetime as dt
 
 import pytest
 
+from homeassistant.components.solcast_solar.const import (
+    DEFAULT_SOLCAST_HTTPS_URL,
+    ESTIMATE,
+    ESTIMATE10,
+    ESTIMATE90,
+    PERIOD_START,
+)
+from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.components.solcast_solar.util import (
     azimuth_to_compass_degrees,
     azimuth_to_compass_direction,
@@ -11,6 +21,98 @@ from homeassistant.components.solcast_solar.util import (
     percentile,
     split_and_strip,
 )
+
+
+class TestGetSolcastBaseUrl:
+    """Tests for get_solcast_base_url."""
+
+    def test_no_port_returns_url_unchanged(self) -> None:
+        """Port <= 0 must return the URL with no modification."""
+        assert SolcastApi.get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, 0) == DEFAULT_SOLCAST_HTTPS_URL, (
+            "Port 0 should leave the URL unchanged"
+        )
+        assert SolcastApi.get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, -1) == DEFAULT_SOLCAST_HTTPS_URL, (
+            "Negative port should leave the URL unchanged"
+        )
+
+    def test_trailing_slash_stripped(self) -> None:
+        """Trailing slashes on the base URL should be removed."""
+        assert SolcastApi.get_solcast_base_url("https://api.solcast.com.au/", 0) == DEFAULT_SOLCAST_HTTPS_URL, (
+            "Trailing slash must be stripped from the base URL"
+        )
+
+    def test_port_injected_into_netloc(self) -> None:
+        """A positive port should appear in the returned URL."""
+        result = SolcastApi.get_solcast_base_url(DEFAULT_SOLCAST_HTTPS_URL, 8080)
+        assert ":8080" in result, f"Port 8080 should appear in the netloc of {result!r}"
+        assert result.startswith("https://"), f"Scheme must be preserved as https://, got {result!r}"
+
+    def test_path_preserved_with_port(self) -> None:
+        """Any path component must be preserved when a port is injected."""
+        result = SolcastApi.get_solcast_base_url("https://api.solcast.com.au/v2", 9000)
+        assert "/v2" in result, f"Path '/v2' must be preserved in {result!r}"
+        assert ":9000" in result, f"Port 9000 must appear in {result!r}"
+
+    def test_ipv6_address_bracketed(self) -> None:
+        """IPv6 addresses must be wrapped in brackets when a port is added."""
+        result = SolcastApi.get_solcast_base_url("https://[::1]", 8080)
+        assert "[::1]:8080" in result, f"IPv6 address with port should appear as '[::1]:8080' in {result!r}"
+
+
+class TestHttpStatusTranslate:
+    """Tests for http_status_translate."""
+
+    def test_known_code_returns_string(self) -> None:
+        """Known HTTP status codes should return a slash-delimited description string."""
+        assert SolcastApi.http_status_translate(200) == "200/Success", "HTTP 200 should map to '200/Success'"
+        assert SolcastApi.http_status_translate(429) == "429/Try again later", "HTTP 429 should map to '429/Try again later'"
+        assert SolcastApi.http_status_translate(418) == "418/I'm a teapot", "HTTP 418 should map to the teapot status string"
+
+    def test_unknown_code_returns_int(self) -> None:
+        """HTTP 999 is a sentinel for a prior crash and should contain that text."""
+        result = SolcastApi.http_status_translate(999)
+        assert "Prior crash" in str(result), f"HTTP 999 result {result!r} should contain 'Prior crash'"
+
+    def test_completely_unknown_code_returns_int(self) -> None:
+        """A status code with no translation entry should be returned as-is."""
+        result = SolcastApi.http_status_translate(599)
+        assert result == 599, f"Unknown status 599 should be returned unchanged, got {result!r}"
+
+
+class TestForecastEntryUpdate:
+    """Tests for forecast_entry_update."""
+
+    def test_creates_new_entry_without_p10_p90(self) -> None:
+        """A new entry with only p50 should contain pv_estimate but no p10/p90 keys."""
+        forecasts: dict = {}
+        ts = dt(2025, 6, 1, 0, 0, tzinfo=UTC)
+        SolcastApi.forecast_entry_update(forecasts, ts, 1.5)
+        assert forecasts[ts][ESTIMATE] == 1.5, "pv_estimate must be stored with the provided value"
+        assert ESTIMATE10 not in forecasts[ts], "pv_estimate10 must not be present when p10 was not supplied"
+
+    def test_creates_new_entry_with_p10_p90(self) -> None:
+        """A new entry created with all three estimates should store each under its constant key."""
+        forecasts: dict = {}
+        ts = dt(2025, 6, 1, 0, 30, tzinfo=UTC)
+        SolcastApi.forecast_entry_update(forecasts, ts, 1.5, pv10=1.0, pv90=2.0)
+        assert forecasts[ts][ESTIMATE] == 1.5, "p50 estimate must be stored under ESTIMATE"
+        assert forecasts[ts][ESTIMATE10] == 1.0, "p10 estimate must be stored under ESTIMATE10"
+        assert forecasts[ts][ESTIMATE90] == 2.0, "p90 estimate must be stored under ESTIMATE90"
+
+    def test_updates_existing_entry_estimate(self) -> None:
+        """Calling forecast_entry_update on an existing entry must overwrite the p50 estimate."""
+        ts = dt(2025, 6, 1, 1, 0, tzinfo=UTC)
+        forecasts: dict = {ts: {PERIOD_START: ts, ESTIMATE: 1.0}}
+        SolcastApi.forecast_entry_update(forecasts, ts, 2.5)
+        assert forecasts[ts][ESTIMATE] == 2.5, f"ESTIMATE should be updated to 2.5, got {forecasts[ts][ESTIMATE]!r}"
+
+    def test_updates_existing_entry_p10_p90(self) -> None:
+        """Calling forecast_entry_update on an existing entry must overwrite p10 and p90."""
+        ts = dt(2025, 6, 1, 1, 30, tzinfo=UTC)
+        forecasts: dict = {ts: {PERIOD_START: ts, ESTIMATE: 1.0, ESTIMATE10: 0.5, ESTIMATE90: 1.5}}
+        SolcastApi.forecast_entry_update(forecasts, ts, 2.0, pv10=1.5, pv90=2.5)
+        assert forecasts[ts][ESTIMATE10] == 1.5, f"ESTIMATE10 should be updated to 1.5, got {forecasts[ts][ESTIMATE10]!r}"
+        assert forecasts[ts][ESTIMATE90] == 2.5, f"ESTIMATE90 should be updated to 2.5, got {forecasts[ts][ESTIMATE90]!r}"
 
 
 class TestSplitAndStrip:

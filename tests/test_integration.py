@@ -56,6 +56,8 @@ from homeassistant.components.solcast_solar.const import (
     CONFIG_FOLDER_DISCRETE,
     CONFIGURED_VALUE,
     CUSTOM_HOURS,
+    DAILY_ACTUALS_CONSUMED,
+    DAILY_FORCED_CONSUMED,
     DAILY_LIMIT,
     DAILY_LIMIT_CONSUMED,
     DAMP_FACTOR,
@@ -1638,6 +1640,56 @@ async def test_remaining_actions(
         with pytest.raises(ServiceValidationError):
             await hass.services.async_call(DOMAIN, "update_forecasts", {}, blocking=True)
         assert "Integration not loaded" in caplog.text
+
+        no_error_or_exception(caplog)
+
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        DEFAULT_INPUT1,
+        DEFAULT_INPUT2,
+    ],
+)
+async def test_usage_cache_persists_usage_counters(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+    options: dict[str, Any],
+) -> None:
+    """Test usage cache persists estimated-actuals and forced counters across reloads."""
+
+    try:
+        config_dir = str(get_config_dir(hass.config.config_dir, create=True))
+        entry: ConfigEntry = await async_init_integration(hass, options | ({GET_ACTUALS: True} if options == DEFAULT_INPUT1 else {}))
+        assert entry.state is ConfigEntryState.LOADED, f"Expected entry state ConfigEntryState.LOADED, got {entry.state}"
+
+        actuals_seed = 3
+        forced_seed = 2
+        multi_key = len(options[API_KEY].split(",")) > 1
+        for api_key in options[API_KEY].split(","):
+            api_key = api_key.strip()
+            usage_file = Path(f"{config_dir}/solcast-usage{'' if not multi_key else '-' + api_key}.json")
+            usage = json.loads(usage_file.read_text(encoding="utf-8"))
+            usage[DAILY_ACTUALS_CONSUMED] = actuals_seed
+            usage[DAILY_FORCED_CONSUMED] = forced_seed
+            usage_file.write_text(json.dumps(usage), encoding="utf-8")
+
+        _coordinator, solcast = await _reload(hass, entry)
+        if solcast is None:
+            pytest.fail("No solcast")
+
+        for api_key in options[API_KEY].split(","):
+            api_key = api_key.strip()
+            assert solcast.api_actuals.get(api_key) == actuals_seed, (
+                f"Expected persisted daily actuals usage {actuals_seed} for {api_key}, got {solcast.api_actuals.get(api_key)}"
+            )
+            assert solcast.api_forced.get(api_key) == forced_seed, (
+                f"Expected persisted daily forced usage {forced_seed} for {api_key}, got {solcast.api_forced.get(api_key)}"
+            )
 
         no_error_or_exception(caplog)
 

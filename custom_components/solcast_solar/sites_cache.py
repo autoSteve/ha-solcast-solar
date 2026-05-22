@@ -26,6 +26,7 @@ from .const import (
     ADVANCED_SOLCAST_URL,
     API_KEY,
     AUTO_UPDATED,
+    DAILY_ACTUALS_CONSUMED,
     DAILY_FORCED_CONSUMED,
     DAILY_LIMIT,
     DAILY_LIMIT_CONSUMED,
@@ -667,6 +668,8 @@ class SitesCache:
         for api_key in api_keys:
             api_key = api_key.strip()
             self.api.api_used[api_key] = 0
+            self.api.api_forced[api_key] = 0
+            self.api.api_actuals[api_key] = 0
             await self.serialise_usage(api_key, reset=True)
 
     async def serialise_data(self, data: dict[str, Any], filename: str) -> bool:
@@ -716,6 +719,7 @@ class SitesCache:
         json_content: dict[str, Any] = {
             DAILY_LIMIT: self.api.api_limits[api_key],
             DAILY_FORCED_CONSUMED: self.api.api_forced.get(api_key, 0),
+            DAILY_ACTUALS_CONSUMED: self.api.api_actuals.get(api_key, 0),
             DAILY_LIMIT_CONSUMED: self.api.api_used[api_key],
             DAILY_TYPICAL: self.api.api_typical.get(api_key, 0),
             RESET: self._api_used_reset[api_key],
@@ -1008,7 +1012,8 @@ class SitesCache:
                 assert isinstance(self.api.api_used[api_key], int), "daily_limit_consumed is not an integer"
                 self.api.api_forced[api_key] = usage.get(DAILY_FORCED_CONSUMED, 0)
                 assert isinstance(self.api.api_forced[api_key], int), "daily_forced_consumed is not an integer"
-                self.api.api_actuals[api_key] = 0  # Transient — starts at zero each session.
+                self.api.api_actuals[api_key] = usage.get(DAILY_ACTUALS_CONSUMED, 0)
+                assert isinstance(self.api.api_actuals[api_key], int), "daily_actuals_consumed is not an integer"
                 configured_limit = quota.get(api_key, 10)
                 allow_exceed = self.api.advanced_options.get(ADVANCED_ALLOW_EXCEED_API_LIMIT_MAXIMUM, False)
                 # Seed from the configured limit.  Auto-update can never consume more.
@@ -1032,7 +1037,9 @@ class SitesCache:
                     self.api.api_typical[api_key] = quota[api_key]
                     await self.serialise_usage(api_key)
                     _LOGGER.info("Usage loaded and cache updated with new limit")
-                elif DAILY_FORCED_CONSUMED not in usage:  # Schema upgraded, rewrite to persist new field.
+                elif (
+                    DAILY_FORCED_CONSUMED not in usage or DAILY_ACTUALS_CONSUMED not in usage
+                ):  # Schema upgraded, rewrite to persist new field.
                     await self.serialise_usage(api_key)
                     _LOGGER.debug("Usage loaded and cache updated with new schema")
                 else:

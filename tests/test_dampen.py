@@ -79,7 +79,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady, ServiceValidationError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_registry import RegistryEntryDisabler
-from tests.common import MockConfigEntry
 
 from . import (
     DEFAULT_INPUT2,
@@ -97,6 +96,8 @@ from . import (
     wait_for_it,
     write_advanced_options,
 )
+
+from tests.common import MockConfigEntry
 
 ZONE = ZoneInfo(ZONE_RAW)
 NOW = dt.now(ZONE)
