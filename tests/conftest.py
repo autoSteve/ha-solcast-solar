@@ -3,6 +3,7 @@
 from collections.abc import Generator
 from datetime import datetime as dt
 import logging
+from typing import Any
 
 import freezegun
 from freezegun.api import FrozenDateTimeFactory
@@ -64,3 +65,33 @@ def frozen_time() -> Generator[FrozenDateTimeFactory]:
 def hass_config_dir(hass_tmp_config_dir: str) -> str:
     """Use a per-test config directory so xdist workers do not share files."""
     return hass_tmp_config_dir
+
+
+# Slowest tests in descending order, measured empirically.  Placing them first
+# in the collection queue ensures xdist dispatches each one to its own worker
+# immediately, preventing the longest test from becoming a tail that serialises
+# the run.
+_SLOW_FIRST: tuple[str, ...] = (
+    "test_api_failure",
+    "test_remaining_actions",
+    "test_adaptive_auto_dampen",
+    "test_auto_dampen",
+    "test_advanced_options",
+    "test_scenarios",
+    "test_reconfigure_api_quota",
+    "test_reauth_api_key",
+    "test_reconfigure_api_key1",
+    "test_integration_runtime_and_dampening_flow",
+)
+
+
+def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
+    """Move the slowest tests to the front so xdist workers start on them first."""
+    if not config.getoption("--dist", default="no").startswith(("load", "worksteal")):
+        return
+    slow, rest = [], []
+    for item in items:
+        base = item.name.split("[")[0]
+        (slow if base in _SLOW_FIRST else rest).append(item)
+    slow.sort(key=lambda i: _SLOW_FIRST.index(i.name.split("[")[0]))
+    items[:] = slow + rest
