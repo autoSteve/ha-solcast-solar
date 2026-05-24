@@ -1,6 +1,5 @@
 """Tests for the Solcast WSGI simulator CLI."""
 
-
 import importlib.util
 import json
 from pathlib import Path
@@ -39,6 +38,7 @@ def _load_wsgi_sim_module() -> ModuleType:
             patch("subprocess.check_call", return_value=None),
             patch("os.execl", return_value=None),
             patch("sys.exit", return_value=None),
+            patch("logging.config.dictConfig", return_value=None),
         ):
             spec.loader.exec_module(module)
     finally:
@@ -48,7 +48,7 @@ def _load_wsgi_sim_module() -> ModuleType:
 
 def _test_client(module: ModuleType):
     """Return a Flask test client with 418 responses disabled."""
-    setattr(module, "BOMB_418", False)
+    setattr(module, "BOMB_418", False)  # noqa: B010
     module.app.config["TESTING"] = True  # type: ignore[attr-defined]
     return module.app.test_client()  # type: ignore[attr-defined]
 

@@ -487,7 +487,6 @@ async def test_api_failure(
                     session_set(MOCK_EXCEPTION, exception=test["exception"])
 
                 entry: ConfigEntry = await async_init_integration(hass, DEFAULT_INPUT2)
-                await _wait_for_startup_tasks(hass, caplog)
                 coordinator: SolcastUpdateCoordinator = entry.runtime_data.coordinator
                 solcast: SolcastApi = patch_solcast_api(coordinator.solcast)
                 solcast.options.auto_update = AutoUpdate.NONE

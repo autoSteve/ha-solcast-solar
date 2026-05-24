@@ -30,6 +30,7 @@ _SUPPRESS_LOGGERS = [
     "homeassistant.components.recorder.pool.MutexPool",
     "sqlalchemy.engine.Engine",
     "watchfiles",
+    "watchfiles.main",
     "asyncio",
 ]
 
@@ -67,10 +68,7 @@ def hass_config_dir(hass_tmp_config_dir: str) -> str:
     return hass_tmp_config_dir
 
 
-# Slowest tests in descending order, measured empirically.  Placing them first
-# in the collection queue ensures xdist dispatches each one to its own worker
-# immediately, preventing the longest test from becoming a tail that serialises
-# the run.
+# Slowest tests.  Placing them first in the queue ensures xdist dispatches each to a separate worker.
 _SLOW_FIRST: tuple[str, ...] = (
     "test_api_failure",
     "test_remaining_actions",
