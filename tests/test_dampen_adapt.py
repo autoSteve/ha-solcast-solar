@@ -831,9 +831,7 @@ async def test_build_dampened_actuals_gap_tolerance(caplog: pytest.LogCaptureFix
     dampening.auto_factors_history = _make_full_history(
         {model_min: gap_entries, **dict.fromkeys(range(model_min + 1, model_max + 1), continuous_entries)}
     )
-    assert adaptive._find_earliest_common_history(min_days) is None, (
-        "Gap history should return None for earliest common history"
-    )
+    assert adaptive._find_earliest_common_history(min_days) is None, "Gap history should return None for earliest common history"
 
     early_entries = [
         {PERIOD_START: day0, "factors": [1.0] * 48},
@@ -848,9 +846,7 @@ async def test_build_dampened_actuals_gap_tolerance(caplog: pytest.LogCaptureFix
     dampening.auto_factors_history = _make_full_history(
         {model_min: early_entries, model_min + 1: early_entries, model_max - 1: late_entries, model_max: late_entries}
     )
-    assert adaptive._find_earliest_common_history(min_days) is None, (
-        "Disjoint history should return None for earliest common history"
-    )
+    assert adaptive._find_earliest_common_history(min_days) is None, "Disjoint history should return None for earliest common history"
 
 
 async def test_determine_best_settings_all_combos_skip(
@@ -875,7 +871,9 @@ async def test_determine_best_settings_all_combos_skip(
             ADVANCED_AUTOMATED_DAMPENING_ADAPTIVE_MODEL_MINIMUM_HISTORY_DAYS: 1,
             ADVANCED_AUTOMATED_DAMPENING_NO_DELTA_ADJUSTMENT: False,
             ADVANCED_AUTOMATED_DAMPENING_MODEL: ADVANCED_OPTIONS[ADVANCED_AUTOMATED_DAMPENING_MODEL][MINIMUM],
-            ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL: ADVANCED_OPTIONS[ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL][MINIMUM_EXTENDED],
+            ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL: ADVANCED_OPTIONS[ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL][
+                MINIMUM_EXTENDED
+            ],
             ADVANCED_ESTIMATED_ACTUALS_LOG_MAPE_BREAKDOWN: False,
         }
     )

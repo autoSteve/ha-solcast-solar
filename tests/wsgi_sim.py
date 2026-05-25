@@ -90,12 +90,12 @@ need_restart = False
 try:
     from flask import Flask, jsonify, request
     from flask.json.provider import DefaultJSONProvider
-except (ModuleNotFoundError, ImportError):
+except ModuleNotFoundError, ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "flask"])
     need_restart = True
 try:
     import isodate  # pyright: ignore[reportMissingTypeStubs]
-except (ModuleNotFoundError, ImportError):
+except ModuleNotFoundError, ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "isodate"])
     need_restart = True
 
@@ -186,7 +186,7 @@ class _WerkzeugLogFilter(logging.Filter):
             try:
                 record.msg = 'Request: "%s" -> %s'
                 record.args = (str(record.args[0]), str(record.args[1]))
-            except (IndexError, TypeError):
+            except IndexError, TypeError:
                 pass
         return True
 
@@ -390,7 +390,7 @@ def get_time_zone():
         try:
             with config_path.open(encoding="utf-8") as f:
                 config = json.loads(f.read())
-        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        except OSError, ValueError, TypeError, json.JSONDecodeError:
             return None
 
         timezone = config.get("data", {}).get("time_zone")
