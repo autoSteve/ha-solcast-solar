@@ -62,7 +62,7 @@ def frozen_time() -> Generator[FrozenDateTimeFactory]:
         yield freeze  # type: ignore[misc]
 
 
-@pytest.fixture(autouse=True)
+@pytest.fixture
 def hass_config_dir(hass_tmp_config_dir: str) -> str:
     """Use a per-test config directory so xdist workers do not share files."""
     return hass_tmp_config_dir

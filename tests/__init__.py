@@ -940,8 +940,13 @@ async def exec_update_actuals(
     if wait:
         await wait_for_update(hass, caplog, freezer)
         await solcast.tasks_cancel()
+        last_record = 0
         async with asyncio.timeout(1):
-            while "Task dampening model_automated took" not in caplog.text:
+            while True:
+                records = caplog.records
+                if any("Task dampening model_automated took" in r.getMessage() for r in records[last_record:]):
+                    break
+                last_record = len(records)
                 await hass.async_block_till_done()
     await hass.async_block_till_done()
 
@@ -949,19 +954,26 @@ async def exec_update_actuals(
 async def wait_for_update(hass: HomeAssistant, caplog: pytest.LogCaptureFixture, freezer: FrozenDateTimeFactory) -> None:
     """Wait for forecast update completion."""
 
+    needles = (
+        "Forecast update completed successfully",
+        "Saved estimated actual cache",
+        "Not requesting a solar forecast",
+        "aborting forecast update",
+        "update already in progress",
+        "pausing",
+        "Completed task update",
+        "Completed task force_update",
+        "ConfigEntryAuthFailed",
+    )
+    last_record = 0
     async with asyncio.timeout(300):
-        while (
-            "Forecast update completed successfully" not in caplog.text
-            and "Saved estimated actual cache" not in caplog.text
-            and "Not requesting a solar forecast" not in caplog.text
-            and "aborting forecast update" not in caplog.text
-            and "update already in progress" not in caplog.text
-            and "pausing" not in caplog.text
-            and "Completed task update" not in caplog.text
-            and "Completed task force_update" not in caplog.text
-            and "ConfigEntryAuthFailed" not in caplog.text
-        ):  # Wait for task to complete
-            freezer.tick(0.1)
+        while True:
+            records = caplog.records
+            for r in records[last_record:]:
+                if any(n in r.getMessage() for n in needles):
+                    return
+            last_record = len(records)
+            freezer.tick(1.0)
             await hass.async_block_till_done()
 
 
@@ -970,9 +982,14 @@ async def wait_for_it(
 ) -> None:
     """Wait for a specific log message to appear."""
 
+    last_record = 0
     async with asyncio.timeout(300 if not long_time else 3000):
-        while wait_for not in caplog.text:  # Wait for task to complete
-            freezer.tick(0.1)
+        while True:
+            records = caplog.records
+            if any(wait_for in r.getMessage() for r in records[last_record:]):
+                return
+            last_record = len(records)
+            freezer.tick(1.0)
             await hass.async_block_till_done()
 
 

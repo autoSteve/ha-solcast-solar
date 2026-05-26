@@ -460,86 +460,67 @@ async def test_update_history_deal_breaker(
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
 
-async def test_select_comparison_interval_variance(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
+def test_select_comparison_interval_variance() -> None:
     """Test comparison interval selection with variance across models."""
 
-    assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    adaptive, _, _, today = _build_adaptive_under_test(ZoneInfo(ZONE_RAW))
+    dampening = adaptive.dampening
 
-    try:
-        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
-        solcast = entry.runtime_data.coordinator.solcast
+    day_start = today - timedelta(days=1)
+    ts = day_start
+    generation_dampening = defaultdict(dict, {ts: {GENERATION: 1.0, EXPORT_LIMITING: False}})
 
-        day_start = solcast.dt_helper.day_start_utc() - timedelta(days=1)
-        ts = day_start
-        generation_dampening = defaultdict(dict, {ts: {GENERATION: 1.0, EXPORT_LIMITING: False}})
+    factors_a = [1.0] * 48
+    factors_b = [1.0] * 48
+    factors_a[0] = 0.8
+    factors_b[0] = 0.6
 
-        factors_a = [1.0] * 48
-        factors_b = [1.0] * 48
-        factors_a[0] = 0.8
-        factors_b[0] = 0.6
+    dampening.auto_factors_history = {
+        0: {
+            VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [
+                {PERIOD_START: day_start, "factors": factors_a},
+                {PERIOD_START: day_start, "factors": factors_b},
+            ]
+        },
+        1: {
+            VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [
+                {PERIOD_START: day_start, "factors": factors_b},
+                {PERIOD_START: day_start, "factors": factors_a},
+            ]
+        },
+    }
 
-        solcast.dampening.auto_factors_history = {
-            0: {
-                VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [
-                    {PERIOD_START: day_start, "factors": factors_a},
-                    {PERIOD_START: day_start, "factors": factors_b},
-                ]
-            },
-            1: {
-                VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [
-                    {PERIOD_START: day_start, "factors": factors_b},
-                    {PERIOD_START: day_start, "factors": factors_a},
-                ]
-            },
-        }
+    selected_interval, avg_gen, avg_factor, variance = adaptive._select_comparison_interval(generation_dampening, 1)
 
-        selected_interval, avg_gen, avg_factor, variance = solcast.dampening.adaptive._select_comparison_interval(generation_dampening, 1)
-
-        assert selected_interval == 0
-        assert avg_gen > 0
-        assert avg_factor < 1.0
-        assert variance > 0
-    finally:
-        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    assert selected_interval == 0
+    assert avg_gen > 0
+    assert avg_factor < 1.0
+    assert variance > 0
 
 
-async def test_select_comparison_interval_single_factor(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
+def test_select_comparison_interval_single_factor() -> None:
     """Test comparison interval selection with single-factor history."""
 
-    assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    adaptive, _, _, today = _build_adaptive_under_test(ZoneInfo(ZONE_RAW))
+    dampening = adaptive.dampening
 
-    try:
-        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
-        solcast = entry.runtime_data.coordinator.solcast
+    day_start = today - timedelta(days=1)
+    generation_dampening = defaultdict(dict, {day_start: {GENERATION: 1.0, EXPORT_LIMITING: False}})
 
-        day_start = solcast.dt_helper.day_start_utc() - timedelta(days=1)
-        generation_dampening = defaultdict(dict, {day_start: {GENERATION: 1.0, EXPORT_LIMITING: False}})
+    factors = [1.0] * 48
+    factors[0] = 0.9
 
-        factors = [1.0] * 48
-        factors[0] = 0.9
+    dampening.auto_factors_history = {0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": factors}]}}
 
-        solcast.dampening.auto_factors_history = {0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": factors}]}}
+    selected_interval, avg_gen, avg_factor, variance = adaptive._select_comparison_interval(generation_dampening, 1)
 
-        selected_interval, avg_gen, avg_factor, variance = solcast.dampening.adaptive._select_comparison_interval(generation_dampening, 1)
-
-        assert selected_interval == 0
-        assert avg_gen > 0
-        assert avg_factor < 1.0
-        assert variance == 0.0
-    finally:
-        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    assert selected_interval == 0
+    assert avg_gen > 0
+    assert avg_factor < 1.0
+    assert variance == 0.0
 
 
-async def test_select_comparison_interval_diluted_variance(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
+def test_select_comparison_interval_diluted_variance() -> None:
     """Test that variance is computed over active-only (factor < 1.0) entries.
 
     When many overcast/undampened days (factor=1.0) exist alongside a handful of
@@ -549,145 +530,119 @@ async def test_select_comparison_interval_diluted_variance(
     preserved, and the returned variance should match the active-only computation.
     """
 
-    assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    adaptive, _, _, today = _build_adaptive_under_test(ZoneInfo(ZONE_RAW))
+    dampening = adaptive.dampening
 
-    try:
-        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
-        solcast = entry.runtime_data.coordinator.solcast
+    day_start = today - timedelta(days=1)
+    generation_dampening = defaultdict(dict, {day_start: {GENERATION: 1.0, EXPORT_LIMITING: False}})
 
-        day_start = solcast.dt_helper.day_start_utc() - timedelta(days=1)
-        generation_dampening = defaultdict(dict, {day_start: {GENERATION: 1.0, EXPORT_LIMITING: False}})
+    # Build 10-entry histories where interval 0 has 8 undampened days (1.0) and
+    # one dampened day per model with strongly differing values (0.9 vs 0.5).
+    # Including the eight 1.0s in the variance formula would dilute the signal;
+    # active-only variance over [0.9, 0.5] should be 0.04.
+    factors_a = [1.0] * 48
+    factors_b = [1.0] * 48
+    factors_a[0] = 0.9
+    factors_b[0] = 0.5
 
-        # Build 10-entry histories where interval 0 has 8 undampened days (1.0) and
-        # one dampened day per model with strongly differing values (0.9 vs 0.5).
-        # Including the eight 1.0s in the variance formula would dilute the signal;
-        # active-only variance over [0.9, 0.5] should be 0.04.
-        factors_a = [1.0] * 48
-        factors_b = [1.0] * 48
-        factors_a[0] = 0.9
-        factors_b[0] = 0.5
+    undampened_entry = {PERIOD_START: day_start, "factors": [1.0] * 48}
+    history_a = [undampened_entry] * 8 + [{PERIOD_START: day_start, "factors": factors_a}]
+    history_b = [undampened_entry] * 8 + [{PERIOD_START: day_start, "factors": factors_b}]
 
-        undampened_entry = {PERIOD_START: day_start, "factors": [1.0] * 48}
-        history_a = [undampened_entry] * 8 + [{PERIOD_START: day_start, "factors": factors_a}]
-        history_b = [undampened_entry] * 8 + [{PERIOD_START: day_start, "factors": factors_b}]
+    dampening.auto_factors_history = {
+        0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: history_a},
+        1: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: history_b},
+    }
 
-        solcast.dampening.auto_factors_history = {
-            0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: history_a},
-            1: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: history_b},
-        }
+    selected_interval, _, avg_factor, variance = adaptive._select_comparison_interval(generation_dampening, 1)
 
-        selected_interval, _, avg_factor, variance = solcast.dampening.adaptive._select_comparison_interval(generation_dampening, 1)
-
-        # Interval 0 should still be selected — it is the only interval with dampening
-        assert selected_interval == 0
-        assert avg_factor < 1.0
-        # Variance must equal the active-only value: variance([0.9, 0.5]) == 0.04
-        assert abs(variance - 0.04) < 1e-9
-    finally:
-        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    # Interval 0 should still be selected — it is the only interval with dampening
+    assert selected_interval == 0
+    assert avg_factor < 1.0
+    # Variance must equal the active-only value: variance([0.9, 0.5]) == 0.04
+    assert abs(variance - 0.04) < 1e-9
 
 
-async def test_build_interval_error_weights_hourly_factor_mapping(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
+def test_build_interval_error_weights_hourly_factor_mapping() -> None:
     """Test interval error weighting with hourly factor arrays."""
 
-    assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    adaptive, _, _, today = _build_adaptive_under_test(ZoneInfo(ZONE_RAW))
+    dampening = adaptive.dampening
 
-    try:
-        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
-        solcast = entry.runtime_data.coordinator.solcast
+    day_start = today - timedelta(days=1)
+    interval = 20
+    timestamp = day_start + timedelta(minutes=interval * 30)
+    generation_dampening = defaultdict(dict, {timestamp: {GENERATION: 0.25, EXPORT_LIMITING: False}})
 
-        day_start = solcast.dt_helper.day_start_utc() - timedelta(days=1)
-        interval = 20
-        timestamp = day_start + timedelta(minutes=interval * 30)
-        generation_dampening = defaultdict(dict, {timestamp: {GENERATION: 0.25, EXPORT_LIMITING: False}})
+    actuals = defaultdict(lambda: [0.0] * 48)
+    actuals[dampening.api.dt_helper.day_start(timestamp)][interval] = 4.0
 
-        actuals = defaultdict(lambda: [0.0] * 48)
-        actuals[solcast.dt_helper.day_start(timestamp)][interval] = 4.0
+    assert adaptive._build_interval_error_weights(defaultdict(dict), 1) == [0.0] * 48
 
-        assert solcast.dampening.adaptive._build_interval_error_weights(defaultdict(dict), 1) == [0.0] * 48
+    current_factors = [1.0] * 24
+    current_factors[interval // 2] = 0.5
+    dampening.factors = {ALL: current_factors}
 
-        current_factors = [1.0] * 24
-        current_factors[interval // 2] = 0.5
-        solcast.dampening.factors = {ALL: current_factors}
+    weights = adaptive._build_interval_error_weights(generation_dampening, 1, actuals)
 
-        weights = solcast.dampening.adaptive._build_interval_error_weights(generation_dampening, 1, actuals)
+    assert weights[interval] == 2.0, f"Error weight at interval {interval} should be 2.0, got {weights[interval]}"
+    assert max(weights[:interval] + weights[interval + 1 :]) == 0.0, "Non-target intervals should have zero weight"
+    assert adaptive._apply_interval_error_bias([0.0] * 48, weights) == [0.0] * 48, "Bias applied to zeros should remain zeros"
 
-        assert weights[interval] == 2.0, f"Error weight at interval {interval} should be 2.0, got {weights[interval]}"
-        assert max(weights[:interval] + weights[interval + 1 :]) == 0.0, "Non-target intervals should have zero weight"
-        assert solcast.dampening.adaptive._apply_interval_error_bias([0.0] * 48, weights) == [0.0] * 48, (
-            "Bias applied to zeros should remain zeros"
-        )
-
-        solcast.dampening.factors = {ALL: [1.0] * 10}
-        assert solcast.dampening.adaptive._build_interval_error_weights(generation_dampening, 1, actuals) == [0.0] * 48
-    finally:
-        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    dampening.factors = {ALL: [1.0] * 10}
+    assert adaptive._build_interval_error_weights(generation_dampening, 1, actuals) == [0.0] * 48
 
 
-async def test_select_comparison_interval_prefers_persistent_error(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
+def test_select_comparison_interval_prefers_persistent_error() -> None:
     """Test comparison interval selection favours persistently bad current intervals."""
 
-    assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    adaptive, _, _, today = _build_adaptive_under_test(ZoneInfo(ZONE_RAW))
+    dampening = adaptive.dampening
 
-    try:
-        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
-        solcast = entry.runtime_data.coordinator.solcast
+    day_start = today - timedelta(days=1)
+    ts_10 = day_start + timedelta(minutes=10 * 30)
+    ts_20 = day_start + timedelta(minutes=20 * 30)
+    generation_dampening = defaultdict(
+        dict,
+        {
+            ts_10: {GENERATION: 1.0, EXPORT_LIMITING: False},
+            ts_20: {GENERATION: 0.25, EXPORT_LIMITING: False},
+        },
+    )
 
-        day_start = solcast.dt_helper.day_start_utc() - timedelta(days=1)
-        ts_10 = day_start + timedelta(minutes=10 * 30)
-        ts_20 = day_start + timedelta(minutes=20 * 30)
-        generation_dampening = defaultdict(
-            dict,
-            {
-                ts_10: {GENERATION: 1.0, EXPORT_LIMITING: False},
-                ts_20: {GENERATION: 0.25, EXPORT_LIMITING: False},
-            },
-        )
+    factors_a = [1.0] * 48
+    factors_b = [1.0] * 48
+    factors_a[10] = 0.8
+    factors_b[10] = 0.6
+    factors_a[20] = 0.8
+    factors_b[20] = 0.6
+    dampening.auto_factors_history = {
+        0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": factors_a}]},
+        1: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": factors_b}]},
+    }
 
-        factors_a = [1.0] * 48
-        factors_b = [1.0] * 48
-        factors_a[10] = 0.8
-        factors_b[10] = 0.6
-        factors_a[20] = 0.8
-        factors_b[20] = 0.6
-        solcast.dampening.auto_factors_history = {
-            0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": factors_a}]},
-            1: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": factors_b}]},
-        }
+    actuals = defaultdict(lambda: [0.0] * 48)
+    actuals[dampening.api.dt_helper.day_start(day_start)][10] = 4.0
+    actuals[dampening.api.dt_helper.day_start(day_start)][20] = 4.0
 
-        actuals = defaultdict(lambda: [0.0] * 48)
-        actuals[solcast.dt_helper.day_start(day_start)][10] = 4.0
-        actuals[solcast.dt_helper.day_start(day_start)][20] = 4.0
+    current_factors = [1.0] * 48
+    current_factors[10] = 0.5
+    current_factors[20] = 0.5
+    dampening.factors = {ALL: current_factors}
 
-        current_factors = [1.0] * 48
-        current_factors[10] = 0.5
-        current_factors[20] = 0.5
-        solcast.dampening.factors = {ALL: current_factors}
+    selected_interval, avg_gen, avg_factor, variance = adaptive._select_comparison_interval(
+        generation_dampening,
+        1,
+        actuals,
+    )
 
-        selected_interval, avg_gen, avg_factor, variance = solcast.dampening.adaptive._select_comparison_interval(
-            generation_dampening,
-            1,
-            actuals,
-        )
-
-        assert selected_interval == 20, f"Expected interval 20 (persistent error), got {selected_interval}"
-        assert avg_gen > 0, f"Expected avg_gen > 0, got {avg_gen}"
-        assert avg_factor < 1.0, f"Expected avg_factor < 1.0, got {avg_factor}"
-        assert variance > 0.0, f"Expected variance > 0.0, got {variance}"
-    finally:
-        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    assert selected_interval == 20, f"Expected interval 20 (persistent error), got {selected_interval}"
+    assert avg_gen > 0, f"Expected avg_gen > 0, got {avg_gen}"
+    assert avg_factor < 1.0, f"Expected avg_factor < 1.0, got {avg_factor}"
+    assert variance > 0.0, f"Expected variance > 0.0, got {variance}"
 
 
-async def test_select_comparison_interval_current_factors_fallback(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
+def test_select_comparison_interval_current_factors_fallback() -> None:
     """Test that the current-factors fallback selects by max dampening, not by generation.
 
     When all history entries have factor=1.0 (e.g. a fresh install or a long
@@ -703,52 +658,47 @@ async def test_select_comparison_interval_current_factors_fallback(
     dampening among those with adequate daylight generation.
     """
 
-    assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    adaptive, _, _, today = _build_adaptive_under_test(ZoneInfo(ZONE_RAW))
+    dampening = adaptive.dampening
 
-    try:
-        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
-        solcast = entry.runtime_data.coordinator.solcast
+    day_start = today - timedelta(days=1)
 
-        day_start = solcast.dt_helper.day_start_utc() - timedelta(days=1)
+    # Interval 15 has modest generation (2 kWh) but heavy dampening (factor 0.55).
+    # Interval 21 has much more generation (8 kWh) but weaker dampening (factor 0.80).
+    ts_15 = day_start + timedelta(minutes=15 * 30)
+    ts_21 = day_start + timedelta(minutes=21 * 30)
+    generation_dampening = defaultdict(
+        dict,
+        {
+            ts_15: {GENERATION: 2.0, EXPORT_LIMITING: False},
+            ts_21: {GENERATION: 8.0, EXPORT_LIMITING: False},
+        },
+    )
 
-        # Interval 15 has modest generation (2 kWh) but heavy dampening (factor 0.55).
-        # Interval 21 has much more generation (8 kWh) but weaker dampening (factor 0.80).
-        ts_15 = day_start + timedelta(minutes=15 * 30)
-        ts_21 = day_start + timedelta(minutes=21 * 30)
-        generation_dampening = defaultdict(
-            dict,
-            {
-                ts_15: {GENERATION: 2.0, EXPORT_LIMITING: False},
-                ts_21: {GENERATION: 8.0, EXPORT_LIMITING: False},
-            },
-        )
+    # History is entirely undampened — all factors 1.0 — so history-based scoring
+    # produces zero for every interval.
+    dampening.auto_factors_history = {
+        0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": [1.0] * 48}]},
+    }
 
-        # History is entirely undampened — all factors 1.0 — so history-based scoring
-        # produces zero for every interval.
-        solcast.dampening.auto_factors_history = {
-            0: {VALUE_ADAPTIVE_DAMPENING_NO_DELTA: [{PERIOD_START: day_start, "factors": [1.0] * 48}]},
-        }
+    # The running model applies heavy dampening at interval 15 (factor 0.55)
+    # and moderate dampening at interval 21 (factor 0.80).
+    current_factors = [1.0] * 48
+    current_factors[15] = 0.55  # 45% dampening — heavier discriminator
+    current_factors[21] = 0.80  # 20% dampening — weaker discriminator
+    dampening.factors = {ALL: current_factors}
 
-        # The running model applies heavy dampening at interval 15 (factor 0.55)
-        # and moderate dampening at interval 21 (factor 0.80).
-        current_factors = [1.0] * 48
-        current_factors[15] = 0.55  # 45% dampening — heavier discriminator
-        current_factors[21] = 0.80  # 20% dampening — weaker discriminator
-        solcast.dampening.factors = {ALL: current_factors}
+    selected_interval, _avg_gen, avg_factor, _variance = adaptive._select_comparison_interval(generation_dampening, 1)
 
-        selected_interval, _avg_gen, avg_factor, _variance = solcast.dampening.adaptive._select_comparison_interval(generation_dampening, 1)
-
-        # Interval 15 must win: (1 − 0.55) = 0.45 > (1 − 0.80) = 0.20.
-        # A generation-weighted formula would pick interval 21:
-        #   21: (8/8 = 1.0) × 0.20 = 0.20 beats 15: (2/8 = 0.25) × 0.45 = 0.11
-        # The correct approach ignores generation magnitude and selects maximum
-        # dampening among intervals with adequate daylight production.
-        assert selected_interval == 15, f"Expected interval 15 (heaviest dampening), got {selected_interval}"
-        assert avg_factor == 1.0, (
-            f"Expected avg_factor 1.0 (no active history), got {avg_factor}"
-        )  # history-based avg_factor — no active history entries
-    finally:
-        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+    # Interval 15 must win: (1 − 0.55) = 0.45 > (1 − 0.80) = 0.20.
+    # A generation-weighted formula would pick interval 21:
+    #   21: (8/8 = 1.0) × 0.20 = 0.20 beats 15: (2/8 = 0.25) × 0.45 = 0.11
+    # The correct approach ignores generation magnitude and selects maximum
+    # dampening among intervals with adequate daylight production.
+    assert selected_interval == 15, f"Expected interval 15 (heaviest dampening), got {selected_interval}"
+    assert avg_factor == 1.0, (
+        f"Expected avg_factor 1.0 (no active history), got {avg_factor}"
+    )  # history-based avg_factor — no active history entries
 
 
 def _build_adaptive_under_test(tz: ZoneInfo) -> tuple[Any, defaultdict[dt, list[float]], defaultdict[dt, dict[str, Any]], dt]:
@@ -761,8 +711,9 @@ def _build_adaptive_under_test(tz: ZoneInfo) -> tuple[Any, defaultdict[dt, list[
     api.filename_generation = ""
     api.filename_dampening = ""
     api.advanced_options = {ADVANCED_AUTOMATED_DAMPENING_ADAPTIVE_MODEL_EXCLUDE: []}
+    api.sites = []  # instance attribute not in spec; empty list skips site iteration
     dampening = Dampening(api)
-    dampening.adjusted_interval_dt = lambda _ts: 0  # type: ignore[method-assign]
+    dampening.adjusted_interval_dt = lambda ts: ts.astimezone(tz).hour * 2 + ts.astimezone(tz).minute // 30  # type: ignore[method-assign]
     return dampening.adaptive, defaultdict(lambda: [1.0] * 48), defaultdict(dict), api.dt_helper.day_start_utc()
 
 

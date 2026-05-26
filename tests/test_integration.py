@@ -251,8 +251,15 @@ async def _exec_update(
         # next iteration's caplog.clear(), making _wait_for_update exit on stale content.
         # Wait here until the outer task logs its completion before proceeding.
         if "pausing" in caplog.text:
+            last_record = len(caplog.records)
             async with asyncio.timeout(30):
-                while "Completed task update" not in caplog.text and "Completed task force_update" not in caplog.text:
+                while True:
+                    records = caplog.records
+                    for r in records[last_record:]:
+                        msg = r.getMessage()
+                        if "Completed task update" in msg or "Completed task force_update" in msg:
+                            return
+                    last_record = len(records)
                     await asyncio.sleep(0.01)
     await hass.async_block_till_done()
 
@@ -291,19 +298,26 @@ async def _exec_update_actuals(
 async def _wait_for_update(hass: HomeAssistant, caplog: pytest.LogCaptureFixture, freezer: FrozenDateTimeFactory | None = None) -> None:
     """Wait for forecast update completion."""
 
-    async with asyncio.timeout(500):
-        while (
-            "Forecast update completed successfully" not in caplog.text
-            and "Not requesting a solar forecast" not in caplog.text
-            and "aborting forecast update" not in caplog.text
-            and "update already in progress" not in caplog.text
-            and "pausing" not in caplog.text
-            and "Completed task update" not in caplog.text
-            and "Completed task force_update" not in caplog.text
-            and "Completed task actuals" not in caplog.text
-            and "Completed task force_actuals" not in caplog.text
-            and "ConfigEntryAuthFailed" not in caplog.text
-        ):  # Wait for task to complete
+    needles = (
+        "Forecast update completed successfully",
+        "Not requesting a solar forecast",
+        "aborting forecast update",
+        "update already in progress",
+        "pausing",
+        "Completed task update",
+        "Completed task force_update",
+        "Completed task actuals",
+        "Completed task force_actuals",
+        "ConfigEntryAuthFailed",
+    )
+    last_record = 0
+    async with asyncio.timeout(500 if freezer else 10):
+        while True:
+            records = caplog.records
+            for r in records[last_record:]:
+                if any(n in r.getMessage() for n in needles):
+                    return
+            last_record = len(records)
             if freezer:
                 freezer.tick(0.1)
                 await hass.async_block_till_done()
@@ -314,37 +328,55 @@ async def _wait_for_update(hass: HomeAssistant, caplog: pytest.LogCaptureFixture
 async def _wait_for_abort(caplog: pytest.LogCaptureFixture) -> None:
     """Wait for forecast update abort."""
 
+    last_record = 0
     async with asyncio.timeout(10):
-        while (
-            "Forecast update aborted" not in caplog.text and "Forecast update already in progress, ignoring" not in caplog.text
-        ):  # Wait for task to abort
+        while True:
+            records = caplog.records
+            for r in records[last_record:]:
+                msg = r.getMessage()
+                if "Forecast update aborted" in msg or "Forecast update already in progress, ignoring" in msg:
+                    return
+            last_record = len(records)
             await asyncio.sleep(0.01)
 
 
 async def _wait_for(caplog: pytest.LogCaptureFixture, wait_text: str) -> None:
     """Wait for a log message to appear."""
 
+    last_record = 0
     async with asyncio.timeout(10):
-        while wait_text not in caplog.text:  # Wait for expected log message
+        while True:
+            records = caplog.records
+            if any(wait_text in r.getMessage() for r in records[last_record:]):
+                return
+            last_record = len(records)
             await asyncio.sleep(0.01)
 
 
 async def _wait_for_startup_tasks(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
     """Wait for startup-triggered tasks that can race with the next test phase."""
 
-    stale_update_started = "Started task stale_update" in caplog.text
+    last_record = 0
+    stale_update_started = False
     deadline = asyncio.get_running_loop().time() + 1
 
-    while not stale_update_started and "Completed task stale_update" not in caplog.text:
+    while asyncio.get_running_loop().time() < deadline:
+        records = caplog.records
+        for r in records[last_record:]:
+            msg = r.getMessage()
+            if "Completed task stale_update" in msg:
+                await hass.async_block_till_done()
+                return
+            if not stale_update_started and "Started task stale_update" in msg:
+                stale_update_started = True
+                break
+        last_record = len(records)
+        if stale_update_started:
+            break
         await hass.async_block_till_done()
-        if "Started task stale_update" in caplog.text:
-            stale_update_started = True
-            break
-        if asyncio.get_running_loop().time() >= deadline:
-            break
         await asyncio.sleep(0.01)
 
-    if stale_update_started and "Completed task stale_update" not in caplog.text:
+    if stale_update_started and not any("Completed task stale_update" in r.getMessage() for r in caplog.records):
         await _wait_for(caplog, "Completed task stale_update")
     await hass.async_block_till_done()
 
@@ -379,9 +411,14 @@ async def _reload(hass: HomeAssistant, entry: ConfigEntry) -> tuple[SolcastUpdat
 
 async def five_minute_bump(hass: HomeAssistant, caplog: pytest.LogCaptureFixture):
     """Move to a sensor update done."""
+    last_record = 0
     async with asyncio.timeout(1):
-        while "Updating sensor Dampening" not in caplog.text:
-            await asyncio.sleep(0.1)
+        while True:
+            records = caplog.records
+            if any("Updating sensor Dampening" in r.getMessage() for r in records[last_record:]):
+                break
+            last_record = len(records)
+            await asyncio.sleep(0.01)
     assert "Updating sensor Dampening" in caplog.text
 
 
