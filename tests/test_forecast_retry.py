@@ -69,6 +69,26 @@ def _log_level_for(caplog: pytest.LogCaptureFixture, text: str) -> int:
     raise AssertionError(f"No log record found containing: {text!r}")
 
 
+async def _wait_for_log(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+    freezer: FrozenDateTimeFactory,
+    text: str,
+    timeout: float = 10,
+) -> None:
+    """Wait for a log message while advancing frozen time."""
+
+    last_record = 0
+    async with asyncio.timeout(timeout):
+        while True:
+            records = caplog.records
+            if any(text in r.getMessage() for r in records[last_record:]):
+                return
+            last_record = len(records)
+            freezer.tick(0.1)
+            await hass.async_block_till_done()
+
+
 @pytest.mark.asyncio
 async def test_forecast_retry(
     recorder_mock: Recorder,
@@ -120,10 +140,7 @@ async def test_forecast_retry(
 
         solcast.data[LAST_UPDATED] -= timedelta(minutes=20)
         with mock.patch("homeassistant.components.solcast_solar.fetcher.Fetcher._sleep", new_callable=AsyncMockDoNothing):
-            async with asyncio.timeout(10):
-                while "Raise issue for api_unavailable" not in caplog.text:
-                    freezer.tick(0.1)
-                    await hass.async_block_till_done()
+            await _wait_for_log(hass, caplog, freezer, "Raise issue for api_unavailable")
 
         assert "API was tried 10 times, but all attempts failed" in caplog.text
         _occurs_in_log(caplog, "Call status 429/Try again later", 10)
@@ -136,10 +153,7 @@ async def test_forecast_retry(
         session_clear(MOCK_BUSY)
         caplog.clear()
         await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
-        async with asyncio.timeout(10):
-            while "Remove issue for api_unavailable" not in caplog.text:
-                freezer.tick(0.1)
-                await hass.async_block_till_done()
+        await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable")
         assert "Remove issue for api_unavailable" in caplog.text
         await solcast.tasks_cancel()
         await coordinator.tasks_cancel()
@@ -183,10 +197,7 @@ async def test_log_update_failure_only_enabled(
 
         solcast.data[LAST_UPDATED] -= timedelta(minutes=20)
         with mock.patch("homeassistant.components.solcast_solar.fetcher.Fetcher._sleep", new_callable=AsyncMockDoNothing):
-            async with asyncio.timeout(10):
-                while "Raise issue for api_unavailable" not in caplog.text:
-                    freezer.tick(0.1)
-                    await hass.async_block_till_done()
+            await _wait_for_log(hass, caplog, freezer, "Raise issue for api_unavailable")
 
         # Retry-related messages must be logged at DEBUG (not WARNING).
         assert _log_level_for(caplog, "Call status 429/Try again later, pausing") == logging.DEBUG

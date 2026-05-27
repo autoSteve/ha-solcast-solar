@@ -173,9 +173,7 @@ async def test_auto_dampen(
 
         # Assert good start, that actuals and generation are enabled, and that the caches are saved
         _LOGGER.debug("Testing good start happened")
-        for _ in range(30):  # Extra time needed for reload to complete
-            await hass.async_block_till_done()
-            freezer.tick(0.1)
+        await wait_for_it(hass, caplog, freezer, "Auto-dampen factor for 08:30 is 0.830")
         assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
         no_exception(caplog)
 
@@ -204,7 +202,7 @@ async def test_auto_dampen(
         caplog.clear()
         _LOGGER.debug("Testing force update actuals with dampening enabled")
         await exec_update_actuals(hass, coordinator, solcast, caplog, freezer, SERVICE_FORCE_UPDATE_ESTIMATES)
-        await wait_for_it(hass, caplog, freezer, "Estimated actual mean APE", long_time=True)
+        await wait_for_it(hass, caplog, freezer, "Estimated actual mean APE")
         assert "Estimated actuals dictionary for site 1111-1111-1111-1111" in caplog.text
         assert "Estimated actuals dictionary for site 2222-2222-2222-2222" in caplog.text
         assert "Estimated actuals dictionary for site 3333-3333-3333-3333" in caplog.text
@@ -281,9 +279,7 @@ async def test_auto_dampen(
         freezer.move_to((dt.now(solcast.tz) + timedelta(days=1)).replace(minute=0, second=0, microsecond=0))  # pyright: ignore[reportOptionalMemberAccess]
         await wait_for_it(hass, caplog, freezer, "Update estimated actuals failed: No valid json returned", long_time=True)
         session_clear(MOCK_CORRUPT_ACTUALS)
-        for _ in range(300):  # Extra time needed for get_generation to complete
-            freezer.tick(0.1)
-            await hass.async_block_till_done()
+        await wait_for_it(hass, caplog, freezer, "Task get_pv_generation took")
 
         # Cause an actual build exception
         _LOGGER.debug("Causing an actual build exception")
@@ -315,9 +311,7 @@ async def test_auto_dampen(
         hass.config_entries.async_update_entry(entry, options=opt)
         await hass.async_block_till_done()
         assert "Options updated, action: The integration will reload" in caplog.text
-        for _ in range(300):  # Extra time needed for reload to complete
-            freezer.tick(0.1)
-            await hass.async_block_till_done()
+        await wait_for_it(hass, caplog, freezer, "Clear presumed dead flag")
 
     finally:
         session_clear(MOCK_CORRUPT_ACTUALS)
@@ -391,9 +385,7 @@ async def test_auto_dampen_issues(
 
         # Assert good start, that actuals and generation are enabled, and that the caches are saved
         _LOGGER.debug("Testing good start happened")
-        for _ in range(30):  # Extra time needed for reload to complete
-            freezer.tick(0.1)
-            await hass.async_block_till_done()
+        await wait_for_it(hass, caplog, freezer, "Estimated actual mean APE")
         assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
         no_exception(caplog)
         assert "Calculating dampened estimated actual MAPE" not in caplog.text

@@ -398,7 +398,7 @@ async def _reload(hass: HomeAssistant, entry: ConfigEntry) -> tuple[SolcastUpdat
 
     _LOGGER.warning("Reloading integration")
     await hass.config_entries.async_reload(entry.entry_id)
-    for _ in range(10):
+    for _ in range(5):
         await hass.async_block_till_done()
     if entry.state is ConfigEntryState.LOADED:
         try:
@@ -2149,6 +2149,7 @@ async def test_watch_dampening_file_recreated_then_deleted() -> None:
     coordinator.solcast.entry_options = {}
     coordinator.solcast.damp = {}
     coordinator.solcast.dampening = unittest.mock.MagicMock()
+    coordinator.solcast.dampening.granular_serialising = False
 
     watcher = FileWatcher(coordinator)
 

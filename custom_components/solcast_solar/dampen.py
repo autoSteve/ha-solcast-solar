@@ -259,6 +259,7 @@ class Dampening:
         }
         self.filename_generation = api.filename_generation
         self.granular_allow_reset = True
+        self.granular_serialising = False
         self.factors: dict[str, list[float]] = {}
         self.factors_mtime: float = 0
 
@@ -1344,8 +1345,12 @@ class Dampening:
             cls=NoIndentEncoder,
             indent=2,
         )
-        async with self.api.serialise_lock, aiofiles.open(filename, "w") as file:
-            await file.write(payload)
+        self.granular_serialising = True
+        try:
+            async with self.api.serialise_lock, aiofiles.open(filename, "w") as file:
+                await file.write(payload)
+        finally:
+            self.granular_serialising = False
         self.factors_mtime = Path(filename).stat().st_mtime
         _LOGGER.debug(
             "Granular dampening file mtime %s",

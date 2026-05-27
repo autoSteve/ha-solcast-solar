@@ -88,9 +88,7 @@ async def test_select_change_value(
             f"Sensor {test_entity} state should be {expected_value!r} for mode {resulting_state}"
         )  # type: ignore[union-attr]
 
-        for _ in range(300):  # Extra time needed for refresh
-            await hass.async_block_till_done()
-            freezer.tick(0.1)
+        await hass.async_block_till_done(wait_background_tasks=True)
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"

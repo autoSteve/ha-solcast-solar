@@ -193,6 +193,9 @@ class FileWatcher:
                     if self._path_exists(file_path):
                         _LOGGER.debug("Granular dampening file recreation detected, continuing to monitor %s", file_path)
                         continue
+                    if coordinator.solcast.dampening.granular_serialising:
+                        _LOGGER.debug("Granular dampening file write in progress, continuing to monitor %s", file_path)
+                        continue
                     _LOGGER.debug("Granular dampening file deleted, no longer monitoring %s for changes", file_path)
                     coordinator.solcast.dampening.factors = {}
                     entry = coordinator.solcast.entry

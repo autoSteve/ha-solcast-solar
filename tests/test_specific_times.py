@@ -1,5 +1,6 @@
 """Test midnight rollover."""
 
+import asyncio
 from datetime import datetime as dt
 import logging
 
@@ -47,6 +48,19 @@ async def test_midnight(
 ) -> None:
     """Test midnight updates."""
 
+    async def wait_for_log(wait_text: str, tick_seconds: float, timeout_seconds: float) -> None:
+        """Wait for a log message while advancing frozen time."""
+
+        last_record = 0
+        async with asyncio.timeout(timeout_seconds):
+            while True:
+                records = caplog.records
+                if any(wait_text in r.getMessage() for r in records[last_record:]):
+                    return
+                last_record = len(records)
+                freezer.tick(tick_seconds)
+                await hass.async_block_till_done()
+
     try:
         # Test midnight UTC usage reset.
         # Init well before midnight to avoid FreezeGun's asyncio.sleep patching
@@ -93,22 +107,14 @@ async def test_midnight(
 
         # Test auto-update occurs just after midnight UTC.
         caplog.clear()
-        for _ in range(2000):  # Twenty virtual seconds
-            freezer.tick(0.01)
-            await hass.async_block_till_done()
-            if "Completed task pending_update" in caplog.text:
-                break
+        await wait_for_log("Completed task pending_update", tick_seconds=0.01, timeout_seconds=30)
         assert "Completed task pending_update" in caplog.text
 
         # Test midnight local happenings.
         freezer.move_to(f"{dt.now().date()} 13:59:59")
 
         caplog.clear()
-        for _ in range(600):
-            freezer.tick()
-            await hass.async_block_till_done()
-            if "Updating sensor" in caplog.text:
-                break
+        await wait_for_log("Updating sensor", tick_seconds=1.0, timeout_seconds=600)
 
         assert "Date has changed" in caplog.text
         assert "Forecast data from" in caplog.text
