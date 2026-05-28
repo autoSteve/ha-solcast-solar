@@ -1046,6 +1046,21 @@ async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -
     return True
 
 
+async def _async_cancel_tracked_solcast_tasks(entry: ConfigEntry) -> None:
+    """Cancel and await tracked Solcast API tasks during test cleanup."""
+
+    coordinator = getattr(entry.runtime_data, "coordinator", None)
+    if coordinator is None:
+        return
+
+    tracked_tasks = [task for task in coordinator.solcast.tasks.values() if isinstance(task, asyncio.Task)]
+    for task in tracked_tasks:
+        task.cancel()
+    if tracked_tasks:
+        await asyncio.gather(*tracked_tasks, return_exceptions=True)
+    coordinator.solcast.tasks.clear()
+
+
 async def async_cleanup_integration_tests(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
@@ -1059,6 +1074,7 @@ async def async_cleanup_integration_tests(hass: HomeAssistant, **kwargs: Any) ->
 
         loaded_entries = [entry for entry in hass.config_entries.async_entries(DOMAIN) if entry.state is ConfigEntryState.LOADED]
         for entry in loaded_entries:
+            await _async_cancel_tracked_solcast_tasks(entry)
             _LOGGER.debug("Unloading config entry during Solcast test cleanup: %s", entry.entry_id)
             if not await hass.config_entries.async_unload(entry.entry_id):
                 _LOGGER.error("Error unloading Solcast config entry during test cleanup: %s", entry.entry_id)
