@@ -117,6 +117,20 @@ class Fetcher:
         """Log at warning or error level based on the failure-only advanced option."""
         (_LOGGER.warning if self.api.advanced_options[ADVANCED_LOG_UPDATE_FAILURE_ONLY] else _LOGGER.error)(message, *args)
 
+    def _pop_task_result(self, task_name: str) -> Any | None:
+        """Pop a tracked task and return its result without propagating fetch exceptions."""
+        task = self.api.tasks.pop(task_name, None)
+        if task is None:
+            return None
+        try:
+            if task.cancelled():
+                _LOGGER.debug("Task %s was cancelled", task_name)
+                return None
+            return task.result()
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.warning("Task %s failed: %s", task_name, err)
+            return None
+
     async def build_forecast_and_actuals(self, raise_exc=False) -> bool:
         """Build the forecast and estimated actual data.
 
@@ -185,9 +199,7 @@ class Fetcher:
                 )
                 await self.api.tasks[TASK_ACTUALS_FETCH]
             finally:
-                act_response = (
-                    self.api.tasks.pop(TASK_ACTUALS_FETCH).result() if self.api.tasks.get(TASK_ACTUALS_FETCH) is not None else None
-                )
+                act_response = self._pop_task_result(TASK_ACTUALS_FETCH)
             if not isinstance(act_response, dict):
                 _LOGGER.error("No valid data was returned for estimated_actuals so this may cause issues")
                 _LOGGER.debug("API did not return a json object, returned `%s`", act_response)
@@ -432,9 +444,7 @@ class Fetcher:
                     )
                     await self.api.tasks[TASK_FORECASTS_FETCH]
                 finally:
-                    act_response = (
-                        self.api.tasks.pop(TASK_FORECASTS_FETCH).result() if self.api.tasks.get(TASK_FORECASTS_FETCH) is not None else None
-                    )
+                    act_response = self._pop_task_result(TASK_FORECASTS_FETCH)
                 if not isinstance(act_response, dict):
                     failure = True
                     _LOGGER.error(
@@ -494,9 +504,7 @@ class Fetcher:
                 )
                 await self.api.tasks[TASK_FORECASTS_FETCH]
             finally:
-                response = (
-                    self.api.tasks.pop(TASK_FORECASTS_FETCH).result() if self.api.tasks.get(TASK_FORECASTS_FETCH) is not None else None
-                )
+                response = self._pop_task_result(TASK_FORECASTS_FETCH)
 
             if not isinstance(response, dict):
                 failure = True

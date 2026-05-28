@@ -1,6 +1,9 @@
 """Tests for Solcast Solar issue registry behaviors and quota warnings."""
 
+import asyncio
+from contextlib import suppress
 import copy
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -17,10 +20,12 @@ from homeassistant.components.solcast_solar.const import (
     ISSUE_ACTUALS_API_LIMIT,
     ISSUE_ACTUALS_QUOTA_TODAY,
     SUGGESTED_VALUE,
+    TASK_ACTUALS_FETCH,
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
 from homeassistant.components.solcast_solar.enums import AutoUpdate
+from homeassistant.components.solcast_solar.fetcher import Fetcher
 from homeassistant.components.solcast_solar.issues import (
     sync_actuals_api_limit_issue,
     sync_actuals_quota_risk_issue,
@@ -44,6 +49,53 @@ from .test_integration import patch_solcast_api
 @pytest.fixture(autouse=True)
 def frozen_time() -> None:
     """Disable the global freezer fixture for this module."""
+
+
+async def test_pop_task_result_handles_cancelled_task() -> None:
+    """Ensure cancelled fetch tasks are popped without raising."""
+
+    api = SimpleNamespace(tasks={})
+    fetcher = Fetcher(api=api)  # pyright: ignore[reportArgumentType]
+
+    task = asyncio.create_task(asyncio.sleep(5))
+    api.tasks[TASK_ACTUALS_FETCH] = task
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+    result = fetcher._pop_task_result(TASK_ACTUALS_FETCH)
+
+    assert result is None
+    assert TASK_ACTUALS_FETCH not in api.tasks
+
+
+def test_pop_task_result_handles_missing_task() -> None:
+    """Ensure missing fetch tasks return None without raising."""
+
+    api = SimpleNamespace(tasks={})
+    fetcher = Fetcher(api=api)  # pyright: ignore[reportArgumentType]
+
+    assert fetcher._pop_task_result(TASK_ACTUALS_FETCH) is None
+
+
+async def test_pop_task_result_handles_task_exception() -> None:
+    """Ensure failed fetch tasks are popped and converted to None."""
+
+    api = SimpleNamespace(tasks={})
+    fetcher = Fetcher(api=api)  # pyright: ignore[reportArgumentType]
+
+    async def _fail() -> None:
+        raise RuntimeError("Magic smoke released")
+
+    task = asyncio.create_task(_fail())
+    api.tasks[TASK_ACTUALS_FETCH] = task
+    with suppress(RuntimeError):
+        await task
+
+    result = fetcher._pop_task_result(TASK_ACTUALS_FETCH)
+
+    assert result is None
+    assert TASK_ACTUALS_FETCH not in api.tasks
 
 
 @pytest.mark.parametrize(API_LIMIT, ["10", "50"])

@@ -5,7 +5,6 @@ from collections import OrderedDict
 import copy
 import datetime
 from datetime import datetime as dt, timedelta
-import json
 import logging
 import math
 from pathlib import Path
@@ -67,11 +66,7 @@ from homeassistant.components.solcast_solar.dampen import (
     compute_energy_intervals,
     compute_power_intervals,
 )
-from homeassistant.components.solcast_solar.dates import (
-    DateTimeEncoder,
-    DateTimeHelper,
-    JSONDecoder,
-)
+from homeassistant.components.solcast_solar.dates import DateTimeHelper
 from homeassistant.components.solcast_solar.enums import SolcastApiStatus
 from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.config_entries import ConfigEntryState
@@ -85,6 +80,7 @@ from . import (
     MOCK_CORRUPT_ACTUALS,
     ZONE_RAW,
     ExtraSensors,
+    adjust_dampening_test_caches,
     async_cleanup_integration_tests,
     async_init_integration,
     exec_update_actuals,
@@ -147,23 +143,7 @@ async def test_auto_dampen(
         er.async_get(hass).async_get_or_create("sensor", DOMAIN, ENTITY_ACCURACY)
         entry = await async_init_integration(hass, options, extra_sensors=ExtraSensors.YES_WATT_HOUR)
 
-        # Adjust undampened data cache
-        undampened = json.loads(Path(f"{config_dir}/solcast-undampened.json").read_text(encoding="utf-8"), cls=JSONDecoder)
-        for site in undampened[SITE_INFO].values():
-            for forecast in site[FORECASTS]:
-                forecast[ESTIMATE] *= 0.85
-        Path(f"{config_dir}/solcast-undampened.json").write_text(json.dumps(undampened, cls=DateTimeEncoder), encoding="utf-8")
-
-        # Adjust estimated actual data cache
-        actuals = json.loads(Path(f"{config_dir}/solcast-actuals.json").read_text(encoding="utf-8"), cls=JSONDecoder)
-        for site in actuals[SITE_INFO].values():
-            for forecast in site[FORECASTS]:
-                if (
-                    forecast[PERIOD_START].astimezone(ZoneInfo(ZONE_RAW)).hour == 10
-                    and forecast[PERIOD_START].astimezone(ZoneInfo(ZONE_RAW)).minute == 30
-                ):
-                    forecast[ESTIMATE] *= 0.91
-        Path(f"{config_dir}/solcast-actuals.json").write_text(json.dumps(actuals, cls=DateTimeEncoder), encoding="utf-8")
+        adjust_dampening_test_caches(config_dir)
 
         # Reload to load saved data and prime initial generation
         caplog.clear()

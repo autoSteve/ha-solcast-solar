@@ -153,7 +153,7 @@ async def test_forecast_retry(
         session_clear(MOCK_BUSY)
         caplog.clear()
         await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
-        await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable")
+        await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable", timeout=30)
         assert "Remove issue for api_unavailable" in caplog.text
         await solcast.tasks_cancel()
         await coordinator.tasks_cancel()

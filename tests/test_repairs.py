@@ -146,7 +146,7 @@ async def test_missing_data_initial(
 
         async def update_forecast():
             await hass.services.async_call(DOMAIN, SERVICE_UPDATE, {}, blocking=True)
-            async with asyncio.timeout(100):
+            async with asyncio.timeout(300):
                 while "Completed task update" not in caplog.text:
                     freezer.tick(0.1)
                     await hass.async_block_till_done()

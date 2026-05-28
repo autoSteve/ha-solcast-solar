@@ -156,6 +156,7 @@ from . import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+_TEST_POLL_INTERVAL = 0.005
 
 ACTIONS = [
     SERVICE_CLEAR_DATA,
@@ -260,7 +261,7 @@ async def _exec_update(
                         if "Completed task update" in msg or "Completed task force_update" in msg:
                             return
                     last_record = len(records)
-                    await asyncio.sleep(0.01)
+                    await asyncio.sleep(_TEST_POLL_INTERVAL)
     await hass.async_block_till_done()
 
 
@@ -291,7 +292,7 @@ async def _exec_update_actuals(
         await solcast.tasks_cancel()
         async with asyncio.timeout(30):
             while coordinator.tasks.get(TASK_NEW_DAY_ACTUALS):
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(_TEST_POLL_INTERVAL)
     await hass.async_block_till_done()
 
 
@@ -322,7 +323,7 @@ async def _wait_for_update(hass: HomeAssistant, caplog: pytest.LogCaptureFixture
                 freezer.tick(0.1)
                 await hass.async_block_till_done()
             else:
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(_TEST_POLL_INTERVAL)
 
 
 async def _wait_for_abort(caplog: pytest.LogCaptureFixture) -> None:
@@ -337,7 +338,7 @@ async def _wait_for_abort(caplog: pytest.LogCaptureFixture) -> None:
                 if "Forecast update aborted" in msg or "Forecast update already in progress, ignoring" in msg:
                     return
             last_record = len(records)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(_TEST_POLL_INTERVAL)
 
 
 async def _wait_for(caplog: pytest.LogCaptureFixture, wait_text: str) -> None:
@@ -350,7 +351,7 @@ async def _wait_for(caplog: pytest.LogCaptureFixture, wait_text: str) -> None:
             if any(wait_text in r.getMessage() for r in records[last_record:]):
                 return
             last_record = len(records)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(_TEST_POLL_INTERVAL)
 
 
 async def _wait_for_startup_tasks(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
@@ -374,7 +375,7 @@ async def _wait_for_startup_tasks(hass: HomeAssistant, caplog: pytest.LogCapture
         if stale_update_started:
             break
         await hass.async_block_till_done()
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(_TEST_POLL_INTERVAL)
 
     if stale_update_started and not any("Completed task stale_update" in r.getMessage() for r in caplog.records):
         await _wait_for(caplog, "Completed task stale_update")
@@ -387,7 +388,7 @@ async def _wait_for_raise(hass: HomeAssistant, exception: Exception) -> None:
     async def wait_for_exception():
         async with asyncio.timeout(10):
             while True:
-                await asyncio.sleep(0.01)
+                await asyncio.sleep(_TEST_POLL_INTERVAL)
 
     with pytest.raises(exception):  # type: ignore[call-overload]
         await wait_for_exception()
@@ -398,14 +399,18 @@ async def _reload(hass: HomeAssistant, entry: ConfigEntry) -> tuple[SolcastUpdat
 
     _LOGGER.warning("Reloading integration")
     await hass.config_entries.async_reload(entry.entry_id)
-    for _ in range(5):
+    min_settle_cycles = 3
+    for attempt in range(5):
         await hass.async_block_till_done()
-    if entry.state is ConfigEntryState.LOADED:
-        try:
+        if attempt + 1 < min_settle_cycles:
+            continue
+        if entry.state is not ConfigEntryState.LOADED:
+            continue
+        with contextlib.suppress(AttributeError):
             coordinator = entry.runtime_data.coordinator
             return coordinator, patch_solcast_api(coordinator.solcast)
-        except:  # noqa: E722
-            _LOGGER.error("Failed to load coordinator (or solcast), which may be expected given test conditions")
+    if entry.state is ConfigEntryState.LOADED:
+        _LOGGER.error("Failed to load coordinator (or solcast), which may be expected given test conditions")
     return None, None
 
 
@@ -418,7 +423,7 @@ async def five_minute_bump(hass: HomeAssistant, caplog: pytest.LogCaptureFixture
             if any("Updating sensor Dampening" in r.getMessage() for r in records[last_record:]):
                 break
             last_record = len(records)
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(_TEST_POLL_INTERVAL)
     assert "Updating sensor Dampening" in caplog.text
 
 
@@ -850,18 +855,19 @@ async def test_remaining_actions(
         async def _clear_granular_dampening():
             # Clear granular dampening
             await hass.services.async_call(DOMAIN, SERVICE_SET_DAMPENING, {DAMP_FACTOR: ("1.0," * 24)[:-1]}, blocking=True)
-            await hass.async_block_till_done()  # Because options change
-            dampening = await hass.services.async_call(DOMAIN, SERVICE_GET_DAMPENING, {}, blocking=True, return_response=True)
-            if dampening is not None:
-                assert (
-                    dampening.get("data", [{}])[0]  # pyright: ignore[reportArgumentType, reportIndexIssue, reportOptionalSubscript] # Response is always a list
-                    == {
-                        "site": "all",
-                        DAMP_FACTOR: ("1.0," * 24)[:-1],
-                    }
-                )
-            else:
-                pytest.fail("Dampening is None")
+            expected = {
+                "site": "all",
+                DAMP_FACTOR: ("1.0," * 24)[:-1],
+            }
+            for _ in range(50):
+                await hass.async_block_till_done()  # Because options change
+                dampening = await hass.services.async_call(DOMAIN, SERVICE_GET_DAMPENING, {}, blocking=True, return_response=True)
+                if dampening is None:
+                    continue
+                data = dampening.get("data", [])
+                if isinstance(data, list) and data and data[0] == expected:
+                    return
+            pytest.fail("Dampening did not settle to the expected legacy factors")
 
         dampening = await hass.services.async_call(DOMAIN, SERVICE_GET_DAMPENING, {}, blocking=True, return_response=True)
         if dampening is not None:

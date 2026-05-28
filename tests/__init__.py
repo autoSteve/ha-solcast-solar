@@ -44,17 +44,22 @@ from homeassistant.components.solcast_solar.const import (
     CONFIG_VERSION,
     CUSTOM_HOURS,
     DOMAIN,
+    ESTIMATE,
     EXCLUDE_SITES,
+    FORECASTS,
     GENERATION_ENTITIES,
     GET_ACTUALS,
     HARD_LIMIT_API,
     KEY_ESTIMATE,
+    PERIOD_START,
     SITE_DAMP,
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
+    SITE_INFO,
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
+from homeassistant.components.solcast_solar.dates import DateTimeEncoder, JSONDecoder
 from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_API_KEY
@@ -239,6 +244,30 @@ def write_advanced_options(config_dir: str | Path, advanced_options: dict[str, A
     advanced_file = get_advanced_options_file(config_dir, create=True)
     advanced_file.write_text(json.dumps(advanced_options), encoding="utf-8")
     return advanced_file
+
+
+def adjust_dampening_test_caches(config_dir: str | Path, undampened_factor: float = 0.85, actuals_factor: float = 0.91) -> None:
+    """Apply dampening test cache tweaks."""
+
+    config_path = get_config_dir(config_dir)
+
+    undampened_path = config_path / "solcast-undampened.json"
+    undampened = json.loads(undampened_path.read_text(encoding="utf-8"), cls=JSONDecoder)
+    for site in undampened[SITE_INFO].values():
+        for forecast in site[FORECASTS]:
+            forecast[ESTIMATE] *= undampened_factor
+    undampened_path.write_text(json.dumps(undampened, cls=DateTimeEncoder), encoding="utf-8")
+
+    actuals_path = config_path / "solcast-actuals.json"
+    actuals = json.loads(actuals_path.read_text(encoding="utf-8"), cls=JSONDecoder)
+    for site in actuals[SITE_INFO].values():
+        for forecast in site[FORECASTS]:
+            if (
+                forecast[PERIOD_START].astimezone(ZoneInfo("Australia/Brisbane")).hour == 10
+                and forecast[PERIOD_START].astimezone(ZoneInfo("Australia/Brisbane")).minute == 30
+            ):
+                forecast[ESTIMATE] *= actuals_factor
+    actuals_path.write_text(json.dumps(actuals, cls=DateTimeEncoder), encoding="utf-8")
 
 
 def verify_data_schema(data: dict[str, Any]) -> None:
@@ -983,13 +1012,14 @@ async def wait_for_it(
     """Wait for a specific log message to appear."""
 
     last_record = 0
+    tick_seconds = 5.0 if long_time else 1.0
     async with asyncio.timeout(300 if not long_time else 3000):
         while True:
             records = caplog.records
             if any(wait_for in r.getMessage() for r in records[last_record:]):
                 return
             last_record = len(records)
-            freezer.tick(1.0)
+            freezer.tick(tick_seconds)
             await hass.async_block_till_done()
 
 
