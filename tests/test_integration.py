@@ -76,6 +76,9 @@ from homeassistant.components.solcast_solar.const import (
     HARD_LIMIT_API,
     INFINITY_EXCLUDED,
     ISSUE_CORRUPT_FILE,
+    ISSUE_DEPRECATED_REMOVE_HARD_LIMIT,
+    ISSUE_DEPRECATED_SET_CUSTOM_HOURS,
+    ISSUE_DEPRECATED_SET_HARD_LIMIT,
     KEY_ESTIMATE,
     LAST_ATTEMPT,
     LAST_UPDATED,
@@ -804,6 +807,7 @@ async def test_remaining_actions(
     recorder_mock: Recorder,
     hass: HomeAssistant,
     caplog: pytest.LogCaptureFixture,
+    issue_registry: ir.IssueRegistry,
 ) -> None:
     """Test remaining actions."""
 
@@ -986,6 +990,10 @@ async def test_remaining_actions(
         _LOGGER.debug("Test set reasonable hard limit")
         solcast = await _set_hard_limit("5.0")
         assert solcast.hard_limit == "5.0"
+        issue = issue_registry.async_get_issue(DOMAIN, ISSUE_DEPRECATED_SET_HARD_LIMIT)
+        assert issue is not None, "Issue ISSUE_DEPRECATED_SET_HARD_LIMIT should exist"
+        assert issue.translation_placeholders is not None
+        assert issue.translation_placeholders.get("deprecated_action") == SERVICE_SET_HARD_LIMIT
         assert "Build hard limit period values from scratch for forecast" in caplog.text
         assert "Build hard limit period values from scratch for undampened forecast" in caplog.text
         for estimate in [ESTIMATE, ESTIMATE10, ESTIMATE90]:
@@ -1051,6 +1059,10 @@ async def test_remaining_actions(
         _LOGGER.debug("Test set single hard limit value for both API keys")
         solcast = await _remove_hard_limit()
         assert solcast.hard_limit == "100.0"
+        issue = issue_registry.async_get_issue(DOMAIN, ISSUE_DEPRECATED_REMOVE_HARD_LIMIT)
+        assert issue is not None, "Issue ISSUE_DEPRECATED_REMOVE_HARD_LIMIT should exist"
+        assert issue.translation_placeholders is not None
+        assert issue.translation_placeholders.get("deprecated_action") == SERVICE_REMOVE_HARD_LIMIT
         for estimate in [ESTIMATE, ESTIMATE10, ESTIMATE90]:
             assert len(solcast._sites_hard_limit["all"][estimate]) == 0
             assert len(solcast._sites_hard_limit_undampened["all"][estimate]) == 0
@@ -1090,6 +1102,10 @@ async def test_remaining_actions(
         solcast = await _set_custom_hours("1")
         assert solcast.custom_hour_sensor == 1
         assert entry.options[CUSTOM_HOURS] == 1
+        issue = issue_registry.async_get_issue(DOMAIN, ISSUE_DEPRECATED_SET_CUSTOM_HOURS)
+        assert issue is not None, "Issue ISSUE_DEPRECATED_SET_CUSTOM_HOURS should exist"
+        assert issue.translation_placeholders is not None
+        assert issue.translation_placeholders.get("deprecated_action") == SERVICE_SET_CUSTOM_HOURS
         solcast = await _set_custom_hours("144")
         assert solcast.custom_hour_sensor == 144
         assert entry.options[CUSTOM_HOURS] == 144

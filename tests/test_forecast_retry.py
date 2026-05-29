@@ -15,11 +15,13 @@ from homeassistant.components.solcast_solar.const import (
     ADVANCED_TRIGGER_ON_API_AVAILABLE,
     ADVANCED_TRIGGER_ON_API_UNAVAILABLE,
     DOMAIN,
+    ISSUE_API_UNAVAILABLE,
     LAST_UPDATED,
     SERVICE_FORCE_UPDATE_FORECASTS,
 )
 from homeassistant.components.solcast_solar.enums import UpdateOutcome, UpdateResult
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 
 from . import (
@@ -95,6 +97,7 @@ async def test_forecast_retry(
     hass: HomeAssistant,
     freezer: FrozenDateTimeFactory,
     caplog: pytest.LogCaptureFixture,
+    issue_registry: ir.IssueRegistry,
 ) -> None:
     """Test retry mechanism."""
 
@@ -147,6 +150,7 @@ async def test_forecast_retry(
         assert "Forecast has not been updated: 429/Try again later after 10 attempts, next auto update at" in caplog.text
         assert "Completed task pending_update_009" in caplog.text
         assert "Raise issue for api_unavailable" in caplog.text
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is not None, "Issue ISSUE_API_UNAVAILABLE should exist"
         await solcast.tasks_cancel()
         await coordinator.tasks_cancel()
 
@@ -155,6 +159,7 @@ async def test_forecast_retry(
         await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
         await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable", timeout=30)
         assert "Remove issue for api_unavailable" in caplog.text
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is None, "Issue ISSUE_API_UNAVAILABLE should be removed"
         await solcast.tasks_cancel()
         await coordinator.tasks_cancel()
 

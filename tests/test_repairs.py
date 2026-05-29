@@ -22,12 +22,15 @@ from homeassistant.components.solcast_solar.const import (
     CONFIG_FOLDER_DISCRETE,
     DOMAIN,
     ENTRY_ID,
+    FAILURE,
     FORECASTS,
     GET_ACTUALS,
     ISSUE_RECORDS_MISSING_FIXABLE,
     ISSUE_RECORDS_MISSING_INITIAL,
+    ISSUE_RECORDS_MISSING_UNFIXABLE,
     ISSUE_UNUSUAL_AZIMUTH_NORTHERN,
     ISSUE_UNUSUAL_AZIMUTH_SOUTHERN,
+    LAST_14D,
     PERIOD_START,
     PROPOSAL,
     SERVICE_CLEAR_DATA,
@@ -115,6 +118,50 @@ async def test_missing_data_fixable(
         assert "Auto forecast updates" in caplog.text
         assert result["type"] == FlowResultType.ABORT
         assert result["reason"] == AFFIRMATION_RECONFIGURED
+
+    finally:
+        await async_cleanup_integration_tests(hass)
+
+
+async def test_missing_data_unfixable(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    issue_registry: ir.IssueRegistry,
+) -> None:
+    """Test missing data marked unfixable after recent failures."""
+
+    try:
+        options = copy.deepcopy(DEFAULT_INPUT1)
+        options[AUTO_UPDATE] = "0"
+        options[GET_ACTUALS] = False  # Don't trigger actuals_quota_today issue in this test.
+        entry = await async_init_integration(hass, options)
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+
+        def mark_unfixable_missing_data() -> None:
+            for file_name in [f"{config_dir}/solcast.json", f"{config_dir}/solcast-undampened.json"]:
+                data_file = Path(file_name)
+                data = json.loads(data_file.read_text(encoding="utf-8"))
+                # Remove future forecasts to trigger missing-data detection.
+                for site in data[SITE_INFO].values():
+                    site[FORECASTS] = [
+                        f for f in site[FORECASTS] if f[PERIOD_START] < (dt.now(datetime.UTC) + timedelta(days=4)).isoformat()
+                    ]
+                # Simulate recent historical failures so the issue is not auto-fixable.
+                data[FAILURE][LAST_14D] = [1, *[0] * 13]
+                data_file.write_text(json.dumps(data), encoding="utf-8")
+
+        mark_unfixable_missing_data()
+        await reload_integration(hass, entry)
+
+        issue = issue_registry.async_get_issue(DOMAIN, ISSUE_RECORDS_MISSING_UNFIXABLE)
+        assert issue is not None, f"Expected issue {ISSUE_RECORDS_MISSING_UNFIXABLE}, got {list(issue_registry.issues.keys())}"
+        assert issue.domain == DOMAIN, f"Expected domain {DOMAIN}, got {issue.domain}"
+        assert issue.is_fixable is False, "Missing data issue should be unfixable after recent failures"
+        assert issue.is_persistent is False, "Unfixable missing data issue should not be persistent"
+
+        # Unfixable issue should use generic confirmation flow (no custom action offered).
+        flow = await async_create_fix_flow(hass, issue.issue_id, {ENTRY_ID: entry.entry_id})
+        assert type(flow) is ConfirmRepairFlow
 
     finally:
         await async_cleanup_integration_tests(hass)
