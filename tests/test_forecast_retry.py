@@ -1,10 +1,11 @@
 """Test forecasts update retry mechanism."""
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime as dt, timedelta
 import logging
 from typing import Any
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
@@ -18,6 +19,8 @@ from homeassistant.components.solcast_solar.const import (
     ISSUE_API_UNAVAILABLE,
     LAST_UPDATED,
     SERVICE_FORCE_UPDATE_FORECASTS,
+    TASK_FORECASTS_FETCH_IMMEDIATE,
+    TASK_NEW_DAY_ACTUALS,
 )
 from homeassistant.components.solcast_solar.enums import UpdateOutcome, UpdateResult
 from homeassistant.core import HomeAssistant
@@ -252,6 +255,103 @@ async def test_forecast_abort_does_not_build_actuals(
             await coordinator._updater.forecast_update(completion="Completed task update")
 
         build_actual_data.assert_not_awaited()
+
+    finally:
+        await async_cleanup_integration_tests(hass)
+
+
+@pytest.mark.asyncio
+async def test_force_update_unload_cancels_update_task(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+) -> None:
+    """Ensure unload cancels an in-progress immediate forecast update task."""
+
+    entered = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def blocked_forecast_update(*_args: Any, **_kwargs: Any) -> None:
+        entered.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        coordinator = entry.runtime_data.coordinator
+
+        with mock.patch.object(coordinator._updater, "forecast_update", side_effect=blocked_forecast_update):
+            await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=False)
+
+            async with asyncio.timeout(10):
+                while not entered.is_set() or TASK_FORECASTS_FETCH_IMMEDIATE not in coordinator.tasks:
+                    await hass.async_block_till_done()
+
+            assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
+            await hass.async_block_till_done()
+
+            assert TASK_FORECASTS_FETCH_IMMEDIATE not in coordinator.tasks
+            assert cancelled.is_set(), "Expected in-progress immediate task to be cancelled on unload"
+
+    finally:
+        await async_cleanup_integration_tests(hass)
+
+
+@pytest.mark.asyncio
+async def test_retry_recovery_then_schedule_deferred_actuals(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+    issue_registry: ir.IssueRegistry,
+) -> None:
+    """After retry failure and recovery, schedule estimated actuals when midnight window was missed."""
+
+    try:
+        freezer.move_to("2025-01-11 00:00:00")
+
+        write_advanced_options(
+            hass.config.config_dir,
+            {
+                ADVANCED_TRIGGER_ON_API_UNAVAILABLE: "Automation unavailable",
+                ADVANCED_TRIGGER_ON_API_AVAILABLE: "Automation available",
+            },
+        )
+
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        coordinator = entry.runtime_data.coordinator
+        solcast = coordinator.solcast
+
+        session_set(MOCK_BUSY)
+        caplog.clear()
+        solcast.data[LAST_UPDATED] -= timedelta(minutes=20)
+
+        with mock.patch("homeassistant.components.solcast_solar.fetcher.Fetcher._sleep", new_callable=AsyncMockDoNothing):
+            await _wait_for_log(hass, caplog, freezer, "Raise issue for api_unavailable")
+
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is not None
+
+        session_clear(MOCK_BUSY)
+        caplog.clear()
+        await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
+        await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable", timeout=30)
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is None
+
+        freezer.move_to("2025-01-11 00:30:00")
+
+        # Emulate no estimated-actuals update yet today so scheduling path is exercised.
+        tz = ZoneInfo("Australia/Brisbane")
+        solcast.data_actuals[LAST_UPDATED] = dt(2025, 1, 10, 12, 0, 0, tzinfo=tz).astimezone(solcast.tz)
+
+        caplog.clear()
+        scheduled = await coordinator._updater.check_estimated_actuals_fetch()
+        assert scheduled is True
+        assert TASK_NEW_DAY_ACTUALS in coordinator.tasks
+        assert "Estimated actuals update window was missed, scheduling at" in caplog.text
+
+        await coordinator.tasks_cancel_specific(TASK_NEW_DAY_ACTUALS)
 
     finally:
         await async_cleanup_integration_tests(hass)

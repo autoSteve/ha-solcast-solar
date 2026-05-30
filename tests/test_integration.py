@@ -2191,6 +2191,48 @@ async def test_watch_dampening_file_recreated_then_deleted() -> None:
 
 
 @pytest.mark.asyncio
+async def test_watch_dampening_file_rapid_churn() -> None:
+    """Verify rapid modify/delete/recreate churn."""
+
+    cancel = unittest.mock.Mock()
+    coordinator = unittest.mock.MagicMock()
+    coordinator.file_dampening = "/config/solcast_solar/solcast-dampening.json"
+    coordinator.tasks = {"watch_dampening": cancel}
+    coordinator.solcast = unittest.mock.MagicMock()
+    coordinator.solcast.entry = None
+    coordinator.solcast.entry_options = {}
+    coordinator.solcast.damp = {}
+    coordinator.solcast.dampening = unittest.mock.MagicMock()
+    coordinator.solcast.dampening.granular_serialising = False
+
+    watcher = FileWatcher(coordinator)
+    watcher._handle_dampening_update = unittest.mock.AsyncMock()
+
+    async def mock_awatch(*args: Any, **kwargs: Any) -> Any:
+        """Yield modify/delete/recreate/modify/delete churn sequence."""
+        yield {(Change.modified, "/config/solcast_solar/solcast-dampening.json")}
+        yield {(Change.deleted, "/config/solcast_solar/solcast-dampening.json")}
+        yield {(Change.modified, "/config/solcast_solar/solcast-dampening.json")}
+        yield {(Change.deleted, "/config/solcast_solar/solcast-dampening.json")}
+
+    with (
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.awatch", mock_awatch),
+        unittest.mock.patch.object(watcher, "_path_exists", side_effect=[True, False]),
+    ):
+        await watcher.watch_dampening_file()
+
+    watcher._handle_dampening_update.assert_has_awaits(
+        [
+            unittest.mock.call("/config/solcast_solar/solcast-dampening.json"),
+            unittest.mock.call("/config/solcast_solar/solcast-dampening.json"),
+        ]
+    )
+    cancel.assert_called_once()
+    assert "watch_dampening" not in coordinator.tasks
+    coordinator.solcast.dampening.set_allow_granular_reset.assert_called_once_with(True)
+
+
+@pytest.mark.asyncio
 async def test_watch_advanced_file_calls_task_cancel_without_stop_event() -> None:
     """Cancel callback is called when advanced watcher exits without stop_event."""
 
