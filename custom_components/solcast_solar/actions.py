@@ -102,8 +102,16 @@ from .const import (
     SERVICE_UPDATE,
     SITE,
     SITE_ATTRIBUTE_AZIMUTH,
+    SITE_ATTRIBUTE_CAPACITY,
+    SITE_ATTRIBUTE_CAPACITY_DC,
     SITE_ATTRIBUTE_COMPASS_DEGREES,
     SITE_ATTRIBUTE_COMPASS_DIRECTION,
+    SITE_ATTRIBUTE_INSTALL_DATE,
+    SITE_ATTRIBUTE_LATITUDE,
+    SITE_ATTRIBUTE_LONGITUDE,
+    SITE_ATTRIBUTE_LOSS_FACTOR,
+    SITE_ATTRIBUTE_TAGS,
+    SITE_ATTRIBUTE_TILT,
     SITE_DAMP,
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
@@ -974,17 +982,28 @@ def build_health_check_report(hass: HomeAssistant, coordinator: SolcastUpdateCoo
     sites_info: list[dict[str, Any]] = []
     configured_site_ids: set[str] = set()
     for site in solcast.sites:
+        site_id = site.get(RESOURCE_ID, "unknown")
         azimuth = site.get(SITE_ATTRIBUTE_AZIMUTH)
-        configured_site_ids.add(site.get(RESOURCE_ID, "unknown"))
-        sites_info.append(
-            {
-                "resource_id": site.get(RESOURCE_ID, "unknown"),
-                "name": site.get("name", ""),
-                "solcast_azimuth": azimuth,
-                SITE_ATTRIBUTE_COMPASS_DEGREES: azimuth_to_compass_degrees(azimuth),
-                SITE_ATTRIBUTE_COMPASS_DIRECTION: azimuth_to_compass_direction(azimuth),
-            }
-        )
+        configured_site_ids.add(site_id)
+        site_info = solcast.query.get_rooftop_site_extra_data(site_id) or {}
+        ordered_site_info = {
+            "name": site.get("name", site_info.get("name", "")),
+            RESOURCE_ID: site_id,
+            SITE_ATTRIBUTE_CAPACITY: site_info.get(SITE_ATTRIBUTE_CAPACITY),
+            SITE_ATTRIBUTE_CAPACITY_DC: site_info.get(SITE_ATTRIBUTE_CAPACITY_DC),
+            SITE_ATTRIBUTE_LATITUDE: site_info.get(SITE_ATTRIBUTE_LATITUDE),
+            SITE_ATTRIBUTE_LONGITUDE: site_info.get(SITE_ATTRIBUTE_LONGITUDE),
+            SITE_ATTRIBUTE_AZIMUTH: azimuth,
+            SITE_ATTRIBUTE_COMPASS_DEGREES: azimuth_to_compass_degrees(azimuth),
+            SITE_ATTRIBUTE_COMPASS_DIRECTION: azimuth_to_compass_direction(azimuth),
+            SITE_ATTRIBUTE_TILT: site_info.get(SITE_ATTRIBUTE_TILT),
+            SITE_ATTRIBUTE_INSTALL_DATE: site_info.get(SITE_ATTRIBUTE_INSTALL_DATE),
+            SITE_ATTRIBUTE_LOSS_FACTOR: site_info.get(SITE_ATTRIBUTE_LOSS_FACTOR),
+            SITE_ATTRIBUTE_TAGS: site_info.get(SITE_ATTRIBUTE_TAGS),
+        }
+        sites_info.append({key: value for key, value in ordered_site_info.items() if value is not None})
+    sites_info.sort(key=lambda site: (str(site.get("name", "")).casefold(), str(site.get(RESOURCE_ID, ""))))
+
     if not solcast.sites:
         issues.append("No sites configured")
 

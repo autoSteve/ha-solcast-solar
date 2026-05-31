@@ -640,7 +640,7 @@ The response contains a `data` object with the following fields:
 | `overall_status` | string | `"ok"` when no issues are found, otherwise `"issues_found"` |
 | `issues` | list | Description of every problem detected. Empty when status is `"ok"` |
 | `api` | object | API state summary (`api_keys_configured`, `api_used`, `api_limit`, `api_remaining`, `api_force_used`, `api_actuals_used`, `last_updated`, `last_attempt`, `actuals_updated`, `actuals_attempt`, `failures_last_24h`, `failures_last_7d`, `status`, `sites_status`, `usage_status`) |
-| `sites` | list | One entry per configured rooftop site (`resource_id`, `name`, `compass_degrees`, `compass_direction`) |
+| `sites` | list | One entry per configured rooftop site (`name`, `resource_id`, `capacity`, `capacity_dc`, `azimuth`, `compass_degrees`, `compass_direction`, `tilt`, `install_date`, `loss_factor`, `tags`) |
 | `cache_files` | object | Whether each data cache file exists on disk (`forecast`, `undampened`, `actuals`, `actuals_dampened`, `dampening`, `dampening_history`, `generation`, `advanced`) |
 | `configuration` | object | Active configuration summary (`auto_update`, `key_estimate`, `get_actuals`, `use_actuals`, `auto_dampen`, `hard_limit`, `excluded_sites`) |
 | `dampening` | object | Dampening feature state (`enabled`, `auto_dampening`, `has_granular_factors`, `dampening_file_exists`) |
