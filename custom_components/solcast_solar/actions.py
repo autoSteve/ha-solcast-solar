@@ -991,8 +991,6 @@ def build_health_check_report(hass: HomeAssistant, coordinator: SolcastUpdateCoo
             RESOURCE_ID: site_id,
             SITE_ATTRIBUTE_CAPACITY: site_info.get(SITE_ATTRIBUTE_CAPACITY),
             SITE_ATTRIBUTE_CAPACITY_DC: site_info.get(SITE_ATTRIBUTE_CAPACITY_DC),
-            SITE_ATTRIBUTE_LATITUDE: site_info.get(SITE_ATTRIBUTE_LATITUDE),
-            SITE_ATTRIBUTE_LONGITUDE: site_info.get(SITE_ATTRIBUTE_LONGITUDE),
             SITE_ATTRIBUTE_AZIMUTH: azimuth,
             SITE_ATTRIBUTE_COMPASS_DEGREES: azimuth_to_compass_degrees(azimuth),
             SITE_ATTRIBUTE_COMPASS_DIRECTION: azimuth_to_compass_direction(azimuth),
