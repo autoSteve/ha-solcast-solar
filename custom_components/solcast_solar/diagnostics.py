@@ -1,6 +1,5 @@
 """Solcast diagnostics."""
 
-
 from typing import Any, Final
 
 from homeassistant.components.diagnostics import async_redact_data

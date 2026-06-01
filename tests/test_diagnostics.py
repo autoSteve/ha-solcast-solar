@@ -21,6 +21,7 @@ from homeassistant.components.solcast_solar.const import (
     AUTO_DAMPEN,
     AUTO_UPDATE,
     AUTO_UPDATED,
+    DAILY_TYPICAL_FORECAST_UPDATES,
     DATA_SET_FORECAST,
     DOMAIN,
     EXCLUDE_SITES,
@@ -93,6 +94,8 @@ async def test_diagnostics(
         assert diagnostics["health_check"]["api"][API_USED] == 4, (  # type: ignore[call-overload, index]
             f"Expected 4 used API requests, got {diagnostics['health_check']['api'][API_USED]}"  # type: ignore[call-overload, index]
         )
+        health_api = diagnostics["health_check"]["api"]  # type: ignore[call-overload, index]
+        assert health_api[DAILY_TYPICAL_FORECAST_UPDATES] == solcast.api_typical_forecast_updates_count  # type: ignore[index]
         assert diagnostics["health_check"]["api"][API_LIMIT] == int(DEFAULT_INPUT1[API_LIMIT]), (  # type: ignore[call-overload, index]
             f"API limit mismatch: expected {int(DEFAULT_INPUT1[API_LIMIT])}, got {diagnostics['health_check']['api'][API_LIMIT]}"  # type: ignore[call-overload, index]
         )
@@ -156,6 +159,7 @@ async def test_diagnostic(
         assert isinstance(api[API_USED], int)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]
         assert isinstance(api[API_LIMIT], int)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]
         assert isinstance(api[API_REMAINING], int)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]
+        assert isinstance(api[DAILY_TYPICAL_FORECAST_UPDATES], int)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]
         assert isinstance(api[API_FORCE_USED], int)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]
         assert isinstance(api[ACTUALS_UPDATED], str)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]
         assert isinstance(api[ACTUALS_ATTEMPT], str)  # pyright: ignore[reportOptionalSubscript, reportIndexIssue, reportArgumentType, reportCallIssue]

@@ -256,4 +256,3 @@ class FileWatcher:
                     coordinator.tasks[task]()
                 coordinator.tasks.pop(task)
                 _LOGGER.debug("Cancelled task %s", task)
-

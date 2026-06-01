@@ -1,6 +1,5 @@
 """Solcast information for system health."""
 
-
 from typing import Any
 
 from homeassistant.components import system_health

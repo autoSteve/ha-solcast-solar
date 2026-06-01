@@ -245,7 +245,9 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self.api_limits: dict[str, int] = {}
         self.api_actuals: dict[str, int] = {}
         self.api_forced: dict[str, int] = {}
+        self.api_typical_forecast_updates: dict[str, int] = {}
         self.api_typical: dict[str, int] = {}
+        self.api_typical_daily_use: int | None = None
         self.api_used: dict[str, int] = {}
         self.auto_update_divisions: int = 0
         self.custom_hour_sensor: int = options.custom_hour_sensor
@@ -536,6 +538,15 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             int: The maximum typical daily forecast update count across all configured API keys.
         """
         return max(self.api_typical.values()) if self.api_typical else 0
+
+    @property
+    def api_typical_forecast_updates_count(self) -> int:
+        """Typical daily forecast update + forced update count.
+
+        Returns:
+            int: The maximum typical total daily forecast update count across all configured API keys.
+        """
+        return max(self.api_typical_forecast_updates.values()) if self.api_typical_forecast_updates else 0
 
     @property
     def last_updated(self) -> dt | None:

@@ -1,6 +1,5 @@
 """Shared entities for Solcast."""
 
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 

@@ -31,6 +31,7 @@ from .const import (
     DAILY_LIMIT,
     DAILY_LIMIT_CONSUMED,
     DAILY_TYPICAL,
+    DAILY_TYPICAL_FORECAST_UPDATES,
     DISMISSAL,
     DOMAIN,
     DT_DATE_FORMAT,
@@ -645,6 +646,7 @@ class SitesCache:
             _LOGGER.debug("Reset API usage")
             for api_key in self.api.api_used:
                 yesterday_total = self.api.api_used[api_key] + self.api.api_forced.get(api_key, 0)
+                self.api.api_typical_forecast_updates[api_key] = yesterday_total
                 if yesterday_total > 0:
                     self.api.api_typical[api_key] = yesterday_total
                     _LOGGER.debug(
@@ -722,6 +724,7 @@ class SitesCache:
             DAILY_ACTUALS_CONSUMED: self.api.api_actuals.get(api_key, 0),
             DAILY_LIMIT_CONSUMED: self.api.api_used[api_key],
             DAILY_TYPICAL: self.api.api_typical.get(api_key, 0),
+            DAILY_TYPICAL_FORECAST_UPDATES: self.api.api_typical_forecast_updates.get(api_key),
             RESET: self._api_used_reset[api_key],
         }
         payload = json.dumps(json_content, ensure_ascii=False, cls=DateTimeEncoder)
@@ -1023,6 +1026,11 @@ class SitesCache:
                     loaded_typical = min(loaded_typical, configured_limit)
                 self.api.api_typical[api_key] = loaded_typical
                 assert isinstance(self.api.api_typical[api_key], int), "daily_typical is not an integer"
+                loaded_typical_forecast_updates = usage.get(DAILY_TYPICAL_FORECAST_UPDATES)
+                if loaded_typical_forecast_updates is None:
+                    loaded_typical_forecast_updates = self.api.api_typical[api_key] + self.api.api_forced.get(api_key, 0)
+                assert isinstance(loaded_typical_forecast_updates, int), "daily_typical_forecast_updates is not an integer"
+                self.api.api_typical_forecast_updates[api_key] = loaded_typical_forecast_updates
                 self._api_used_reset[api_key] = usage.get(RESET, self.api.dt_helper.utc_previous_midnight())
                 assert isinstance(self._api_used_reset[api_key], dt), "reset is not a datetime"
                 if (used_reset := self._api_used_reset[api_key]) is not None:
@@ -1042,6 +1050,9 @@ class SitesCache:
                 ):  # Schema upgraded, rewrite to persist new field.
                     await self.serialise_usage(api_key)
                     _LOGGER.debug("Usage loaded and cache updated with new schema")
+                elif DAILY_TYPICAL_FORECAST_UPDATES not in usage:
+                    await self.serialise_usage(api_key)
+                    _LOGGER.debug("Usage loaded and cache updated with typical forecast updates")
                 else:
                     _LOGGER.debug(
                         "Usage loaded%s",
@@ -1105,6 +1116,7 @@ class SitesCache:
                         self.api.api_forced[api_key] = 0
                         self.api.api_actuals[api_key] = 0
                         self.api.api_typical[api_key] = quota[api_key]
+                        self.api.api_typical_forecast_updates[api_key] = quota[api_key]
                         self._api_used_reset[api_key] = self.api.dt_helper.utc_previous_midnight()
                     await self.serialise_usage(api_key, reset=True)
                 _LOGGER.debug(

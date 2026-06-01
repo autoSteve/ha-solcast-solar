@@ -44,6 +44,8 @@ from homeassistant.components.solcast_solar.const import (
     DAILY_FORCED_CONSUMED,
     DAILY_LIMIT,
     DAILY_LIMIT_CONSUMED,
+    DAILY_TYPICAL,
+    DAILY_TYPICAL_FORECAST_UPDATES,
     DAMP_FACTOR,
     DAMPENED_APE_BREAKDOWN,
     DAMPENED_DAILY,
@@ -1513,6 +1515,75 @@ async def test_usage_cache_persists_usage_counters(
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+async def test_usage_typical_forecast_updates_default(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test backfill of daily_typical_forecast_updates when missing."""
+
+    api_key = "unit_test_api_key"
+    typical_seed = 6
+    forced_seed = 2
+
+    async with aiohttp.ClientSession() as session:
+        connection_options = ConnectionOptions(
+            api_key,
+            DEFAULT_INPUT1[API_LIMIT],
+            DEFAULT_SOLCAST_HTTPS_URL,
+            "solcast.json",
+            ZoneInfo(ZONE_RAW),
+            AutoUpdate(int(DEFAULT_INPUT1[AUTO_UPDATE])),
+            {str(hour): DEFAULT_INPUT1[f"damp{hour:02}"] for hour in range(24)},
+            DEFAULT_INPUT1[CUSTOM_HOURS],
+            DEFAULT_INPUT1[KEY_ESTIMATE],
+            DEFAULT_INPUT1[HARD_LIMIT_API],
+            DEFAULT_INPUT1[BRK_ESTIMATE],
+            DEFAULT_INPUT1[BRK_ESTIMATE10],
+            DEFAULT_INPUT1[BRK_ESTIMATE90],
+            DEFAULT_INPUT1[BRK_SITE],
+            DEFAULT_INPUT1[BRK_HALFHOURLY],
+            DEFAULT_INPUT1[BRK_HOURLY],
+            DEFAULT_INPUT1[BRK_SITE_DETAILED],
+            DEFAULT_INPUT1[EXCLUDE_SITES],
+            DEFAULT_INPUT1[GET_ACTUALS],
+            DEFAULT_INPUT1[USE_ACTUALS],
+            DEFAULT_INPUT1[GENERATION_ENTITIES],
+            DEFAULT_INPUT1[SITE_EXPORT_ENTITY],
+            DEFAULT_INPUT1[SITE_EXPORT_LIMIT],
+            DEFAULT_INPUT1[AUTO_DAMPEN],
+        )
+        solcast = SolcastApi(session, connection_options, hass)
+        usage_file = Path(solcast.sites_cache._get_usage_cache_filename(api_key))
+        usage_file.write_text(
+            json.dumps(
+                {
+                    DAILY_LIMIT: int(DEFAULT_INPUT1[API_LIMIT]),
+                    DAILY_LIMIT_CONSUMED: 0,
+                    DAILY_FORCED_CONSUMED: forced_seed,
+                    DAILY_ACTUALS_CONSUMED: 0,
+                    DAILY_TYPICAL: typical_seed,
+                    "reset": dt.now(datetime.UTC).isoformat(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        await solcast.sites_cache._sites_usage()
+
+        assert solcast.api_typical.get(api_key) == typical_seed
+        assert solcast.api_forced.get(api_key) == forced_seed
+        assert solcast.api_typical_forecast_updates.get(api_key) == typical_seed + forced_seed, (
+            "Expected backfilled daily_typical_forecast_updates to equal daily_typical + daily_forced_consumed"
+        )
+
+        usage = json.loads(usage_file.read_text(encoding="utf-8"))
+        assert usage[DAILY_TYPICAL_FORECAST_UPDATES] == typical_seed + forced_seed
+
+    assert "Usage loaded and cache updated with typical forecast updates" in caplog.text
+    no_error_or_exception(caplog)
 
 
 async def test_scenarios(

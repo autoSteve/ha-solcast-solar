@@ -1,6 +1,5 @@
 """Solcast select platform."""
 
-
 from enum import IntEnum
 import logging
 from typing import Any

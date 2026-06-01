@@ -1,6 +1,5 @@
 """Solcast config validation functions."""
 
-
 import re
 from typing import Any
 
