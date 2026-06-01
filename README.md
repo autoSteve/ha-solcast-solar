@@ -1462,6 +1462,7 @@ v4.5.3
 * Include health check detail in diagnostic download by @autoSteve
 * Add per-site compass degree and direction attributes and diagnostics by @autoSteve
 * Expand scope for raised issue when actuals enabled and API limit is too high by @autoSteve
+* Remove legacy dampening file location move by @autoSteve
 * Code refactoring by @autoSteve
 * Add tests to suite to ensure runtime reliability by @autoSteve
 * API simulator improvements by @autoSteve

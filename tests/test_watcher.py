@@ -1,9 +1,7 @@
 """Tests for Solcast file watcher behavior."""
 
-import datetime
 from typing import Any
 import unittest.mock
-from zoneinfo import ZoneInfo
 
 import pytest
 from watchfiles import Change
@@ -180,45 +178,6 @@ async def test_watch_advanced_task_cancel_without_stop() -> None:
 
     cancel.assert_called_once()
     assert "watch_advanced" not in coordinator.tasks
-
-
-@pytest.mark.asyncio
-async def test_watch_dampening_legacy_date_and_task() -> None:
-    """Break legacy watcher loop on end date and pop legacy task during cleanup."""
-
-    class _FakeDateTime(datetime.datetime):
-        """Return a pre-end date once, then return end-date-or-later."""
-
-        _calls = 0
-
-        @classmethod
-        def now(cls, tz=None):
-            cls._calls += 1
-            if cls._calls == 1:
-                return datetime.datetime(2026, 5, 31, 23, 59, tzinfo=tz)
-            return datetime.datetime(2026, 6, 1, 0, 0, tzinfo=tz)
-
-    coordinator = unittest.mock.MagicMock()
-    coordinator.file_dampening = "/config/solcast_solar/solcast-dampening.json"
-    coordinator.hass.config.config_dir = "/config"
-    coordinator.tasks = {"watch_dampening_legacy": unittest.mock.Mock()}
-    coordinator.solcast = unittest.mock.MagicMock()
-    coordinator.solcast.options = unittest.mock.MagicMock()
-    coordinator.solcast.options.tz = ZoneInfo("UTC")
-
-    watcher = FileWatcher(coordinator)
-
-    async def mock_awatch(*args: Any, **kwargs: Any) -> Any:
-        """Yield one add event; loop should break on date check."""
-        yield {(Change.added, "/config/solcast-dampening.json")}
-
-    with (
-        unittest.mock.patch("homeassistant.components.solcast_solar.watch.awatch", mock_awatch),
-        unittest.mock.patch("homeassistant.components.solcast_solar.watch.dt", _FakeDateTime),
-    ):
-        await watcher.watch_for_dampening_legacy_location()
-
-    assert "watch_dampening_legacy" not in coordinator.tasks
 
 
 @pytest.mark.asyncio

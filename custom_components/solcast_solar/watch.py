@@ -21,7 +21,6 @@ from .const import (
     TASK_WATCH_ADVANCED_FILE_CHANGE,
     TASK_WATCH_DAMPENING,
     TASK_WATCH_DAMPENING_FILE_CHANGE,
-    TASK_WATCH_DAMPENING_LEGACY,
 )
 
 if TYPE_CHECKING:
@@ -94,11 +93,6 @@ class FileWatcher:
                     stop_event=stop_event,
                 ),
             )
-            if CONFIG_FOLDER_DISCRETE:
-                self._start_managed_task(
-                    TASK_WATCH_DAMPENING_LEGACY,
-                    self.watch_for_dampening_legacy_location,
-                )
         else:
             _LOGGER.debug("Not monitoring dampening file, auto-dampening is enabled")
 
@@ -263,36 +257,3 @@ class FileWatcher:
                 coordinator.tasks.pop(task)
                 _LOGGER.debug("Cancelled task %s", task)
 
-    async def watch_for_dampening_legacy_location(self, stop_event: Event | None = None) -> None:
-        """Watch for dampening file modification in the legacy config location."""
-        coordinator = self.coordinator
-
-        end_date = dt(2026, 6, 1, tzinfo=coordinator.solcast.options.tz)
-        if dt.now(coordinator.solcast.options.tz) < end_date:
-            task = TASK_WATCH_DAMPENING_LEGACY
-            _file_dampening_legacy = coordinator.file_dampening.replace("/solcast_solar", "")
-
-            try:
-                async for changes in awatch(
-                    coordinator.hass.config.config_dir,
-                    watch_filter=lambda change, path: path == _file_dampening_legacy and change == Change.added,
-                    **self._awatch_kwargs(stop_event),
-                ):
-                    for change_type, changed_path in changes:
-                        if (
-                            change_type == Change.added
-                            and changed_path == _file_dampening_legacy
-                            and Path(_file_dampening_legacy).exists()
-                            and dt.now(coordinator.solcast.options.tz) < end_date
-                        ):
-                            Path(_file_dampening_legacy).rename(coordinator.file_dampening)
-                            _LOGGER.warning(
-                                "Moved dampening file %s from legacy config to %s, auto-moving will cease 1st June 2026",
-                                _file_dampening_legacy,
-                                coordinator.file_dampening,
-                            )
-                    if dt.now(coordinator.solcast.options.tz) >= end_date:
-                        break
-            finally:
-                coordinator.tasks.pop(task, None)
-                _LOGGER.debug("Cancelled task %s", task)
