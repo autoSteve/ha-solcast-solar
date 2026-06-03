@@ -1,5 +1,7 @@
 """Solcast forecast query and spline interpolation engine."""
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from datetime import datetime as dt, timedelta
 import logging

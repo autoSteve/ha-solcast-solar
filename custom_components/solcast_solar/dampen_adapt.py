@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Solcast adaptive dampening model evaluation and history management."""
 
 import asyncio

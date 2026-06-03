@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Solcast sensor platform."""
 
 from datetime import datetime as dt

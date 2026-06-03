@@ -1,5 +1,7 @@
 """Solcast update scheduling and execution."""
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 from datetime import datetime as dt, timedelta

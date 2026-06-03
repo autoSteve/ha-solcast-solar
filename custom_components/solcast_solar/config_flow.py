@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Solcast config flow."""
 
 from collections.abc import Mapping

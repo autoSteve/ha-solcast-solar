@@ -1,5 +1,7 @@
 """Solcast sites, usage and cache management."""
 
+from __future__ import annotations
+
 from collections import defaultdict
 import contextlib
 import copy

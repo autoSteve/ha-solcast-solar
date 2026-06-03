@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Solcast API fetch and update orchestration."""
 
 import asyncio
