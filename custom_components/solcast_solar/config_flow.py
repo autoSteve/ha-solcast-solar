@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Solcast config flow."""
+
+from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import timezone

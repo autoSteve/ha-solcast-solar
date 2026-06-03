@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 """Solcast adaptive dampening model evaluation and history management."""
+
+from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
