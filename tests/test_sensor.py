@@ -25,6 +25,7 @@ from homeassistant.components.solcast_solar.const import (
     BRK_ESTIMATE90,
     BRK_SITE,
     CUSTOM_HOURS,
+    DAILY_TYPICAL_FORECAST_UPDATES,
     DATA_CORRECT,
     DEFAULT_FORECAST_DAY_SENSORS,
     DEFAULT_FORECAST_DAYS,
@@ -439,6 +440,7 @@ async def test_sensor_states(  # noqa: C901
         assert state.state != STATE_UNAVAILABLE
         assert state.state == sensors[API_USED]["state"][key]
         assert state.attributes.get(API_FORCE_USED) == 0
+        assert state.attributes.get(DAILY_TYPICAL_FORECAST_UPDATES) == solcast.api_typical_forecast_updates_count
 
         freezer.move_to((dt.now(solcast.tz) + timedelta(hours=24)).replace(minute=27, second=27))
         await hass.async_block_till_done()
