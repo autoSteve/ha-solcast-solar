@@ -80,7 +80,7 @@ def sync_actuals_api_limit_issue(hass: HomeAssistant, options: Mapping[str, Any]
 
     try:
         auto_update = int(options.get(AUTO_UPDATE, AutoUpdate.NONE))
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         _remove_issue()
         return
 

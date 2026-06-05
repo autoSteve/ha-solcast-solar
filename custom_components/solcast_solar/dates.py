@@ -125,6 +125,6 @@ class JSONDecoder(json.JSONDecoder):
         for key, value in o.items():
             try:
                 result[key] = dt.fromisoformat(value)
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 result[key] = value
         return result

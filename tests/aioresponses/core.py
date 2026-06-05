@@ -129,7 +129,7 @@ class RequestMatch:
         if self.reason is None:
             try:
                 self.reason = http.RESPONSES[self.status][0]
-            except IndexError, KeyError:
+            except (IndexError, KeyError):
                 self.reason = ""
         self.callback = callback
 
@@ -601,7 +601,7 @@ class aioresponses:
 
         try:
             kwargs_copy = copy.deepcopy(kwargs)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             # Handle the fact that some values cannot be deep copied
             kwargs_copy = kwargs
         return RequestCall(args, kwargs_copy)

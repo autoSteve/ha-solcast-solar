@@ -73,7 +73,7 @@ async def async_is_allow_exceed_api_limit(hass: HomeAssistant) -> bool:
 
     try:
         return await hass.async_add_executor_job(_read_advanced_setting)
-    except OSError, json.JSONDecodeError, ValueError:
+    except (OSError, json.JSONDecodeError, ValueError):
         return False
 
 

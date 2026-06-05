@@ -21,7 +21,7 @@ def azimuth_to_compass_degrees(azimuth: Any) -> float | None:
     """
     try:
         return (-float(azimuth)) % 360.0
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return None
 
 
