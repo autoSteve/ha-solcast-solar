@@ -34,7 +34,7 @@
         "description": "Détails du compte Solcast\n\n(S'il n'y a pas de mise à jour automatique, une automatisation est requise - voir la documentation d'intégration)",
         "data_description": {
           "api_key": "Entrez une ou plusieurs clés API Solcast, séparées par des virgules",
-          "api_limit": "Entrez une limite par clé, séparées par des virgules en cas de clés multiples",
+          "api_limit": "Entrez une limite quotidienne de mises à jour des prévisions, séparées par des virgules en cas de clés multiples",
           "auto_update": "Si vous n'utilisez pas la mise à jour automatique, créez une automatisation qui appelle périodiquement l'action \"solcast_solar.update_forecasts\", tout en respectant la limite totale maximale conseillée par Solcast (généralement dix fois au total par jour pour un site sur toit, ou avec deux sites cinq fois par jour)"
         }
       },
@@ -47,7 +47,7 @@
         "description": "Détails du compte Solcast\n\n(S'il n'y a pas de mise à jour automatique, une automatisation est requise - voir la documentation d'intégration)\n\nL'API Solcast doit être disponible pour configurer cette intégration pour la première fois. Si vous recevez le message de statut '429 / Try again later', l'API est indisponible et la configuration ne peut pas être complétée. Vous devez patienter. Notez que la page de statut de l'API sur status.solcast.com n'indiquera presque certainement aucun problème d'API. La cause réside très probablement dans un seul mauvais utilisateur de l'API qui affecte la disponibilité pour tous les amateurs.",
         "data_description": {
           "api_key": "Entrez une ou plusieurs clés API Solcast, séparées par des virgules",
-          "api_limit": "Entrez une limite par clé, séparées par des virgules en cas de clés multiples",
+          "api_limit": "Entrez une limite quotidienne de mises à jour des prévisions, séparées par des virgules en cas de clés multiples",
           "auto_update": "Si vous n'utilisez pas la mise à jour automatique, créez une automatisation qui appelle périodiquement l'action \"solcast_solar.update_forecasts\", tout en respectant la limite totale maximale conseillée par Solcast (généralement dix fois au total par jour pour un site sur toit, ou avec deux sites cinq fois par jour)"
         }
       }
@@ -467,7 +467,7 @@
         "description": "Options de configuration Solcast",
         "data_description": {
           "api_key": "Entrez une ou plusieurs clés API Solcast, séparées par des virgules",
-          "api_limit": "Entrez une limite par clé, séparées par des virgules en cas de clés multiples",
+          "api_limit": "Entrez une limite quotidienne de mises à jour des prévisions, séparées par des virgules en cas de clés multiples",
           "attr_breakdown": "Choisissez les répartitions activées",
           "auto_dampen": "Nécessite des valeurs réelles estimées et une entité de production PV — voir la documentation d'intégration",
           "auto_update": "Si vous n'utilisez pas la mise à jour automatique, créez une automatisation qui appelle périodiquement l'action \"solcast_solar.update_forecasts\", tout en respectant la limite totale maximale conseillée par Solcast (généralement dix fois au total par jour pour un site sur toit, ou avec deux sites cinq fois par jour)",

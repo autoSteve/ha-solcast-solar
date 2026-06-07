@@ -34,7 +34,7 @@
         "description": "Solcast-Kontodaten\n\n(Wenn keine automatische Aktualisierung erfolgt, ist eine Automatisierung erforderlich – siehe Integrationsdokumentation)",
         "data_description": {
           "api_key": "Geben Sie einen oder mehrere Solcast-API-Schlüssel ein, durch Kommas getrennt",
-          "api_limit": "Geben Sie ein Limit pro Schlüssel ein, durch Kommas getrennt bei mehreren Schlüsseln",
+          "api_limit": "Geben Sie ein tägliches Prognoseaktualisierungslimit ein, bei mehreren Schlüsseln kommagetrennt",
           "auto_update": "Wenn Sie keine automatische Aktualisierung verwenden, erstellen Sie eine Automatisierung, die die Aktion \"solcast_solar.update_forecasts\" regelmäßig aufruft, und halten Sie dabei das von Solcast empfohlene maximale Gesamtlimit ein (in der Regel insgesamt zehnmal pro Tag für einen Dachstandort oder bei zwei Standorten fünfmal pro Tag)"
         }
       },
@@ -47,7 +47,7 @@
         "description": "Solcast-Kontodaten\n\n(Wenn keine automatische Aktualisierung erfolgt, ist eine Automatisierung erforderlich – siehe Integrationsdokumentation)\n\nDie Solcast-API muss verfügbar sein, um diese Integration erstmalig konfigurieren zu können. Wenn Sie die Statusmeldung '429 / Try again later' erhalten, ist die API nicht verfügbar und die Konfiguration kann nicht abgeschlossen werden. Sie müssen warten. Beachten Sie, dass die API-Statusseite unter status.solcast.com höchstwahrscheinlich keine API-Probleme anzeigt. Die Ursache liegt höchstwahrscheinlich bei einem einzelnen schlechten API-Nutzer, der die Verfügbarkeit für alle Hobbyanwender beeinträchtigt.",
         "data_description": {
           "api_key": "Geben Sie einen oder mehrere Solcast-API-Schlüssel ein, durch Kommas getrennt",
-          "api_limit": "Geben Sie ein Limit pro Schlüssel ein, durch Kommas getrennt bei mehreren Schlüsseln",
+          "api_limit": "Geben Sie ein tägliches Prognoseaktualisierungslimit ein, bei mehreren Schlüsseln kommagetrennt",
           "auto_update": "Wenn Sie keine automatische Aktualisierung verwenden, erstellen Sie eine Automatisierung, die die Aktion \"solcast_solar.update_forecasts\" regelmäßig aufruft, und halten Sie dabei das von Solcast empfohlene maximale Gesamtlimit ein (in der Regel insgesamt zehnmal pro Tag für einen Dachstandort oder bei zwei Standorten fünfmal pro Tag)"
         }
       }
@@ -467,7 +467,7 @@
         "description": "Dein Solcast-API-Kontoschlüssel",
         "data_description": {
           "api_key": "Geben Sie einen oder mehrere Solcast-API-Schlüssel ein, durch Kommas getrennt",
-          "api_limit": "Geben Sie ein Limit pro Schlüssel ein, durch Kommas getrennt bei mehreren Schlüsseln",
+          "api_limit": "Geben Sie ein tägliches Prognoseaktualisierungslimit ein, bei mehreren Schlüsseln kommagetrennt",
           "attr_breakdown": "Wählen Sie, welche Aufschlüsselungen aktiviert sind",
           "auto_dampen": "Erfordert geschätzte Istwerte und eine PV-Erzeugungseinheit — siehe Integrationsdokumentation",
           "auto_update": "Wenn Sie keine automatische Aktualisierung verwenden, erstellen Sie eine Automatisierung, die die Aktion \"solcast_solar.update_forecasts\" regelmäßig aufruft, und halten Sie dabei das von Solcast empfohlene maximale Gesamtlimit ein (in der Regel insgesamt zehnmal pro Tag für einen Dachstandort oder bei zwei Standorten fünfmal pro Tag)",
