@@ -1456,12 +1456,13 @@ v4.5.3
 * Add `api_actuals_used` attribute to API Used Total entity by @autoSteve
 * Add `daily_typical_forecast_updates` and `api_used_total_combined` attributes by @autoSteve
 * Add sun elevation adjustment for automated dampening by @autoSteve
+* Add per-site compass degree and direction attributes and diagnostics by @autoSteve
 * Expanded diagnostic self-test service action by @autoSteve
+* Include health check detail in diagnostic download by @autoSteve
 * Add undampened total forecast attributes when dampening is enabled by @autoSteve
 * Enable return of per-site and un-dampened estimated actuals by @autoSteve
-* Include health check detail in diagnostic download by @autoSteve
-* Add per-site compass degree and direction attributes and diagnostics by @autoSteve
 * Expand scope for raised issue when actuals enabled and API limit is too high by @autoSteve
+* Compact forecast attribute selection in options dialogue by @autoSteve
 * Remove legacy dampening file location move by @autoSteve
 * Code refactoring by @autoSteve
 * Add tests to suite to ensure runtime reliability by @autoSteve
