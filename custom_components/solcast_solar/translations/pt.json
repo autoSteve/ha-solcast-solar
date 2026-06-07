@@ -449,13 +449,7 @@
         "data": {
           "api_key": "Chave API",
           "api_limit": "Limite da API",
-          "attr_brk_detailed": "Ativar detalhamento do site para atributos de detalhe",
-          "attr_brk_estimate": "Ativar atributos de sensor de estimativa 50",
-          "attr_brk_estimate10": "Ativar atributos de sensor de estimativa 10",
-          "attr_brk_estimate90": "Ativar atributos de sensor de estimativa 90",
-          "attr_brk_halfhourly": "Ativar atributos de detalhe de previsão de meia hora",
-          "attr_brk_hourly": "Ativar atributos de detalhe de previsão horária",
-          "attr_brk_site": "Ativar atributos de sensor de detalhamento do site",
+          "attr_breakdown": "Detalhamento dos atributos da previsão",
           "auto_dampen": "Amortecimento automático",
           "auto_update": "Atualização automática (se não houver atualização automática, uma automação deve ser usada em vez disso)",
           "config_damp": "Modificar os fatores de amortecimento horários",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "Insira uma ou mais chaves API Solcast, separadas por vírgulas",
           "api_limit": "Insira um limite por chave, separados por vírgulas ao usar várias chaves",
-          "attr_brk_detailed": "Detalhamento do site para atributos de detalhe de meia hora/hora (estes não serão guardados nos atributos de estado da base de dados)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Selecione quais detalhamentos estão ativados",
           "auto_dampen": "Requer estimativas reais e uma entidade de geração fotovoltaica — consulte a documentação de integração",
           "auto_update": "Se não usar a atualização automática, crie uma automação que chame periodicamente a ação \"solcast_solar.update_forecasts\", respeitando o limite máximo total recomendado pela Solcast (normalmente dez vezes no total por dia para um único local em telhado, ou com dois locais cinco vezes por dia)",
           "config_damp": "Clique em enviar para avançar para o editor de fatores de amortecimento",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Detalhe por site",
+        "attr_brk_estimate": "Estimativa 50",
+        "attr_brk_estimate10": "Estimativa 10",
+        "attr_brk_estimate90": "Estimativa 90",
+        "attr_brk_halfhourly": "Detalhe de meia hora",
+        "attr_brk_hourly": "Detalhe por hora",
+        "attr_brk_site": "Por site"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "Sem atualização automática das previsões",

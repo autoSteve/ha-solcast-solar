@@ -452,13 +452,7 @@
         "data": {
           "api_key": "API key",
           "api_limit": "API limit",
-          "attr_brk_detailed": "Enable detail attribute site breakdown",
-          "attr_brk_estimate": "Enable estimate 50 sensor attributes",
-          "attr_brk_estimate10": "Enable estimate 10 sensor attributes",
-          "attr_brk_estimate90": "Enable estimate 90 sensor attributes",
-          "attr_brk_halfhourly": "Enable forecast half-hourly detail attributes",
-          "attr_brk_hourly": "Enable forecast hourly detail attributes",
-          "attr_brk_site": "Enable site breakdown sensor attributes",
+          "attr_breakdown": "Forecast attributes breakdown",
           "auto_dampen": "Auto-dampen",
           "auto_update": "Auto-update",
           "config_damp": "Modify the hourly dampening factors",
@@ -476,13 +470,7 @@
         "data_description": {
           "api_key": "Enter one or more Solcast API keys, separated by commas",
           "api_limit": "Enter a limit per key, separated by commas when using multiple keys",
-          "attr_brk_detailed": "Site breakdown for half-hourly/hourly detail attributes (these will not be saved to database state attributes)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Select which breakdowns are enabled",
           "auto_dampen": "Requires estimated actuals and a PV generation entity \u2014 see the integration documentation",
           "auto_update": "If not using auto-update, create an automation that calls the action \"solcast_solar.update_forecasts\" periodically, while adhering to your Solcast advised maximum total limit (usually ten times total per day for one rooftop site, or with two sites five times per day)",
           "config_damp": "Click submit to proceed to the dampening factor editor",
@@ -502,6 +490,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Detailed by site",
+        "attr_brk_estimate": "Estimate 50",
+        "attr_brk_estimate10": "Estimate 10",
+        "attr_brk_estimate90": "Estimate 90",
+        "attr_brk_halfhourly": "Half-hourly detail",
+        "attr_brk_hourly": "Hourly detail",
+        "attr_brk_site": "By site"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "No automatic update of forecasts",

@@ -449,13 +449,7 @@
         "data": {
           "api_key": "APIキー",
           "api_limit": "APIリミット",
-          "attr_brk_detailed": "詳細属性のサイト別内訳を有効にする",
-          "attr_brk_estimate": "推定値50センサー属性を有効化",
-          "attr_brk_estimate10": "推定値10センサー属性を有効化",
-          "attr_brk_estimate90": "推定値90センサー属性を有効化",
-          "attr_brk_halfhourly": "予報の半時間ごとの詳細属性を有効化",
-          "attr_brk_hourly": "予報の時間ごとの詳細属性を有効化",
-          "attr_brk_site": "センサー属性にサイト別の内訳を含める",
+          "attr_breakdown": "予報属性の内訳",
           "auto_dampen": "自動ダンペニング",
           "auto_update": "自動更新（自動更新を使用しない場合は、代わりにオートメーションを使用する必要があります）",
           "config_damp": "時間別ダンペニングファクターを変更",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "1つ以上のSolcast APIキーをカンマ区切りで入力してください",
           "api_limit": "各キーのリミットをカンマ区切りで入力してください（複数キーの場合）",
-          "attr_brk_detailed": "半時間ごと/時間ごとの詳細属性のサイト別内訳（データベースの状態属性には保存されません）",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "有効にする内訳を選択",
           "auto_dampen": "推定実績値とPV発電エンティティが必要です — 統合ドキュメントを参照してください",
           "auto_update": "自動更新を使用しない場合は、アクション \"solcast_solar.update_forecasts\" を定期的に呼び出すオートメーションを作成し、Solcast が推奨する最大合計上限を守ってください（通常は屋根上サイト 1 つで 1 日合計 10 回、2 サイトの場合は 1 日 5 回）",
           "config_damp": "送信をクリックしてダンペニングファクターエディターに進んでください",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "サイト別詳細",
+        "attr_brk_estimate": "推定値50",
+        "attr_brk_estimate10": "推定値10",
+        "attr_brk_estimate90": "推定値90",
+        "attr_brk_halfhourly": "30分ごと詳細",
+        "attr_brk_hourly": "時間ごと詳細",
+        "attr_brk_site": "サイト別"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "予報の自動更新なし",

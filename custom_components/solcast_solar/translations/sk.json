@@ -449,13 +449,7 @@
         "data": {
           "api_key": "Kľúč API",
           "api_limit": "Kvóta API",
-          "attr_brk_detailed": "Povoliť rozdelenie lokality pre podrobné atribúty",
-          "attr_brk_estimate": "Povoliť odhad 50 atribútov senzora",
-          "attr_brk_estimate10": "Povoliť odhad 10 atribútov senzora",
-          "attr_brk_estimate90": "Povoliť odhad 90 atribútov senzora",
-          "attr_brk_halfhourly": "Povoliť polhodinové podrobné atribúty prognózy",
-          "attr_brk_hourly": "Povoliť hodinové podrobné atribúty prognózy",
-          "attr_brk_site": "Povoliť atribúty senzora rozdelenia stránok",
+          "attr_breakdown": "Rozdelenie atribútov predpovede",
           "auto_dampen": "Automatické tlmenie",
           "auto_update": "Automatická aktualizácia (ak nie je automatická aktualizácia, musíte namiesto nej použiť automatizáciu)",
           "config_damp": "Upraviť hodinové faktory tlmenia",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "Zadajte jeden alebo viac kľúčov API Solcast, oddelených čiarkami",
           "api_limit": "Zadajte limit pre každý kľúč, oddelené čiarkami pri použití viacerých kľúčov",
-          "attr_brk_detailed": "Rozdelenie lokality pre polhodinové/hodinové podrobné atribúty (tieto nebudú uložené v atribútoch stavu databázy)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Vyberte, ktoré rozdelenia sú povolené",
           "auto_dampen": "Vyžaduje odhadované skutočné hodnoty a entitu výroby FV — pozrite si dokumentáciu integrácie",
           "auto_update": "Ak nepoužívate automatickú aktualizáciu, vytvorte automatizáciu, ktorá pravidelne volá akciu \"solcast_solar.update_forecasts\", pričom dodržujte Solcastom odporúčaný maximálny celkový limit (zvyčajne spolu desaťkrát denne pre jedno strešné miesto, alebo pri dvoch miestach päťkrát denne)",
           "config_damp": "Kliknite na odoslať a prejdite do editora faktorov tlmenia",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Podrobne podľa lokality",
+        "attr_brk_estimate": "Odhad 50",
+        "attr_brk_estimate10": "Odhad 10",
+        "attr_brk_estimate90": "Odhad 90",
+        "attr_brk_halfhourly": "Polhodinové podrobnosti",
+        "attr_brk_hourly": "Hodinové podrobnosti",
+        "attr_brk_site": "Podľa lokality"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "Žiadna automatická aktualizácia predpovedí",

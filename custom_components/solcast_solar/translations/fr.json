@@ -449,13 +449,7 @@
         "data": {
           "api_key": "Clé API",
           "api_limit": "Quota d'API",
-          "attr_brk_detailed": "Activer la répartition du site pour les attributs de détail",
-          "attr_brk_estimate": "Activer l'estimation de 50 attributs de capteur",
-          "attr_brk_estimate10": "Activer l'estimation de 10 attributs de capteur",
-          "attr_brk_estimate90": "Activer l'estimation de 90 attributs de capteur",
-          "attr_brk_halfhourly": "Activer les attributs de détail des prévisions demi-horaires",
-          "attr_brk_hourly": "Activer les attributs de détail horaire des prévisions",
-          "attr_brk_site": "Activer les attributs du capteur de panne de site",
+          "attr_breakdown": "Répartition des attributs de prévision",
           "auto_dampen": "Amortissement automatique",
           "auto_update": "Mise à jour automatique (s'il n'y a pas de mise à jour automatique, une automatisation doit être utilisée à la place)",
           "config_damp": "Modifier les facteurs d'amortissement horaires",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "Entrez une ou plusieurs clés API Solcast, séparées par des virgules",
           "api_limit": "Entrez une limite par clé, séparées par des virgules en cas de clés multiples",
-          "attr_brk_detailed": "Répartition du site pour les attributs de détail demi-horaires/horaires (ceux-ci ne seront pas enregistrés dans les attributs d'état de la base de données)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Choisissez les répartitions activées",
           "auto_dampen": "Nécessite des valeurs réelles estimées et une entité de production PV — voir la documentation d'intégration",
           "auto_update": "Si vous n'utilisez pas la mise à jour automatique, créez une automatisation qui appelle périodiquement l'action \"solcast_solar.update_forecasts\", tout en respectant la limite totale maximale conseillée par Solcast (généralement dix fois au total par jour pour un site sur toit, ou avec deux sites cinq fois par jour)",
           "config_damp": "Cliquez sur soumettre pour accéder à l'éditeur de facteurs d'amortissement",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Détails par site",
+        "attr_brk_estimate": "Estimation 50",
+        "attr_brk_estimate10": "Estimation 10",
+        "attr_brk_estimate90": "Estimation 90",
+        "attr_brk_halfhourly": "Détail demi-horaire",
+        "attr_brk_hourly": "Détail horaire",
+        "attr_brk_site": "Par site"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "Pas de mise à jour automatique des prévisions",

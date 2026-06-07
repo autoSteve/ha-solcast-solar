@@ -449,13 +449,7 @@
         "data": {
           "api_key": "Clave API",
           "api_limit": "Límite de API",
-          "attr_brk_detailed": "Habilitar desglose del sitio para atributos de detalle",
-          "attr_brk_estimate": "Habilitar la estimación de 50 atributos de sensor",
-          "attr_brk_estimate10": "Habilitar la estimación de 10 atributos de sensor",
-          "attr_brk_estimate90": "Habilitar la estimación de 90 atributos de sensor",
-          "attr_brk_halfhourly": "Habilitar atributos de detalle de pronóstico cada media hora",
-          "attr_brk_hourly": "Habilitar atributos de detalle por hora del pronóstico",
-          "attr_brk_site": "Habilitar atributos de sensor de avería del sitio",
+          "attr_breakdown": "Desglose de atributos de pronóstico",
           "auto_dampen": "Amortiguación automática",
           "auto_update": "Actualización automática (si no hay actualización automática, se debe utilizar una automatización en su lugar)",
           "config_damp": "Modificar los factores de amortiguación por hora",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "Ingrese una o más claves API de Solcast, separadas por comas",
           "api_limit": "Ingrese un límite por clave, separado por comas al usar múltiples claves",
-          "attr_brk_detailed": "Desglose del sitio para atributos de detalle por media hora/hora (estos no se guardarán en los atributos de estado de la base de datos)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Seleccione qué desgloses están habilitados",
           "auto_dampen": "Requiere valores reales estimados y una entidad de generación FV — consulte la documentación de integración",
           "auto_update": "Si no usa la actualización automática, cree una automatización que llame periódicamente a la acción \"solcast_solar.update_forecasts\", respetando el límite total máximo recomendado por Solcast (normalmente diez veces en total por día para un sitio de azotea, o con dos sitios cinco veces por día)",
           "config_damp": "Haga clic en enviar para continuar al editor de factores de amortiguación",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Detalle por sitio",
+        "attr_brk_estimate": "Estimación 50",
+        "attr_brk_estimate10": "Estimación 10",
+        "attr_brk_estimate90": "Estimación 90",
+        "attr_brk_halfhourly": "Detalle cada media hora",
+        "attr_brk_hourly": "Detalle por hora",
+        "attr_brk_site": "Por sitio"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "No hay actualización automática de previsiones",

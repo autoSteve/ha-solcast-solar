@@ -449,13 +449,7 @@
         "data": {
           "api_key": "Klucz API",
           "api_limit": "Limit API",
-          "attr_brk_detailed": "Włącz podział witryny dla atrybutów szczegółowych",
-          "attr_brk_estimate": "Włącz oszacowanie 50 atrybutów czujnika",
-          "attr_brk_estimate10": "Włącz oszacowanie 10 atrybutów czujnika",
-          "attr_brk_estimate90": "Włącz oszacowanie 90 atrybutów czujnika",
-          "attr_brk_halfhourly": "Włącz atrybuty szczegółów prognozy półgodzinnej",
-          "attr_brk_hourly": "Włącz atrybuty szczegółów prognozy godzinowej",
-          "attr_brk_site": "Włącz atrybuty czujnika podziału witryny",
+          "attr_breakdown": "Podział atrybutów prognozy",
           "auto_dampen": "Automatyczne tłumienie",
           "auto_update": "Automatyczna aktualizacja (jeśli nie ma automatycznej aktualizacji, zamiast tego należy zastosować automatyzację)",
           "config_damp": "Modyfikuj godzinowe współczynniki tłumienia",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "Wprowadź jeden lub więcej kluczy API Solcast, oddzielonych przecinkami",
           "api_limit": "Wprowadź limit dla każdego klucza, oddzielone przecinkami przy użyciu wielu kluczy",
-          "attr_brk_detailed": "Podział witryny dla półgodzinnych/godzinnych atrybutów szczegółowych (nie będą one zapisywane w atrybutach stanu bazy danych)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Wybierz, które podziały są włączone",
           "auto_dampen": "Wymaga szacowanych wartości rzeczywistych i encji generacji fotowoltaicznej — patrz dokumentacja integracji",
           "auto_update": "Jeśli nie używasz automatycznej aktualizacji, utwórz automatyzację, która okresowo wywołuje akcję \"solcast_solar.update_forecasts\", przestrzegając zalecanego przez Solcast maksymalnego łącznego limitu (zwykle łącznie dziesięć razy dziennie dla jednego miejsca dachowego, a przy dwóch miejscach pięć razy dziennie)",
           "config_damp": "Kliknij wyślij, aby przejść do edytora współczynników tłumienia",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Szczegóły według witryny",
+        "attr_brk_estimate": "Oszacowanie 50",
+        "attr_brk_estimate10": "Oszacowanie 10",
+        "attr_brk_estimate90": "Oszacowanie 90",
+        "attr_brk_halfhourly": "Szczegóły co 30 min",
+        "attr_brk_hourly": "Szczegóły godzinowe",
+        "attr_brk_site": "Według witryny"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "Brak automatycznej aktualizacji prognoz",

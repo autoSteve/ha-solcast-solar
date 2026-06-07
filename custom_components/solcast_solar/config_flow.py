@@ -100,6 +100,17 @@ AUTO_UPDATE_OPTIONS: list[SelectOptionDict] = [
     SelectOptionDict(label="all_day", value="2"),
 ]
 
+ATTR_BREAKDOWN = "attr_breakdown"
+BREAKDOWN_ATTRIBUTE_OPTIONS: tuple[str, ...] = (
+    BRK_ESTIMATE10,
+    BRK_ESTIMATE,
+    BRK_ESTIMATE90,
+    BRK_SITE,
+    BRK_HALFHOURLY,
+    BRK_HOURLY,
+    BRK_SITE_DETAILED,
+)
+
 
 async def _get_time_zone(hass: HomeAssistant) -> ZoneInfo | timezone:
     tz = await dt_util.async_get_time_zone(hass.config.time_zone)
@@ -550,15 +561,13 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
 
                     all_config_data[AUTO_UPDATE] = int(user_input[AUTO_UPDATE])
                     all_config_data[KEY_ESTIMATE] = user_input[KEY_ESTIMATE]
-                    all_config_data[BRK_ESTIMATE] = user_input[BRK_ESTIMATE]
-                    all_config_data[BRK_ESTIMATE10] = user_input[BRK_ESTIMATE10]
-                    all_config_data[BRK_ESTIMATE90] = user_input[BRK_ESTIMATE90]
-                    all_config_data[BRK_HALFHOURLY] = user_input[BRK_HALFHOURLY]
-                    all_config_data[BRK_HOURLY] = user_input[BRK_HOURLY]
-                    site_breakdown = user_input[BRK_SITE]
-                    all_config_data[BRK_SITE] = site_breakdown
-                    site_detailed = user_input[BRK_SITE_DETAILED]
-                    all_config_data[BRK_SITE_DETAILED] = site_detailed
+                    selected_breakdowns = set(user_input.get(ATTR_BREAKDOWN, []))
+                    for breakdown_key in BREAKDOWN_ATTRIBUTE_OPTIONS:
+                        all_config_data[breakdown_key] = (
+                            breakdown_key in selected_breakdowns
+                            if ATTR_BREAKDOWN in user_input
+                            else user_input.get(breakdown_key, all_config_data.get(breakdown_key, False))
+                        )
                     all_config_data[EXCLUDE_SITES] = user_input.get(EXCLUDE_SITES, [])
 
                     self._all_config_data = all_config_data
@@ -623,6 +632,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             }
         else:
             damp = {}
+        breakdown_defaults = [breakdown_key for breakdown_key in BREAKDOWN_ATTRIBUTE_OPTIONS if self._options.get(breakdown_key, False)]
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
@@ -637,13 +647,14 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                     ),
                     vol.Required(CUSTOM_HOURS, default=self._options[CUSTOM_HOURS]): int,
                     vol.Required(HARD_LIMIT_API, default=self._options.get(HARD_LIMIT_API)): str,
-                    vol.Optional(BRK_ESTIMATE10, default=self._options[BRK_ESTIMATE10]): bool,
-                    vol.Optional(BRK_ESTIMATE, default=self._options[BRK_ESTIMATE]): bool,
-                    vol.Optional(BRK_ESTIMATE90, default=self._options[BRK_ESTIMATE90]): bool,
-                    vol.Optional(BRK_SITE, default=self._options[BRK_SITE]): bool,
-                    vol.Optional(BRK_HALFHOURLY, default=self._options[BRK_HALFHOURLY]): bool,
-                    vol.Optional(BRK_HOURLY, default=self._options[BRK_HOURLY]): bool,
-                    vol.Optional(BRK_SITE_DETAILED, default=self._options[BRK_SITE_DETAILED]): bool,
+                    vol.Optional(ATTR_BREAKDOWN, default=breakdown_defaults): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[SelectOptionDict(label=option, value=option) for option in BREAKDOWN_ATTRIBUTE_OPTIONS],
+                            mode=SelectSelectorMode.DROPDOWN,
+                            multiple=True,
+                            translation_key=ATTR_BREAKDOWN,
+                        )
+                    ),
                     vol.Optional(EXCLUDE_SITES, default=self._options.get(EXCLUDE_SITES, [])): SelectSelector(
                         SelectSelectorConfig(options=exclude, mode=SelectSelectorMode.DROPDOWN, multiple=True)
                     ),

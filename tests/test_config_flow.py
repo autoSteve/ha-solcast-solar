@@ -17,6 +17,7 @@ import homeassistant.components.solcast_solar as solcast_module
 
 # As a core component, these imports would be homeassistant.components.solcast_solar and not config.custom_components.solcast_solar
 from homeassistant.components.solcast_solar.config_flow import (
+    ATTR_BREAKDOWN,
     CONFIG_DAMP,
     SolcastSolarFlowHandler,
     SolcastSolarOptionFlowHandler,
@@ -104,6 +105,25 @@ _LOGGER = logging.getLogger(__name__)
 # Keep config flow tests on one xdist worker to reduce scheduling variance
 # and shared-state side effects across workers.
 pytestmark = pytest.mark.xdist_group("solcast_config_flow")
+
+
+def _attr_breakdown_input(data: dict[str, Any]) -> list[str]:
+    """Build options-flow attr_breakdown multiselect payload."""
+
+    return [
+        key
+        for key in (
+            BRK_ESTIMATE10,
+            BRK_ESTIMATE,
+            BRK_ESTIMATE90,
+            BRK_SITE,
+            BRK_HALFHOURLY,
+            BRK_HOURLY,
+            BRK_SITE_DETAILED,
+        )
+        if data.get(key, False)
+    ]
+
 
 API_KEY1 = "65sa6d46-sadf876_sd54"
 API_KEY2 = "65sa6946-glad876_pf69"
@@ -773,6 +793,9 @@ async def test_presumed_dead_and_full_flow(
 
         option: dict[str, Any] = {BRK_ESTIMATE: False, USE_ACTUALS: "0", SITE_EXPORT_ENTITY: []}
         user_input = DEFAULT_INPUT1_NO_DAMP | option
+        user_input[ATTR_BREAKDOWN] = _attr_breakdown_input(user_input)
+        for key in (BRK_ESTIMATE10, BRK_ESTIMATE, BRK_ESTIMATE90, BRK_SITE, BRK_HALFHOURLY, BRK_HOURLY, BRK_SITE_DETAILED):
+            user_input.pop(key, None)
         await set_presumed_dead(hass, entry, True)
         result = await hass.config_entries.options.async_init(entry.entry_id)
         await hass.async_block_till_done()
@@ -793,6 +816,9 @@ async def test_presumed_dead_and_full_flow(
         # Test dampening step can  be reached
         option = {CONFIG_DAMP: True, USE_ACTUALS: "0", SITE_EXPORT_ENTITY: []}
         user_input = DEFAULT_INPUT1_NO_DAMP | option
+        user_input[ATTR_BREAKDOWN] = _attr_breakdown_input(user_input)
+        for key in (BRK_ESTIMATE10, BRK_ESTIMATE, BRK_ESTIMATE90, BRK_SITE, BRK_HALFHOURLY, BRK_HOURLY, BRK_SITE_DETAILED):
+            user_input.pop(key, None)
 
         result = await hass.config_entries.options.async_init(entry.entry_id)
         await hass.async_block_till_done()

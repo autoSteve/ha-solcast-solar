@@ -449,13 +449,7 @@
         "data": {
           "api_key": "API-Schlüssel",
           "api_limit": "API-Kontingent",
-          "attr_brk_detailed": "Detailattribut-Standortaufschlüsselung aktivieren",
-          "attr_brk_estimate": "Aktivieren Sie die Schätzung von 50 Sensorattributen",
-          "attr_brk_estimate10": "Aktivieren Sie die Schätzung von 10 Sensorattributen",
-          "attr_brk_estimate90": "Aktivieren Sie die Schätzung von 90 Sensorattributen",
-          "attr_brk_halfhourly": "Aktivieren Sie prognostizierte halbstündliche Detailattribute",
-          "attr_brk_hourly": "Aktivieren Sie prognostizierte stündliche Detailattribute",
-          "attr_brk_site": "Aktivieren Sie die Attribute des Site-Aufschlüsselungssensors",
+          "attr_breakdown": "Aufschlüsselung der Prognoseattribute",
           "auto_dampen": "Automatische Dämpfung",
           "auto_update": "Automatische Aktualisierung (wenn keine automatische Aktualisierung vorhanden ist, muss stattdessen eine Automatisierung verwendet werden)",
           "config_damp": "Stündliche Dämpfungsfaktoren ändern",
@@ -474,13 +468,7 @@
         "data_description": {
           "api_key": "Geben Sie einen oder mehrere Solcast-API-Schlüssel ein, durch Kommas getrennt",
           "api_limit": "Geben Sie ein Limit pro Schlüssel ein, durch Kommas getrennt bei mehreren Schlüsseln",
-          "attr_brk_detailed": "Standortaufschlüsselung für halbstündliche/stündliche Detailattribute (diese werden nicht in Datenbankstatusattributen gespeichert)",
-          "attr_brk_estimate": "",
-          "attr_brk_estimate10": "",
-          "attr_brk_estimate90": "",
-          "attr_brk_halfhourly": "",
-          "attr_brk_hourly": "",
-          "attr_brk_site": "",
+          "attr_breakdown": "Wählen Sie, welche Aufschlüsselungen aktiviert sind",
           "auto_dampen": "Erfordert geschätzte Istwerte und eine PV-Erzeugungseinheit — siehe Integrationsdokumentation",
           "auto_update": "Wenn Sie keine automatische Aktualisierung verwenden, erstellen Sie eine Automatisierung, die die Aktion \"solcast_solar.update_forecasts\" regelmäßig aufruft, und halten Sie dabei das von Solcast empfohlene maximale Gesamtlimit ein (in der Regel insgesamt zehnmal pro Tag für einen Dachstandort oder bei zwei Standorten fünfmal pro Tag)",
           "config_damp": "Auf „Senden“ klicken, um zum Dämpfungsfaktor-Editor zu gelangen",
@@ -499,6 +487,17 @@
     }
   },
   "selector": {
+    "attr_breakdown": {
+      "options": {
+        "attr_brk_detailed": "Detailliert nach Standort",
+        "attr_brk_estimate": "Schätzung 50",
+        "attr_brk_estimate10": "Schätzung 10",
+        "attr_brk_estimate90": "Schätzung 90",
+        "attr_brk_halfhourly": "Halbstündliche Details",
+        "attr_brk_hourly": "Stündliche Details",
+        "attr_brk_site": "Nach Standort"
+      }
+    },
     "auto_update": {
       "options": {
         "0": "Keine automatische Aktualisierung der Prognosen",
