@@ -66,7 +66,6 @@ from .const import (
     EXCEPTION_EXPORT_NO_ENTITY,
     EXCEPTION_GENERATION_MIXED_TYPES,
     EXCEPTION_INTERNAL_ERROR,
-    EXCEPTION_SINGLE_INSTANCE_ALLOWED,
     EXCLUDE_SITES,
     GENERATION_ENTITIES,
     GET_ACTUALS,
@@ -317,9 +316,6 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
             FlowResult: The form to show.
 
         """
-        if self._async_current_entries():
-            return self.async_abort(reason=EXCEPTION_SINGLE_INSTANCE_ALLOWED)
-
         errors: dict[str, str] = {}
 
         if user_input is not None:

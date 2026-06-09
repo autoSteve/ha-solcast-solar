@@ -56,7 +56,6 @@ from homeassistant.components.solcast_solar.const import (
     EXCEPTION_LIMIT_NOT_NUMBER,
     EXCEPTION_LIMIT_ONE_OR_GREATER,
     EXCEPTION_LIMIT_TOO_MANY,
-    EXCEPTION_SINGLE_INSTANCE_ALLOWED,
     EXCLUDE_SITES,
     GENERATION_ENTITIES,
     GET_ACTUALS,
@@ -196,18 +195,6 @@ TEST_API_LIMIT: list[tuple[dict[Any, Any], dict[Any, Any], str | None]] = [
     (DEFAULT_INPUT2, {CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10,10,10", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_TOO_MANY),
     (DEFAULT_INPUT2, {CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10", AUTO_UPDATE: "1"}, None),
 ]
-
-
-async def test_single_instance(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
-    """Test allow a single config only."""
-    MockConfigEntry(domain=DOMAIN).add_to_hass(hass)
-
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result.get("type") is FlowResultType.ABORT
-    assert result.get("reason") == EXCEPTION_SINGLE_INSTANCE_ALLOWED
 
 
 async def test_create_entry(hass: HomeAssistant) -> None:

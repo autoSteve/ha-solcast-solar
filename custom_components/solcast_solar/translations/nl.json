@@ -3,8 +3,7 @@
     "abort": {
       "internal_error": "Interne fout opgetreden",
       "reauth_successful": "Nieuwe API-sleutel succesvol toegepast",
-      "reconfigured": "Nieuwe configuratie succesvol toegepast",
-      "single_instance_allowed": "Er is slechts 1 Solcast instantie toegestaan"
+      "reconfigured": "Nieuwe configuratie succesvol toegepast"
     },
     "error": {
       "api_duplicate": "Dubbele API-sleutel opgegeven",

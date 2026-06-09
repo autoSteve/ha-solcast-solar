@@ -3,8 +3,7 @@
     "abort": {
       "internal_error": "内部エラーが発生しました",
       "reauth_successful": "新しいAPIキーが正常に適用されました",
-      "reconfigured": "新しい設定が正常に適用されました",
-      "single_instance_allowed": "Solcastインスタンスは1つしか設定できません"
+      "reconfigured": "新しい設定が正常に適用されました"
     },
     "error": {
       "api_duplicate": "重複したAPIキーが指定されました",

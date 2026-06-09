@@ -3,8 +3,7 @@
     "abort": {
       "internal_error": "Vyskytla sa interná chyba",
       "reauth_successful": "Nový kľúč API bol úspešne použitý",
-      "reconfigured": "Použila sa nová konfigurácia",
-      "single_instance_allowed": "Povolená je iba jedna inštancia Solcast"
+      "reconfigured": "Použila sa nová konfigurácia"
     },
     "error": {
       "api_duplicate": "Bol zadaný duplicitný kľúč API",

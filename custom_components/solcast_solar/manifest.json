@@ -23,5 +23,6 @@
     "aiofiles>=23.2.0",
     "watchfiles>=1.0.0"
   ],
+  "single_config_entry": true,
   "version": "4.5.3"
 }

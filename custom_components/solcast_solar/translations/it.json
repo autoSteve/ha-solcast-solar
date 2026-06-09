@@ -3,8 +3,7 @@
     "abort": {
       "internal_error": "Si è verificato un errore interno",
       "reauth_successful": "Nuova chiave API applicata con successo",
-      "reconfigured": "Nuova configurazione applicata con successo",
-      "single_instance_allowed": "È consentita una sola istanza di Solcast"
+      "reconfigured": "Nuova configurazione applicata con successo"
     },
     "error": {
       "api_duplicate": "Chiave API duplicata specificata",

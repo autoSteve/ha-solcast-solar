@@ -3,8 +3,7 @@
     "abort": {
       "internal_error": "اندرونی خرابی پیش آگئی ہے۔",
       "reauth_successful": "نئی کلید کامیابی کے ساتھ لاگو ہو گئی۔",
-      "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔",
-      "single_instance_allowed": "صرف ایک سولکاسٹ مثال کی اجازت ہے۔"
+      "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔"
     },
     "error": {
       "api_duplicate": "پلیکیٹ API کلید بتائی گئی ہے۔",
