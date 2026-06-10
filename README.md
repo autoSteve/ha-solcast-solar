@@ -22,12 +22,11 @@ This integration is not created by, maintained, endorsed nor approved by Solcast
 > #### Support Instructions
 > Please check the [FAQ](https://github.com/BJReplay/ha-solcast-solar/blob/main/FAQ.md) for common problems and solutions, review any pinned and active [discussions](https://github.com/BJReplay/ha-solcast-solar/discussions), and review any open [issues](https://github.com/BJReplay/ha-solcast-solar/issues) before creating a new issue or discussion.
 >
-> Do not post "me too" comments on existing issues (but feel free to thumbs up or subscribe to notifications on issues where you have the same issue) or assume that if you have a similar error, that it is the same.   Unless the error is identical, it is probably not the same error.
+> Do not post "me too" comments on existing issues (but feel free to thumbs up or subscribe to notifications on issues where you have the same issue). Nor should you assume that if you have a similar error to an open issue that it is the same. Unless that error is identical, then it is probably not the same issue.
 >
-> Always consider whether you should raise an issue for a bug in the integration or if you need help setting things up or configuring your integration.
-> If you require support, please check if there is an existing discussion that has an answer for your question, or ask a question in the discussion section.
+> Always consider whether you should raise an issue for a code bug or whether you need help. If you require help, please check whether there is an existing discussion that has an answer for your question, or ask a question in the discussion section. "Issue" = a likely integration code bug. "Discussion" = a 'you need help' with something / it's an issue for you.
 >
-> If you believe you have found an issue that is a bug, please make sure you follow the instructions in the issue template when raising your issue.
+> If you believe you have found a bug, please make sure you follow the instructions in the issue template when raising that issue.
 
 [<img src="https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/solar_production.png">](https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/solar_production.png)
 
