@@ -213,7 +213,7 @@
       "message": "Lo smorzamento del sito non è impostato per {site}, 'all' è l'unico parametro del sito disponibile per la chiamata al servizio."
     },
     "dampen_without_actuals": {
-      "message": "Per utilizzare l'auto-smorzamento è necessario selezionare i valori effettivi stimati."
+      "message": "Per utilizzare l'auto-smorzamento è necessario selezionare i valori effettivi stimati aggiornati a mezzanotte."
     },
     "dampen_without_generation": {
       "message": "È necessario specificare almeno un sensore di generazione fotovoltaica per utilizzare l'auto-smorzamento."

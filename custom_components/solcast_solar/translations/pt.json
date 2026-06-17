@@ -213,7 +213,7 @@
       "message": "O amortecimento do site não está definido para {site}, 'todos' é o único parâmetro de site disponível para a chamada de serviço."
     },
     "dampen_without_actuals": {
-      "message": "Os valores reais estimados devem ser selecionados para usar o amortecimento automático."
+      "message": "Os valores reais estimados atualizados à meia-noite devem ser selecionados para usar o amortecimento automático."
     },
     "dampen_without_generation": {
       "message": "Pelo menos um sensor de geração fotovoltaica deve ser especificado para usar o amortecimento automático."

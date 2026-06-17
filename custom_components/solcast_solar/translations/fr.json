@@ -213,7 +213,7 @@
       "message": "L'amortissement du site n'est pas défini pour {site}, « all » (tout) est le seul paramètre de site disponible pour l'appel de service.."
     },
     "dampen_without_actuals": {
-      "message": "Les valeurs réelles estimées doivent être sélectionnées pour utiliser l'amortissement automatique."
+      "message": "Les valeurs réelles estimées mises à jour à minuit doivent être sélectionnées pour utiliser l'amortissement automatique."
     },
     "dampen_without_generation": {
       "message": "Au moins un capteur de production photovoltaïque doit être spécifié pour utiliser l'amortissement automatique."

@@ -213,7 +213,7 @@
       "message": "Tlmenie stránky nie je nastavené pre {site}, 'all' je jediný dostupný parameter stránky pre servisné volanie."
     },
     "dampen_without_actuals": {
-      "message": "Na použitie automatického tlmenia je potrebné vybrať odhadované skutočné hodnoty."
+      "message": "Na použitie automatického tlmenia je potrebné vybrať odhadované skutočné hodnoty aktualizované o polnoci."
     },
     "dampen_without_generation": {
       "message": "Na použitie automatického tlmenia musí byť špecifikovaný aspoň jeden snímač výroby FV energie."

@@ -213,7 +213,7 @@
       "message": "Tłumienie witryny nie jest ustawione dla {site}, „all” jest jedynym dostępnym parametrem witryny dla zgłoszenia serwisowego."
     },
     "dampen_without_actuals": {
-      "message": "Aby korzystać z automatycznego tłumienia, należy wybrać szacowane wartości rzeczywiste."
+      "message": "Aby korzystać z automatycznego tłumienia, należy wybrać szacowane wartości rzeczywiste aktualizowane o północy."
     },
     "dampen_without_generation": {
       "message": "Należy określić co najmniej jeden czujnik generacji fotowoltaicznej, aby korzystać z automatycznego tłumienia."

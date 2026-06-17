@@ -213,7 +213,7 @@
       "message": "La amortiguación del sitio no está configurada para {site}, 'all' es el único parámetro de sitio disponible para la llamada de servicio."
     },
     "dampen_without_actuals": {
-      "message": "Se deben seleccionar los valores reales estimados para usar la amortiguación automática."
+      "message": "Se deben seleccionar los valores reales estimados actualizados a medianoche para usar la amortiguación automática."
     },
     "dampen_without_generation": {
       "message": "Se debe especificar al menos un sensor de generación fotovoltaica para utilizar la amortiguación automática."

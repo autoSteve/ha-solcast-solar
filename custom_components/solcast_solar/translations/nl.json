@@ -213,7 +213,7 @@
       "message": "Site-demping is niet ingesteld voor {site}, ‘all’ is de enige beschikbare siteparameter voor de serviceaanroep."
     },
     "dampen_without_actuals": {
-      "message": "Geschatte werkelijke waarden moeten worden geselecteerd om automatische demping te gebruiken."
+      "message": "Geschatte werkelijke waarden die om middernacht worden bijgewerkt, moeten worden geselecteerd om automatische demping te gebruiken."
     },
     "dampen_without_generation": {
       "message": "Er moet minimaal één PV-opwekkingssensor worden opgegeven om automatische demping te gebruiken."

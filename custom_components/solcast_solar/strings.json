@@ -213,7 +213,7 @@
       "message": "Site dampening is not set for {site}, 'all' is the only available site parameter for the service call."
     },
     "dampen_without_actuals": {
-      "message": "Estimated actuals must be selected to use auto-dampening."
+      "message": "Estimated actuals updated at midnight must be selected to use auto-dampening."
     },
     "dampen_without_generation": {
       "message": "At least one PV generation sensor must be specified to use auto-dampening."

@@ -213,7 +213,7 @@
       "message": "Die Standortdämpfung ist für {site} nicht festgelegt, „all“ ist der einzige verfügbare Standortparameter für den Serviceaufruf."
     },
     "dampen_without_actuals": {
-      "message": "Geschätzte Istwerte müssen ausgewählt sein, um die automatische Dämpfung zu verwenden."
+      "message": "Geschätzte Istwerte, die um Mitternacht aktualisiert werden, müssen ausgewählt sein, um die automatische Dämpfung zu verwenden."
     },
     "dampen_without_generation": {
       "message": "Es muss mindestens eine Wh/kWh/MWh-PV-Erzeugungseinheit angegeben werden, um die automatische Dämpfung zu verwenden."
