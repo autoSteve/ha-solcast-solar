@@ -10,6 +10,7 @@ import json
 import logging
 from pathlib import Path
 import re
+import shutil
 import traceback
 from typing import TYPE_CHECKING, Any, Final
 
@@ -88,6 +89,7 @@ from .issues import check_unusual_azimuth
 from .migration import SchemaIncompatibleError, clear_cache, upgrade_cache_schema
 from .redact import (
     redact_api_key,
+    redact_filename_api_key,
     redact_lat_lon,
     redact_lat_lon_simple,
     redact_msg_api_key,
@@ -130,6 +132,7 @@ class SitesCache:
         self._extant_usage: defaultdict[str, dict[str, Any]] = defaultdict(dict[str, Any])
         self._rekey: dict[str, Any] = {}
         self._site_latitude: defaultdict[str, dict[str, bool | float | int | None]] = defaultdict(dict[str, bool | float | int | None])
+        self._site_transfers: dict[str, str] = {}
 
     def _clear_old_api_key(self) -> None:
         """Clear the prior API key tracked for entry state, if any."""
@@ -235,6 +238,7 @@ class SitesCache:
             tuple[int, str, str]: The status code, message and relevant API key from load sites.
         """
         issue_registry = ir.async_get(self.api.hass)
+        cache_mutation_allowed = self.api.entry is not None
 
         def rename(file1: str, file2: str, api_key: str):
             if Path(file1).is_file():
@@ -303,7 +307,7 @@ class SitesCache:
 
             await self.cleanup_issues(any_unusual)
 
-            if self.api.sites != old_sites:
+            if cache_mutation_allowed and self.api.sites != old_sites:
                 # Sites have been updated with dismissables, so re-serialise the sites cache(s).
                 for api_key in self.api.options.api_key.split(","):
                     api_key = api_key.strip()
@@ -391,10 +395,11 @@ class SitesCache:
             return extant_sites, extant_usage
 
         api_keys = split_and_strip(self.api.options.api_key)
-        if self.multi_key:
-            await from_single_site_to_multi(api_keys)
-        else:
-            await from_multi_site_to_single(api_keys)
+        if cache_mutation_allowed:
+            if self.multi_key:
+                await from_single_site_to_multi(api_keys)
+            else:
+                await from_multi_site_to_single(api_keys)
         multi_sites = [f"{self.api.config_dir}/solcast-sites-{api_key}.json" for api_key in api_keys]
         multi_usage = [f"{self.api.config_dir}/solcast-usage-{api_key}.json" for api_key in api_keys]
 
@@ -402,8 +407,9 @@ class SitesCache:
             list_all_and_multi_key_files
         )
         self._extant_sites, self._extant_usage = await load_extant_sites_and_usage(all_sites, all_usage)
-        remove_orphans(multi_key_sites, multi_sites)
-        remove_orphans(multi_key_usage, multi_usage)
+        if cache_mutation_allowed:
+            remove_orphans(multi_key_sites, multi_sites)
+            remove_orphans(multi_key_usage, multi_usage)
 
         status, message, api_key_in_error = await self._sites_data(prior_crash=prior_crash, use_cache=use_cache)
         if self.api.sites_status == SitesStatus.OK:
@@ -502,7 +508,9 @@ class SitesCache:
                     reset_usage = False
                     new_sites: dict[str, str] = {}
                     cache_sites = list(self.api.data[SITE_INFO].keys())
-                    old_api_keys = self._old_api_key_for_comparison().split(",")
+                    old_api_keys = split_and_strip(self._old_api_key_for_comparison())
+                    configured_api_keys = split_and_strip(self.api.options.api_key)
+                    api_key_set_changed = set(old_api_keys) != set(configured_api_keys)
                     for site in self.api.sites:
                         api_key = site[API_KEY]
                         site = site[RESOURCE_ID]
@@ -540,7 +548,8 @@ class SitesCache:
                     configured_sites = [site[RESOURCE_ID] for site in self.api.sites]
                     for site in cache_sites:
                         if site not in configured_sites:
-                            _LOGGER.warning(
+                            expected_reconfigure_cleanup = api_key_set_changed and bool(new_sites)
+                            (_LOGGER.debug if expected_reconfigure_cleanup else _LOGGER.warning)(
                                 "Site resource id %s is no longer configured, will remove saved data from %s, %s, %s, %s",
                                 site,
                                 self.api.filename,
@@ -567,6 +576,42 @@ class SitesCache:
                         }.items():
                             await self.serialise_data(data, filename)
 
+                async def apply_site_transfer_migration() -> None:
+                    if not self._site_transfers:
+                        return
+
+                    await self._backup_json_caches()
+
+                    changed = False
+                    for data in [self.api.data, self.api.data_undampened, self.api.data_actuals, self.api.data_actuals_dampened]:
+                        changed |= self._apply_site_transfer_to_cached_data(data, self._site_transfers)
+
+                    factors_changed = False
+                    for old_site_id, new_site_id in self._site_transfers.items():
+                        if old_site_id in self.api.dampening.factors:
+                            if new_site_id not in self.api.dampening.factors:
+                                self.api.dampening.factors[new_site_id] = self.api.dampening.factors[old_site_id]
+                            del self.api.dampening.factors[old_site_id]
+                            factors_changed = True
+
+                    if changed:
+                        _LOGGER.info(
+                            "Applying cached history transfer for moved site IDs: %s",
+                            ", ".join(f"{old}->{new}" for old, new in sorted(self._site_transfers.items())),
+                        )
+                        for filename, data in {
+                            self.api.filename: self.api.data,
+                            self.api.filename_undampened: self.api.data_undampened,
+                            self.api.filename_actuals: self.api.data_actuals,
+                            self.api.filename_actuals_dampened: self.api.data_actuals_dampened,
+                        }.items():
+                            await self.serialise_data(data, filename)
+
+                    if factors_changed:
+                        await self.api.dampening.serialise_granular()
+
+                    self._site_transfers = {}
+
                 dampened_data = await load_data(self.api.filename)
                 if dampened_data is not None:
                     self.api.data = dampened_data
@@ -584,6 +629,9 @@ class SitesCache:
                         self.api.data_actuals_dampened = actuals_dampened_data
                     elif actuals_data:
                         self.api.data_actuals_dampened = actuals_data
+
+                    await apply_site_transfer_migration()
+
                     # Load the generation history
                     file = self.api.filename_generation
                     generation_data = await self.api.dampening.load_generation_data()
@@ -733,6 +781,139 @@ class SitesCache:
         async with self.api.serialise_lock, aiofiles.open(filename, "w") as file:
             await file.write(payload)
 
+    async def _backup_json_caches(self) -> None:
+        """Backup all JSON caches.
+
+        Backups are stamped by day as YYMMDD and written as .json.bak files. Older
+        dated backups for each cache file are removed to reduce storage usage.
+        """
+
+        def list_matching_files(config_dir: Path, pattern: str) -> list[Path]:
+            return sorted(path for path in config_dir.glob(pattern) if path.is_file())
+
+        backup_day = dt.now(UTC).strftime("%y%m%d")
+        config_dir = Path(self.api.config_dir)
+        cache_files = await self.api.hass.async_add_executor_job(list_matching_files, config_dir, "solcast*.json")
+
+        for cache_file in cache_files:
+            backup_file = cache_file.with_name(f"{cache_file.stem}-{backup_day}{cache_file.suffix}.bak")
+
+            legacy_backups = await self.api.hass.async_add_executor_job(
+                list_matching_files,
+                config_dir,
+                f"{cache_file.stem}-*-auto_backup{cache_file.suffix}",
+            )
+            for extant_backup in legacy_backups:
+                with contextlib.suppress(OSError):
+                    await self.api.hass.async_add_executor_job(extant_backup.unlink)
+
+            backup_pattern = re.compile(rf"^{re.escape(cache_file.stem)}-(\d{{6}}){re.escape(cache_file.suffix)}\.bak$")
+            extant_backups = await self.api.hass.async_add_executor_job(
+                list_matching_files,
+                config_dir,
+                f"{cache_file.stem}-*{cache_file.suffix}.bak",
+            )
+            for extant_backup in extant_backups:
+                match = backup_pattern.match(extant_backup.name)
+                if match is None:
+                    continue
+                if match.group(1) < backup_day:
+                    with contextlib.suppress(OSError):
+                        await self.api.hass.async_add_executor_job(extant_backup.unlink)
+
+            try:
+                await self.api.hass.async_add_executor_job(shutil.copy2, cache_file, backup_file)
+                _LOGGER.debug("Created backup %s", redact_filename_api_key(str(backup_file)))
+            except OSError as err:
+                _LOGGER.warning("Could not create backup %s: %s", redact_filename_api_key(str(backup_file)), err)
+
+    def _site_transfer_signature(self, site: dict[str, Any]) -> tuple[str, str, str] | None:
+        """Return a comparable site signature used for site-ID transfer matching."""
+
+        name = site.get("name")
+        capacity_dc = site.get("capacity_dc")
+        tilt = site.get("tilt")
+        if name is None or capacity_dc is None or tilt is None:
+            return None
+
+        try:
+            capacity_text = f"{float(capacity_dc):.6f}"
+            tilt_text = f"{float(tilt):.6f}"
+        except (TypeError, ValueError):
+            return None
+
+        return str(name).strip().casefold(), capacity_text, tilt_text
+
+    def _infer_site_transfer_map(self, api_sites: list[dict[str, Any]], extant_sites: list[dict[str, Any]]) -> dict[str, str]:
+        """Infer old->new site-ID mapping for a transferred site/account pair."""
+
+        extant_by_signature: dict[tuple[str, str, str], str] = {}
+        for extant_site in extant_sites:
+            signature = self._site_transfer_signature(extant_site)
+            site_id = extant_site.get(RESOURCE_ID)
+            if signature is None or site_id is None or signature in extant_by_signature:
+                return {}
+            extant_by_signature[signature] = site_id
+
+        api_by_signature: dict[tuple[str, str, str], str] = {}
+        for api_site in api_sites:
+            signature = self._site_transfer_signature(api_site)
+            site_id = api_site.get(RESOURCE_ID)
+            if signature is None or site_id is None or signature in api_by_signature:
+                return {}
+            api_by_signature[signature] = site_id
+
+        if not set(api_by_signature).issubset(extant_by_signature):
+            return {}
+
+        return {
+            extant_by_signature[signature]: api_site_id
+            for signature, api_site_id in api_by_signature.items()
+            if extant_by_signature[signature] != api_site_id
+        }
+
+    def _match_site_set_against_extant(self, api_sites: list[dict[str, Any]], extant_sites: list[dict[str, Any]]) -> dict[str, str] | None:
+        """Return transfer mapping when all API sites are already represented in extant cache data."""
+
+        api_site_ids = {api_site_id for api_site_id in (site.get(RESOURCE_ID) for site in api_sites) if api_site_id is not None}
+        if not api_site_ids:
+            return None
+
+        extant_site_ids = {site_id for site_id in (site.get(RESOURCE_ID) for site in extant_sites) if site_id is not None}
+        site_transfers = self._infer_site_transfer_map(api_sites, extant_sites)
+        if api_site_ids.issubset(extant_site_ids | set(site_transfers.values())):
+            return site_transfers
+
+        return None
+
+    def _apply_site_transfer_to_cached_data(self, data: dict[str, Any], transfers: dict[str, str]) -> bool:
+        """Apply old->new site-ID mapping to a loaded cache dataset."""
+
+        site_info = data.get(SITE_INFO)
+        if not isinstance(site_info, dict):
+            return False
+
+        changed = False
+        for old_site_id, new_site_id in transfers.items():
+            if old_site_id not in site_info:
+                continue
+
+            old_site_data = site_info.pop(old_site_id)
+            if new_site_id in site_info and isinstance(site_info[new_site_id], dict) and isinstance(old_site_data, dict):
+                old_forecasts = old_site_data.get(FORECASTS, [])
+                new_forecasts = site_info[new_site_id].get(FORECASTS, [])
+                if isinstance(old_forecasts, list) and isinstance(new_forecasts, list):
+                    site_info[new_site_id][FORECASTS] = [
+                        *new_forecasts,
+                        *[forecast for forecast in old_forecasts if forecast not in new_forecasts],
+                    ]
+            else:
+                site_info[new_site_id] = old_site_data
+
+            changed = True
+
+        return changed
+
     # Private methods (alphabetical).
 
     def _get_sites_cache_filename(self, api_key: str) -> str:
@@ -774,6 +955,7 @@ class SitesCache:
         """
         one_only = False
         status = 999
+        cache_mutation_allowed = self.api.entry is not None
 
         async def load_cache(cache_filename: str) -> dict[str, Any]:
             _LOGGER.info("Loading cached sites for %s", redact_api_key(api_key))
@@ -781,6 +963,8 @@ class SitesCache:
                 return json.loads(await file.read())
 
         async def save_cache(cache_filename: str, response_data: dict[str, Any]):
+            if not cache_mutation_allowed:
+                return
             _LOGGER.debug("Writing sites cache for %s", redact_api_key(api_key))
             async with self.api.serialise_lock, aiofiles.open(cache_filename, "w") as file:
                 await file.write(json.dumps(response_json, ensure_ascii=False))
@@ -830,6 +1014,22 @@ class SitesCache:
             cache_status = False
             all_sites = sorted([site[RESOURCE_ID] for site in response_json[SITES]])
             self._rekey[api_key] = None
+
+            def apply_site_match(site_transfers: dict[str, str]) -> None:
+                old_site_by_new = {new_site: old_site for old_site, new_site in site_transfers.items()}
+                if site_transfers:
+                    _LOGGER.info(
+                        "Site transfer detected for API key %s, migrating cached history (%s)",
+                        redact_api_key(api_key),
+                        ", ".join(f"{old}->{new}" for old, new in sorted(site_transfers.items())),
+                    )
+
+                for site in response_json[SITES]:
+                    site[API_KEY] = api_key
+                    source_site = old_site_by_new.get(site[RESOURCE_ID], str(site[RESOURCE_ID]))
+                    site[DISMISSAL] = self._dismissal.get(source_site, False)
+                    self._dismissal[site[RESOURCE_ID]] = site[DISMISSAL]
+
             for key in self._extant_sites:
                 extant_sites = sorted([site[RESOURCE_ID] for site in self._extant_sites[key]])
                 if all_sites == extant_sites:
@@ -839,14 +1039,47 @@ class SitesCache:
                         # Note that if an API failure had occurred then the sites are not really known, so this key change is a guess at best.
                         _LOGGER.info("API key %s has changed", redact_api_key(api_key))
                         self._rekey[api_key] = key
-                        for site in response_json[SITES]:
-                            site[API_KEY] = api_key
+                    apply_site_match({})
                     cache_status = True
+                    break
+
+                site_transfers = self._match_site_set_against_extant(response_json[SITES], self._extant_sites[key])
+                if site_transfers is not None:
+                    if api_key != key:
+                        _LOGGER.info("API key %s has changed", redact_api_key(api_key))
+                        self._rekey[api_key] = key
+
+                    self._site_transfers.update(site_transfers)
+                    apply_site_match(site_transfers)
+                    cache_status = True
+                    break
+
+            if not cache_status and allow_combined_site_match:
+                combined_extant_sites: list[dict[str, Any]] = []
+                seen_site_ids: set[str] = set()
+                for extant_sites in self._extant_sites.values():
+                    for extant_site in extant_sites:
+                        site_id = extant_site.get(RESOURCE_ID)
+                        if site_id is None or site_id in seen_site_ids:
+                            continue
+                        combined_extant_sites.append(extant_site)
+                        seen_site_ids.add(site_id)
+
+                site_transfers = self._match_site_set_against_extant(response_json[SITES], combined_extant_sites)
+                if site_transfers is not None:
+                    self._site_transfers.update(site_transfers)
+                    apply_site_match(site_transfers)
+                    cache_status = True
+
             return cache_status
 
         self.api.sites = []
         api_key_in_error = ""
         api_keys = self.api.options.api_key.split(",")
+        prior_api_keys = split_and_strip(self._old_api_key_for_comparison())
+        configured_api_keys = split_and_strip(self.api.options.api_key)
+        allow_combined_site_match = len(prior_api_keys) > len(configured_api_keys)
+        self._site_transfers = {}
 
         try:
             for api_key in api_keys:
@@ -1041,7 +1274,7 @@ class SitesCache:
                         redact_api_key(api_key),
                         used_reset.astimezone(self.api.tz).strftime(DT_DATE_FORMAT),
                     )
-                if usage[DAILY_LIMIT] != quota[api_key]:  # Limit has been adjusted, so rewrite the cache.
+                if usage.get(DAILY_LIMIT) != quota[api_key]:  # Limit has been adjusted, so rewrite the cache.
                     self.api.api_limits[api_key] = quota[api_key]
                     # Reset typical to the new limit.
                     self.api.api_typical[api_key] = quota[api_key]

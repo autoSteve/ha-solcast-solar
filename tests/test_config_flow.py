@@ -1,5 +1,6 @@
 """Test the Solcast Solar config flow."""
 
+import contextlib
 import copy
 import json
 import logging
@@ -91,6 +92,7 @@ from . import (
     async_cleanup_integration_tests,
     async_init_integration,
     async_setup_aioresponses,
+    get_crash_state,
     session_clear,
     session_set,
     set_presumed_dead,
@@ -295,6 +297,8 @@ async def test_reauth_api_key(
 
     Not parameterised for performance reasons and to maintain caches between tests.
     """
+    entry = None
+    api_key_sites_backup = copy.deepcopy(simulator.API_KEY_SITES)
     try:
         USER_INPUT = 0
         REASON = 1
@@ -365,8 +369,13 @@ async def test_reauth_api_key(
         assert "Loading presumed dead integration" in caplog.text
 
     finally:
-        if simulator.API_KEY_SITES.get("4"):
-            simulator.API_KEY_SITES["1"] = simulator.API_KEY_SITES.pop("4")  # Restore the key
+        simulator.API_KEY_SITES.clear()
+        simulator.API_KEY_SITES.update(api_key_sites_backup)
+        session_clear(MOCK_FORBIDDEN)
+        if entry is not None:
+            with contextlib.suppress(Exception):
+                await hass.config_entries.async_unload(entry.entry_id)
+            await hass.async_block_till_done()
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
 
@@ -791,7 +800,7 @@ async def test_presumed_dead_and_full_flow(
             user_input,
         )
         await hass.async_block_till_done()  # Integration will reload
-        assert "Integration presumed dead, reloading" in caplog.text
+        assert "Integration presumed dead, reloading" in caplog.text or "Integration reload already in progress" in caplog.text
         coordinator: SolcastUpdateCoordinator = entry.runtime_data.coordinator
         solcast: SolcastApi = coordinator.solcast
         assert solcast.sites_status is SitesStatus.OK, f"Expected sites status SitesStatus.OK, got {solcast.sites_status}"
@@ -823,6 +832,100 @@ async def test_presumed_dead_and_full_flow(
         )
         await hass.async_block_till_done()
         assert result.get("reason") == AFFIRMATION_RECONFIGURED
+
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+async def test_check_dead_reload_without_presumed_dead_warning(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test check_dead reload path does not warn about presumed death when crash-state is clear."""
+
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
+
+        await set_presumed_dead(hass, entry, False)
+        assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
+        await hass.async_block_till_done()
+
+        option_flow = SolcastSolarOptionFlowHandler(entry)
+        option_flow.hass = hass
+
+        caplog.clear()
+        await option_flow.check_dead()
+        await hass.async_block_till_done()
+
+        assert "Integration presumed dead, reloading" not in caplog.text
+        assert "Integration not loaded during options update, reloading" in caplog.text
+        assert entry.state is ConfigEntryState.LOADED, "Config entry should be reloaded"
+
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+async def test_check_dead_skips_when_reload_in_progress(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test check_dead does not log presumed-dead or trigger reload while setup is in progress."""
+
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
+
+        await set_presumed_dead(hass, entry, True)
+        entry._state = ConfigEntryState.SETUP_IN_PROGRESS  # pyright: ignore[reportAttributeAccessIssue]
+
+        option_flow = SolcastSolarOptionFlowHandler(entry)
+        option_flow.hass = hass
+
+        caplog.set_level(logging.DEBUG)
+        with patch.object(hass.config_entries, "async_reload", wraps=hass.config_entries.async_reload) as reload_mock:
+            caplog.clear()
+            await option_flow.check_dead()
+            await hass.async_block_till_done()
+
+            assert "Integration presumed dead, reloading" not in caplog.text
+            reload_mock.assert_not_called()
+
+        entry._state = ConfigEntryState.LOADED  # pyright: ignore[reportAttributeAccessIssue]
+
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+async def test_check_dead_presumed_dead_branch(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test check_dead runs presumed-dead warning/clear branch when entry is not loaded."""
+
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
+
+        await set_presumed_dead(hass, entry, True)
+        assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
+        await hass.async_block_till_done()
+
+        option_flow = SolcastSolarOptionFlowHandler(entry)
+        option_flow.hass = hass
+
+        with patch.object(hass.config_entries, "async_reload", return_value=True) as reload_mock:
+            caplog.clear()
+            await option_flow.check_dead()
+            await hass.async_block_till_done()
+
+            reload_mock.assert_called_once_with(entry.entry_id)
+
+        crash_state = await get_crash_state(hass, entry)
+        assert crash_state.presumed_dead is False
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"

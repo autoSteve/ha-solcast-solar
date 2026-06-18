@@ -122,7 +122,7 @@ class Updater:
 
         This is an even spread between sunrise and sunset.
         """
-        self.divisions = int(self._coordinator.solcast.api_limit / min(len(self._coordinator.solcast.sites), 2))
+        self.divisions = int(self._coordinator.solcast.api_limit / self._coordinator.solcast.api_maximum_sites)
 
         def get_intervals(sunrise: dt, sunset: dt, log: bool = True):
             intervals_yesterday = []

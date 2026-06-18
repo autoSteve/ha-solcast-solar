@@ -531,6 +531,20 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         return min(list(self.api_limits.values()))
 
     @property
+    def api_maximum_sites(self) -> int:
+        """API maximum sites for all API keys).
+
+        Used principally when determining auto-update frequency.
+
+        Returns:
+            int: The highest number of sites for all configured API keys.
+        """
+        api_key_sites: defaultdict[str, int] = defaultdict(int)
+        for site in self.sites:
+            api_key_sites[site[CONF_API_KEY]] += 1
+        return max(api_key_sites.values()) if api_key_sites else 1
+
+    @property
     def api_typical_forecast_updates_count(self) -> int:
         """Typical daily forecast update + forced update count.
 

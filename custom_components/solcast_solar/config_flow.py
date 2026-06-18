@@ -399,9 +399,17 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
     async def check_dead(self) -> None:
         """Check if the integration is presumed dead and reload if so."""
 
+        if self._entry.state is ConfigEntryState.SETUP_IN_PROGRESS:
+            _LOGGER.debug("Integration reload already in progress")
+            return
+
         if self._entry.state is not ConfigEntryState.LOADED:
-            _LOGGER.warning("Integration presumed dead, reloading")
-            await (await crash_state.async_get(self.hass, self._entry.entry_id)).async_clear()
+            crash_store = await crash_state.async_get(self.hass, self._entry.entry_id)
+            if crash_store.state.presumed_dead:
+                _LOGGER.warning("Integration presumed dead, reloading")
+                await crash_store.async_clear()
+            else:
+                _LOGGER.debug("Integration not loaded during options update, reloading")
             await self.hass.config_entries.async_reload(self._entry.entry_id)
 
     def _build_sensor_options(self) -> tuple[list[SelectOptionDict], list[SelectOptionDict]]:

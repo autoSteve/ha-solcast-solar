@@ -7,6 +7,7 @@ from homeassistant.components.solcast_solar.const import (
 from homeassistant.components.solcast_solar.redact import (
     format_site_key,
     redact_api_key,
+    redact_filename_api_key,
     redact_lat_lon,
     redact_lat_lon_simple,
     redact_msg_api_key,
@@ -48,6 +49,34 @@ class TestRedactApiKey:
         """A message that does not contain the API key must be returned unchanged."""
         result = redact_msg_api_key("No key here", "SOMEKEY123456")
         assert result == "No key here", "Message without the API key must be returned unchanged"
+
+    def test_redact_filename_api_key_sites(self) -> None:
+        """A sites filename with key segment should have the key redacted."""
+        filename = "solcast-sites-BlAhDeBlAhBlAhBlAhABCDEF-260101.json.bak"
+        result = redact_filename_api_key(filename)
+
+        assert result == "solcast-sites-******ABCDEF-260101.json.bak"
+
+    def test_redact_filename_api_key_usage(self) -> None:
+        """A usage filename with key segment should have the key redacted."""
+        filename = "solcast-usage-FeEeFiIiFoOoOoFuMmUVWXYZ-260101.json.bak"
+        result = redact_filename_api_key(filename)
+
+        assert result == "solcast-usage-******UVWXYZ-260101.json.bak"
+
+    def test_redact_filename_no_key_undampened(self) -> None:
+        """An undampened filename with no key should be unchanged."""
+        filename = "solcast-undampened-260101.json.bak"
+        result = redact_filename_api_key(filename)
+
+        assert result == "solcast-undampened-260101.json.bak"
+
+    def test_redact_filename_no_key_actuals(self) -> None:
+        """A dampened actuals filename with no key should be unchanged."""
+        filename = "solcast-actuals-dampened-260101.json.bak"
+        result = redact_filename_api_key(filename)
+
+        assert result == "solcast-actuals-dampened-260101.json.bak"
 
 
 class TestRedactLatLon:

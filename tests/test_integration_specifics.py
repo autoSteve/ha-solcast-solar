@@ -13,6 +13,7 @@ import unittest.mock
 import pytest
 
 from homeassistant.components.recorder import Recorder
+from homeassistant.components.solcast_solar.config_flow import validate_sites
 from homeassistant.components.solcast_solar.const import (
     ADVANCED_AUTOMATED_DAMPENING_GENERATION_FETCH_DELAY,
     ADVANCED_ESTIMATED_ACTUALS_FETCH_DELAY,
@@ -58,11 +59,13 @@ from homeassistant.components.solcast_solar.const import (
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
 from homeassistant.components.solcast_solar.solcastapi import SolcastApi
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant, SupportsResponse
 from homeassistant.exceptions import ServiceValidationError
 
 from . import (
     DEFAULT_INPUT1,
+    DEFAULT_INPUT2,
     MOCK_ALTER_HISTORY,
     async_cleanup_integration_tests,
     async_init_integration,
@@ -80,6 +83,99 @@ _LOGGER = logging.getLogger(__name__)
 @pytest.fixture(autouse=True)
 def frozen_time() -> None:
     """Disable the global freezer fixture for this module."""
+
+
+async def test_validate_sites_does_not_mutate_caches_before_reload(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Validation should not mutate caches before runtime migration executes."""
+
+    try:
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+
+        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT2))
+        assert entry.state is ConfigEntryState.LOADED
+
+        old_sites_key1 = Path(f"{config_dir}/solcast-sites-1.json")
+        new_sites_key11 = Path(f"{config_dir}/solcast-sites-11.json")
+        assert old_sites_key1.is_file()
+
+        proposed = {**entry.options}
+        proposed[CONF_API_KEY] = "1a,11,2"
+        status, message = await validate_sites(hass, proposed)
+        assert status == 200, message
+
+        # Validation must not delete old key caches or create new key caches.
+        assert old_sites_key1.is_file()
+        assert not new_sites_key11.exists()
+
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+async def test_site_transfer_migrates_history_and_backs_up(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test transferring a site to a new API key with a different site ID keeps history."""
+
+    try:
+        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+        if CONFIG_FOLDER_DISCRETE:
+            Path(config_dir).mkdir(parents=False, exist_ok=True)
+
+        entry = await async_init_integration(hass, copy.deepcopy(DEFAULT_INPUT1))
+        assert entry.state is ConfigEntryState.LOADED
+
+        old_site_id = "2222-2222-2222-2222"
+        new_site_id = "7777-7777-7777-7777"
+
+        dampening_file = Path(f"{config_dir}/solcast-dampening.json")
+        dampening_file.write_text(json.dumps({old_site_id: [0.9] * 24}), encoding="utf-8")
+
+        cache_files = [
+            Path(f"{config_dir}/solcast.json"),
+            Path(f"{config_dir}/solcast-undampened.json"),
+            Path(f"{config_dir}/solcast-actuals.json"),
+            Path(f"{config_dir}/solcast-actuals-dampened.json"),
+        ]
+        cache_files = [cache_file for cache_file in cache_files if cache_file.is_file()]
+
+        old_history_counts: dict[str, int] = {}
+        for cache_file in cache_files:
+            payload = json.loads(cache_file.read_text(encoding="utf-8"))
+            old_history_counts[cache_file.name] = len(payload[SITE_INFO][old_site_id][FORECASTS])
+
+        caplog.clear()
+        hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_API_KEY: "11"})
+        await hass.async_block_till_done()
+
+        assert entry.state is ConfigEntryState.LOADED
+        assert "Site transfer detected for API key ******11" in caplog.text
+        assert "Applying cached history transfer for moved site IDs: 2222-2222-2222-2222->7777-7777-7777-7777" in caplog.text
+        assert "New site(s) have been added" not in caplog.text
+
+        backup_day = dt.now(datetime.UTC).strftime("%y%m%d")
+        for cache_file in cache_files:
+            payload = json.loads(cache_file.read_text(encoding="utf-8"))
+            assert old_site_id not in payload[SITE_INFO]
+            assert new_site_id in payload[SITE_INFO]
+            assert len(payload[SITE_INFO][new_site_id][FORECASTS]) >= old_history_counts[cache_file.name]
+
+            backup_file = cache_file.with_name(f"{cache_file.stem}-{backup_day}{cache_file.suffix}.bak")
+            assert backup_file.is_file(), f"Expected backup file {backup_file}"
+
+        dampening = json.loads(dampening_file.read_text(encoding="utf-8"))
+        assert old_site_id not in dampening
+        assert new_site_id in dampening
+
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
 
 async def test_estimated_actuals(

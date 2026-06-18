@@ -26,6 +26,16 @@ def redact_msg_api_key(msg: str, api_key: str) -> str:
     )
 
 
+def redact_filename_api_key(filename: str) -> str:
+    """Obfuscate API key in filenames."""
+
+    parts = filename.split("-")
+    if len(parts) == 4 and (parts[1] == "sites" or parts[1] == "usage"):
+        api_key = parts[2]
+        return filename.replace(api_key, redact_api_key(api_key))
+    return filename
+
+
 def redact_lat_lon_simple(s: str) -> str:
     """Redact latitude and longitude decimal places in a string."""
 
