@@ -404,27 +404,33 @@ In the `Solar production forecast` section, select `Forecast Production` and the
 
 ### Rooftop site migration
 
-If you need to move your rooftop site(s) to a completely different Solcast account, then the process is straightforward. (This has been tested, but is still experimental.)
+If you need to move your rooftop site(s) to a completely different Solcast account, then the process is straightforward. (This has been tested, but is still experimental. Released in v4.5.3, so make sure you're on at least that version.)
 
 > [!NOTE]
 >
-> Do not do this in the middle of the day, or should you be updating evenly over a 24-hour period then do with care and understanding for what might happen to API quota usage.
+> Do the migration with an understanding of what might happen to usage of daily API quota. The best outcome on that front will come from a migration just prior to UTC midnight should you also be altering the forecast update usage frequency at the same time.
+>
+> **Definitely do not attempt a migration should issues with API availability for hobbyists be occurring.** Check your logs first.
 
 Each rooftop site is identified by a "site ID", and setting up your rooftop(s) in a different account *will* result in new site IDs being created.
 
-If you follow a specific sequence of events then the integration can "migrate" all history to be associated with the newly created site ID(s). Do this:
+If you follow a specific sequence of events then the integration can migrate all history to be associated with the newly created site ID(s). Do this:
 
-1. Ideally set up `DEBUG` level logging for the integration and restart Home Assistant.
+1. Ideally set up `DEBUG` level logging for the integration and restart Home Assistant. If you don't, then you will have very little to show when getting assistance should something go wrong.
 1. Set up your new Solcast account and note the new API key.
-1. Set up your rooftop(s) with *exactly* the same values as the existing rooftop(s) have for `Site Name`, `Capacity DC` and `Tilt`. If these three things vary even slightly then migration will not work.
-1. Remove the site(s) from your existing account. Do not remove the existing account.
-1. Add the API key for the new account in the integration configuration, keeping the existing API key as well. Save the settings.
-1. Review the logs carefully to see that the migration has occurred.
-1. Optionally delete your old account, and then update the integration configuration to remove the now defunct API key.
+1. Set up your rooftop(s) with *exactly* the same values that the existing rooftop(s) have for `Site Name`, `Capacity DC` and `Tilt`. If these three things **vary even slightly then migration will not work**.
+1. Remove the rooftop site(s) from your existing account. Do **not** remove the existing account yet, if that is what you are planning to do.
+1. Add the API key for the new account in the integration configuration, keeping the existing API key as well; you will now have two comma-separated keys. Save the settings, which will cause the migration to occur.
+1. Review the logs carefully to see that the migration has occurred. Raise an issue for any exceptions seen, supplying all requested information.
+1. Optionally remove your old account in the Solcast portal, and then update the integration configuration to remove the now defunct API key if required.
 
-If anything goes wrong then backup files will have been created in the `config/solcast_solar` folder. Keep a copy of the Home Assistant logs and backups to refer to while trying to sort out what went wrong, or when seeking assistance in a discussion.
+If anything goes wrong then backup files will have been created in the `config/solcast_solar` folder. Keep a copy of the Home Assistant logs and backups to refer to while trying to sort out anything that has gone wrong, or when seeking assistance in a discussion. (Assistance will likely involve revealing your API keys. Change them after all is good again.)
 
-For serious issues occurring, the best course of action might be to simply remove all integration cache files and start from scratch.
+It is only possible to 'solve forward' if any issue occurs. Restoring the backups taken by the process will not work because you will be unable to re-create the migrated rooftop site(s) to have the same ID(s), and the backups will have the old site ID(s). The best way to 'roll back' would be to edit copies of the backup JSON and change the site ID(s) to match the new ones. Not hard, but tedious. Find/replace would be your friend.
+
+Have space available for the backup to be taken. If it fails to back up then the migration will proceed without backup.
+
+For serious and unexplained issues occurring, the best course of action might be to simply remove all integration cache files, restart, and be accepting of all history being lost.
 
 ## Interacting
 
