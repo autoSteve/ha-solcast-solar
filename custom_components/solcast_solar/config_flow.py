@@ -492,8 +492,6 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                 if abort is not None:
                     errors[BASE] = abort
                     _LOGGER.debug("Options validation failed: %s", abort)
-                if user_input[CONF_API_KEY] != _old_api_key and self._entry is not None:
-                    await set_sensitive(self.hass, self._entry)
 
                 if not errors:
                     all_config_data[API_LIMIT], abort = validate_api_limit(
@@ -587,6 +585,13 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                         status, message = await validate_sites(self.hass, all_config_data)
                         if status != 200:
                             errors[BASE] = message
+
+                # For any successful API key change a 'sensitive' reload is required
+                # to ensure that the load refreshes cached data with the new key(s).
+                # A subsequent failure would otherwise load an invalid cache on that
+                # failure, so using a sensitive reload will prevent this.
+                if user_input[CONF_API_KEY] != _old_api_key and self._entry is not None:
+                    await set_sensitive(self.hass, self._entry)
 
                 if not errors:
                     if user_input.get(CONFIG_DAMP) and not user_input.get(AUTO_DAMPEN, False):
