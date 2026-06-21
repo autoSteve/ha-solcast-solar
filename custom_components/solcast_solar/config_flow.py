@@ -487,13 +487,12 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             try:
                 all_config_data = {**self._options}
                 _old_api_key = all_config_data[CONF_API_KEY]
-                _old_api_key_count = len(_old_api_key.split(",")) if _old_api_key else 0
 
                 all_config_data[CONF_API_KEY], api_count, abort = validate_api_key(user_input)
                 if abort is not None:
                     errors[BASE] = abort
                     _LOGGER.debug("Options validation failed: %s", abort)
-                if api_count != _old_api_key_count and self._entry is not None:
+                if user_input[CONF_API_KEY] != _old_api_key and self._entry is not None:
                     await set_sensitive(self.hass, self._entry)
 
                 if not errors:
