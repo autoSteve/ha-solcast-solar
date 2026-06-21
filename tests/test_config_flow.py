@@ -92,7 +92,7 @@ from . import (
     async_cleanup_integration_tests,
     async_init_integration,
     async_setup_aioresponses,
-    get_crash_state,
+    get_state,
     session_clear,
     session_set,
     set_presumed_dead,
@@ -924,8 +924,8 @@ async def test_check_dead_presumed_dead_branch(
 
             reload_mock.assert_called_once_with(entry.entry_id)
 
-        crash_state = await get_crash_state(hass, entry)
-        assert crash_state.presumed_dead is False
+        state = await get_state(hass, entry)
+        assert state.presumed_dead is False
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"

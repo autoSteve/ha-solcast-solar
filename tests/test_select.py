@@ -61,7 +61,7 @@ async def test_select_change_value(
         await hass.async_block_till_done()
 
         assert (
-            select_entity_id := entity_registry.async_get_entity_id(
+            select_entity_id := entity_registry.async_get_entity_id(  # noqa: RUF018
                 SELECT_DOMAIN,
                 DOMAIN,
                 "estimate_mode",

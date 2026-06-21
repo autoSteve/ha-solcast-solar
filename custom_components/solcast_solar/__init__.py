@@ -30,7 +30,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
-from . import crash_state, entry_state
+from . import entry_state, state
 from .actions import ServiceActions, register_stub_actions, unregister_actions
 from .const import (
     ADVANCED_AUTOMATED_DAMPENING_ADAPTIVE_MODEL_CONFIGURATION,
@@ -79,10 +79,10 @@ from .const import (
     VERSION,
 )
 from .coordinator import SolcastUpdateCoordinator
-from .crash_state import raise_and_record
 from .enums import AutoUpdate, HistoryType, SitesStatus, UsageStatus
 from .issues import sync_actuals_api_limit_issue
 from .solcastapi import ConnectionOptions, SolcastApi
+from .state import raise_and_record
 
 DAMPENING_ADAPTATIONS_DEVELOPMENT: Final = False  # For development, to force re-modelling of dampening adaptations at startup
 ENTRY_OPTIONS_DEVELOPMENT: Final = False  # For development, to force a re-upgrade of options at startup
@@ -307,19 +307,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     version = await get_version(hass)
     options = await __get_options(hass, entry)
 
-    crash_store = await crash_state.async_get(hass, entry.entry_id)
-    prior_crash = crash_store.state.presumed_dead
-    prior_crash_time = crash_store.state.crash_time
+    state_store = await state.async_get(hass, entry.entry_id)
+    prior_crash = state_store.state.presumed_dead
+    prior_crash_time = state_store.state.crash_time
     deny_startup: bool = prior_crash_time is not None
     if prior_crash:
         if not deny_startup:
             _LOGGER.debug("Prior crash detected, set the time of crash")
-            crash_store.state.crash_time = dt_util.now(dt_util.UTC)
-            await crash_store.async_save()
+            state_store.state.crash_time = dt_util.now(dt_util.UTC)
+            await state_store.async_save()
         elif prior_crash_time < dt_util.now(dt_util.UTC) - timedelta(minutes=DELAYED_RESTART_ON_CRASH):
             _LOGGER.info("Prior crash was more than %d minutes ago, allowing sites to be reloaded", DELAYED_RESTART_ON_CRASH)
-            crash_store.state.crash_time = dt_util.now(dt_util.UTC)
-            await crash_store.async_save()
+            state_store.state.crash_time = dt_util.now(dt_util.UTC)
+            await state_store.async_save()
             prior_crash = False
     if prior_crash and deny_startup:
         _LOGGER.warning(
@@ -327,28 +327,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             dt.strftime(prior_crash_time, DT_DATE_FORMAT),
             DELAYED_RESTART_ON_CRASH,
         )
-        prior_exception = crash_store.state.exception_class
+        prior_exception = state_store.state.exception_class
         if prior_exception is not None:
             _LOGGER.debug(
                 "Raising prior exception: %s(%s)",
                 prior_exception,
-                crash_store.state.translation_key,
+                state_store.state.translation_key,
             )
             raise prior_exception(
                 translation_domain=DOMAIN,
-                translation_key=crash_store.state.translation_key or EXCEPTION_INTEGRATION_PRIOR_CRASH,
-                translation_placeholders=crash_store.state.translation_placeholders,
+                translation_key=state_store.state.translation_key or EXCEPTION_INTEGRATION_PRIOR_CRASH,
+                translation_placeholders=state_store.state.translation_placeholders,
             )
 
-    crash_store.state.presumed_dead = True
-    await crash_store.async_save()
+    state_store.state.presumed_dead = True
+    await state_store.async_save()
     solcast = SolcastApi(aiohttp_client.async_get_clientsession(hass), options, hass, entry)
     await solcast.async_migrate_config_files()
     await solcast.advanced_opt.read_advanced_options()
 
     solcast.headers = get_session_headers(solcast, version)
     solcast.integration_version = version
-    await solcast.sites_cache.get_sites_and_usage(prior_crash=prior_crash)
+    await solcast.sites_cache.get_sites_and_usage(prior_crash=prior_crash, use_cache=not state_store.sensitive)
     match solcast.sites_status:
         case SitesStatus.BAD_KEY:
             await raise_and_record(hass, entry, ConfigEntryAuthFailed, EXCEPTION_INIT_KEY_INVALID)
@@ -392,7 +392,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     __log_hard_limit_set(solcast)
 
     _LOGGER.debug("Clear presumed dead flag")
-    await crash_store.async_clear_after_success()
+    await state_store.async_clear_after_success()
 
     service_actions = ServiceActions(hass, entry, coordinator, solcast, coordinator.updater)
 

@@ -27,7 +27,7 @@ from homeassistant.components.recorder.db_schema import (
     StatesMeta,
 )
 from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.components.solcast_solar import crash_state as _cs
+from homeassistant.components.solcast_solar import state as _cs
 from homeassistant.components.solcast_solar.const import (
     API_LIMIT,
     AUTO_DAMPEN,
@@ -908,27 +908,27 @@ def no_error_or_exception(caplog: pytest.LogCaptureFixture) -> None:
     assert "Exception" not in caplog.text
 
 
-async def get_crash_state(hass: HomeAssistant, entry: ConfigEntry):
-    """Return the current crash-state object for a config entry (test helper)."""
+async def get_state(hass: HomeAssistant, entry: ConfigEntry):
+    """Return the current state object for a config entry (test helper)."""
     return (await _cs.async_get(hass, entry.entry_id)).state
 
 
 async def set_presumed_dead(hass: HomeAssistant, entry: ConfigEntry, value: bool) -> None:
-    """Set or clear the presumed-dead flag on the persisted crash state (test helper)."""
+    """Set or clear the presumed-dead flag on the persisted state (test helper)."""
     store = await _cs.async_get(hass, entry.entry_id)
     store.state.presumed_dead = value
     await store.async_save()
 
 
 async def set_crash_time(hass: HomeAssistant, entry: ConfigEntry, time) -> None:
-    """Set the persisted crash time on the crash state (test helper)."""
+    """Set the persisted crash time on the state (test helper)."""
     store = await _cs.async_get(hass, entry.entry_id)
     store.state.crash_time = time
     await store.async_save()
 
 
-async def clear_crash_state(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Clear all persisted crash state (test helper)."""
+async def clear_state(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clear all persisted state (test helper)."""
     await (await _cs.async_get(hass, entry.entry_id)).async_clear()
 
 

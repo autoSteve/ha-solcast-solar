@@ -75,7 +75,6 @@ from .const import (
     UNKNOWN,
     VERSION,
 )
-from .crash_state import raise_and_record
 from .dates import DateTimeEncoder, JSONDecoder
 from .enums import (
     AutoUpdate,
@@ -94,6 +93,7 @@ from .redact import (
     redact_lat_lon_simple,
     redact_msg_api_key,
 )
+from .state import raise_and_record
 from .util import split_and_strip
 
 if TYPE_CHECKING:

@@ -146,7 +146,7 @@ from . import (
     ZONE_RAW,
     async_cleanup_integration_tests,
     async_init_integration,
-    clear_crash_state,
+    clear_state,
     get_config_dir,
     no_error_or_exception,
     session_clear,
@@ -1892,7 +1892,7 @@ async def test_scenarios(
         assert "Prior crash detected" in caplog.text
         assert f"Prior crash was more than {DELAYED_RESTART_ON_CRASH} minutes ago" in caplog.text
         assert "Connecting to https://api.solcast.com.au/rooftop_sites" in caplog.text
-        await clear_crash_state(hass, entry)
+        await clear_state(hass, entry)
 
         caplog.clear()
         _LOGGER.debug("Unlinking sites cache files")
@@ -1940,7 +1940,7 @@ async def test_scenarios(
         caplog.clear()
 
         # Corrupt usage.json
-        await clear_crash_state(hass, entry)
+        await clear_state(hass, entry)
         usage_corruption: list[dict[str, Any]] = [
             {DAILY_LIMIT: "10", DAILY_LIMIT_CONSUMED: 8, "reset": "2025-01-05T00:00:00+00:00"},
             {DAILY_LIMIT: 10, DAILY_LIMIT_CONSUMED: "8", "reset": "2025-01-05T00:00:00+00:00"},
@@ -1952,7 +1952,7 @@ async def test_scenarios(
             await _reload(hass, entry)
             assert entry.state is ConfigEntryState.SETUP_ERROR, f"Expected entry state ConfigEntryState.SETUP_ERROR, got {entry.state}"
             assert entry.state is not ConfigEntryState.LOADED, "Integration should be presumed dead after corruption"
-            await clear_crash_state(hass, entry)  # Clear presumption of death
+            await clear_state(hass, entry)  # Clear presumption of death
         usage_file.write_text(corrupt, encoding="utf-8")
         await _reload(hass, entry)
         assert "corrupt, re-creating cache with zero usage" in caplog.text
@@ -2000,7 +2000,7 @@ async def test_scenarios(
         assert entry.state is not ConfigEntryState.LOADED, "Integration should be presumed dead"
 
         _LOGGER.debug("Testing extreme corruption as acceptable (but unacceptable) JSON list: solcast.json")
-        await clear_crash_state(hass, entry)
+        await clear_state(hass, entry)
         _really_corrupt_data_2()
         await _reload(hass, entry)
         assert "cache appears corrupt" in caplog.text

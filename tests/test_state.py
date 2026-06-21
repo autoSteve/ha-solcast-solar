@@ -4,9 +4,9 @@ from datetime import UTC, datetime as dt
 
 import pytest
 
-from homeassistant.components.solcast_solar import crash_state
-from homeassistant.components.solcast_solar.crash_state import (
-    CrashStateStore,
+from homeassistant.components.solcast_solar import state
+from homeassistant.components.solcast_solar.state import (
+    StateStore,
     async_get,
 )
 from homeassistant.core import HomeAssistant
@@ -17,8 +17,8 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 async def test_async_load_restores_state_from_disk(hass: HomeAssistant) -> None:
     """A fresh store should rehydrate every field saved by a prior instance."""
     entry_id = "crash_state_load_test"
-    crash_state._STORES.pop(entry_id, None)
-    saved = CrashStateStore(hass, entry_id)
+    state._STORES.pop(entry_id, None)
+    saved = StateStore(hass, entry_id)
     saved.state.presumed_dead = True
     saved.state.crash_time = dt(2025, 6, 1, 12, 30, tzinfo=UTC)
     saved.state.exception_class = ConfigEntryAuthFailed
@@ -26,7 +26,7 @@ async def test_async_load_restores_state_from_disk(hass: HomeAssistant) -> None:
     saved.state.translation_placeholders = {"reason": "bad_key"}
     await saved.async_save()
 
-    crash_state._STORES.pop(entry_id, None)
+    state._STORES.pop(entry_id, None)
     loaded = await async_get(hass, entry_id)
     assert loaded.state.presumed_dead is True
     assert loaded.state.crash_time == dt(2025, 6, 1, 12, 30, tzinfo=UTC)
@@ -35,4 +35,4 @@ async def test_async_load_restores_state_from_disk(hass: HomeAssistant) -> None:
     assert loaded.state.translation_placeholders == {"reason": "bad_key"}
 
     await loaded.async_clear()
-    crash_state._STORES.pop(entry_id, None)
+    state._STORES.pop(entry_id, None)

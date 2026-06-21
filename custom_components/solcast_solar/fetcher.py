@@ -71,9 +71,9 @@ from .const import (
     UPDATE_BACKOFF,
     UPDATE_TRIES,
 )
-from .crash_state import raise_and_record
 from .enums import AutoUpdate, SolcastApiStatus, UpdateOutcome, UpdateResult
 from .redact import redact_api_key, redact_msg_api_key
+from .state import raise_and_record
 
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi

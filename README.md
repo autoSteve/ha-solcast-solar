@@ -424,6 +424,8 @@ If you follow a specific sequence of events then the integration can migrate all
 1. Review the logs carefully to see that the migration has occurred. Raise an issue for any exceptions seen, supplying all requested information.
 1. Optionally remove your old account in the Solcast portal, and then update the integration configuration to remove the now defunct API key if required.
 
+During the integration reload a "sensitive" state will be recorded. Should a `429` issue occur during the load of rooftop sites using the Solcast API then the integration will refuse to load, with Home Assistant retrying the reload until the Solcast API is again available. This is a defence against the migration failing due to API availability issues. The rooftop sites **_must_** be readable during migration.
+
 If anything goes wrong then backup files will have been created in the `config/solcast_solar` folder. Keep a copy of the Home Assistant logs and backups to refer to while trying to sort out anything that has gone wrong, or when seeking assistance in a discussion. (Assistance will likely involve revealing your API keys. Change them after all is good again.)
 
 It is only possible to 'solve forward' if any issue occurs. Restoring the backups taken by the process will not work because you will be unable to re-create the migrated rooftop site(s) to have the same ID(s), and the backups will have the old site ID(s). The best way to 'roll back' would be to edit copies of the backup JSON and change the site ID(s) to match the new ones. Not hard, but tedious. Find/replace would be your friend.

@@ -34,7 +34,7 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.util import dt as dt_util
 
-from . import crash_state, entry_state, get_session_headers, get_version
+from . import entry_state, get_session_headers, get_version, state
 from .advanced import async_is_allow_exceed_api_limit
 from .const import (
     AFFIRMATION_REAUTH_SUCCESSFUL,
@@ -84,6 +84,7 @@ from .const import (
 from .enums import HistoryType, SitesStatus
 from .migration import sync_legacy_keys
 from .solcastapi import ConnectionOptions, SolcastApi
+from .state import set_sensitive
 from .validators import (
     validate_api_key,
     validate_api_limit,
@@ -181,12 +182,12 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
 
     VERSION = CONFIG_VERSION
 
-    entry: ConfigEntry | None = None
+    _entry: ConfigEntry | None = None
 
     def _mark_reset_old_key(self) -> None:
         """Signal next options update to treat the API key as freshly reconfigured."""
-        assert self.entry is not None
-        entry_state.get(self.entry.entry_id).reset_old_key = True
+        assert self._entry is not None
+        entry_state.get(self._entry.entry_id).reset_old_key = True
 
     @staticmethod
     @callback
@@ -204,14 +205,14 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth(self, entry: Mapping[str, Any]) -> ConfigFlowResult:
         """Set a new API key."""
-        self.entry = self.hass.config_entries.async_get_entry(self.context.get(ENTRY_ID, ""))
+        self._entry = self.hass.config_entries.async_get_entry(self.context.get(ENTRY_ID, ""))
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle a re-key flow."""
         errors: dict[str, str] = {}
 
-        all_config_data = {**self.entry.options} if self.entry is not None else {}
+        all_config_data = {**self._entry.options} if self._entry is not None else {}
 
         if user_input is not None:
             api_key, _, abort = validate_api_key(user_input)
@@ -223,17 +224,19 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                 status, message = await validate_sites(self.hass, all_config_data)
                 if status != 200:
                     errors[BASE] = message
+                elif self._entry is not None:
+                    await set_sensitive(self.hass, self._entry)
             if not errors:
                 result = self.async_abort(reason=EXCEPTION_INTERNAL_ERROR)
-                if self.entry is not None:
+                if self._entry is not None:
                     self._mark_reset_old_key()
-                    data = {**self.entry.data, **all_config_data}
+                    data = {**self._entry.data, **all_config_data}
                     sync_legacy_keys(data)
-                    self.hass.config_entries.async_update_entry(self.entry, title=TITLE, options=data)
-                    if self.entry.state is not ConfigEntryState.LOADED:
+                    self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=data)
+                    if self._entry.state is not ConfigEntryState.LOADED:
                         _LOGGER.debug("Loading presumed dead integration")
-                        await (await crash_state.async_get(self.hass, self.entry.entry_id)).async_clear()
-                        self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
+                        await (await state.async_get(self.hass, self._entry.entry_id)).async_clear()
+                        self.hass.config_entries.async_schedule_reload(self._entry.entry_id)
                     result = self.async_abort(reason=AFFIRMATION_REAUTH_SUCCESSFUL)
                 return result
 
@@ -244,20 +247,20 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_API_KEY, default=all_config_data[CONF_API_KEY]): str,
                 }
             ),
-            description_placeholders={DEVICE_NAME: self.entry.title if self.entry is not None else UNKNOWN},
+            description_placeholders={DEVICE_NAME: self._entry.title if self._entry is not None else UNKNOWN},
             errors=errors,
         )
 
     async def async_step_reconfigure(self, entry: Mapping[str, Any]) -> ConfigFlowResult:
         """Reconfigure API key, limit and auto-update."""
-        self.entry = self.hass.config_entries.async_get_entry(self.context.get(ENTRY_ID, ""))
+        self._entry = self.hass.config_entries.async_get_entry(self.context.get(ENTRY_ID, ""))
         return await self.async_step_reconfigure_confirm()
 
     async def async_step_reconfigure_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle a reconfiguration flow."""
         errors: dict[str, str] = {}
 
-        all_config_data = {**self.entry.options} if self.entry is not None else {}
+        all_config_data = {**self._entry.options} if self._entry is not None else {}
 
         if user_input is not None:
             api_key, api_count, abort = validate_api_key(user_input)
@@ -277,17 +280,19 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                 status, message = await validate_sites(self.hass, all_config_data)
                 if status != 200:
                     errors[BASE] = message
+                elif self._entry is not None:
+                    await set_sensitive(self.hass, self._entry)
             if not errors:
                 result = self.async_abort(reason=EXCEPTION_INTERNAL_ERROR)
-                if self.entry is not None:
+                if self._entry is not None:
                     self._mark_reset_old_key()
-                    data = {**self.entry.data, **all_config_data}
+                    data = {**self._entry.data, **all_config_data}
                     sync_legacy_keys(data)
-                    self.hass.config_entries.async_update_entry(self.entry, title=TITLE, options=data)
-                    if self.entry.state is not ConfigEntryState.LOADED:
+                    self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=data)
+                    if self._entry.state is not ConfigEntryState.LOADED:
                         _LOGGER.debug("Loading presumed dead integration")
-                        await (await crash_state.async_get(self.hass, self.entry.entry_id)).async_clear()
-                        self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
+                        await (await state.async_get(self.hass, self._entry.entry_id)).async_clear()
+                        self.hass.config_entries.async_schedule_reload(self._entry.entry_id)
                     result = self.async_abort(reason=AFFIRMATION_RECONFIGURED)
                 return result
 
@@ -302,7 +307,7 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                     ),
                 }
             ),
-            description_placeholders={DEVICE_NAME: self.entry.title if self.entry is not None else UNKNOWN},
+            description_placeholders={DEVICE_NAME: self._entry.title if self._entry is not None else UNKNOWN},
             errors=errors,
         )
 
@@ -404,10 +409,10 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             return
 
         if self._entry.state is not ConfigEntryState.LOADED:
-            crash_store = await crash_state.async_get(self.hass, self._entry.entry_id)
-            if crash_store.state.presumed_dead:
+            state_store = await state.async_get(self.hass, self._entry.entry_id)
+            if state_store.state.presumed_dead:
                 _LOGGER.warning("Integration presumed dead, reloading")
-                await crash_store.async_clear()
+                await state_store.async_clear()
             else:
                 _LOGGER.debug("Integration not loaded during options update, reloading")
             await self.hass.config_entries.async_reload(self._entry.entry_id)
@@ -482,11 +487,14 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             try:
                 all_config_data = {**self._options}
                 _old_api_key = all_config_data[CONF_API_KEY]
+                _old_api_key_count = len(_old_api_key.split(",")) if _old_api_key else 0
 
                 all_config_data[CONF_API_KEY], api_count, abort = validate_api_key(user_input)
                 if abort is not None:
                     errors[BASE] = abort
                     _LOGGER.debug("Options validation failed: %s", abort)
+                if api_count != _old_api_key_count and self._entry is not None:
+                    await set_sensitive(self.hass, self._entry)
 
                 if not errors:
                     all_config_data[API_LIMIT], abort = validate_api_limit(
