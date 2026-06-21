@@ -404,13 +404,13 @@ In the `Solar production forecast` section, select `Forecast Production` and the
 
 ### Rooftop site migration
 
-If you need to move your rooftop site(s) to a completely different Solcast account, then the process is straightforward. (This has been tested, but is still experimental. Released in v4.5.3, so make sure you're on at least that version.)
+If you need to move your rooftop site(s) to a completely different Solcast account, then the process is straightforward. (This has been tested, but is still experimental. Released in v4.5.3, so make sure you're on at least that version before attempting.)
 
 > [!NOTE]
 >
 > Do the migration with an understanding of what might happen to usage of daily API quota. The best outcome on that front will come from a migration just prior to UTC midnight should you also be altering the forecast update usage frequency at the same time.
 >
-> **Definitely do not attempt a migration should issues with API availability for hobbyists be occurring.** Check your logs first.
+> **Do not attempt a migration should issues with API availability for hobbyists be occurring.** Check your logs first. If a rooftop sites API `GET` call fails on reload then migration can not complete, and the integration will not load. Rest assured that it will complete once the API is again available.
 
 Each rooftop site is identified by a "site ID", and setting up your rooftop(s) in a different account *will* result in new site IDs being created.
 
@@ -420,11 +420,11 @@ If you follow a specific sequence of events then the integration can migrate all
 1. Set up your new Solcast account and note the new API key.
 1. Set up your rooftop(s) with *exactly* the same values that the existing rooftop(s) have for `Site Name`, `Capacity DC` and `Tilt`. If these three things **vary even slightly then migration will not work**.
 1. Remove the rooftop site(s) from your existing account. Do **not** remove the existing account yet, if that is what you are planning to do.
-1. Add the API key for the new account in the integration configuration, keeping the existing API key as well; you will now have two comma-separated keys. Save the settings, which will cause the migration to occur.
+1. Add the API key for the new account in the integration configuration, keeping the existing API key as well; you will now have at least two comma-separated keys. Save the settings, which will cause the migration to occur.
 1. Review the logs carefully to see that the migration has occurred. Raise an issue for any exceptions seen, supplying all requested information.
-1. Optionally remove your old account in the Solcast portal, and then update the integration configuration to remove the now defunct API key if required.
+1. Optionally remove your old account in the Solcast portal, and then update the integration configuration to remove the now defunct API key(s) if required.
 
-During the integration reload a "sensitive" state will be recorded. Should a `429` issue occur during the load of rooftop sites using the Solcast API then the integration will refuse to load, with Home Assistant retrying the reload until the Solcast API is again available. This is a defence against the migration failing due to API availability issues. The rooftop sites **_must_** be readable during migration.
+During the integration reload a "sensitive" state will be persisted until migration is completed. Should an error occur during the load of rooftop sites from the Solcast API then the integration will refuse to load, with Home Assistant retrying that load until the Solcast API is again available. This is a defence against the migration failing due to API availability issues. The rooftop sites **_must_** be readable during migration. Keys are checked on options save by calling the API, but may fail during the subsequent load, and the "sensitive" state checks will prevent this failure condition.
 
 If anything goes wrong then backup files will have been created in the `config/solcast_solar` folder. Keep a copy of the Home Assistant logs and backups to refer to while trying to sort out anything that has gone wrong, or when seeking assistance in a discussion. (Assistance will likely involve revealing your API keys. Change them after all is good again.)
 
@@ -433,6 +433,10 @@ It is only possible to 'solve forward' if any issue occurs. Restoring the backup
 Have space available for the backup to be taken. If it fails to back up then the migration will proceed without backup.
 
 For serious and unexplained issues occurring, the best course of action might be to simply remove all integration cache files, restart, and be accepting of all history being lost.
+
+> [!NOTE]
+>
+> Refer to the Solcast terms and conditions to determine whether your account set up following migration violates those terms. It is your responsibility to adhere to them.
 
 ## Interacting
 
