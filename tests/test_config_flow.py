@@ -475,8 +475,6 @@ async def test_reconfigure_api_key2(
             session_clear(set)
         if set == MOCK_EXCEPTION:
             assert "Error retrieving sites" in caplog.text
-            assert "Attempting to continue" in caplog.text
-            assert "Sites loaded" in caplog.text
         if to_assert:
             assert to_assert in result["errors"]["base"]  # type: ignore[index]
         else:

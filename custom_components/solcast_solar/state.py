@@ -105,9 +105,16 @@ class StateStore:
         await self._store.async_save(self._as_stored())
 
     async def async_clear(self) -> None:
-        """Reset state and remove the on-disk store."""
-        self.state = State()
-        await self._store.async_remove()
+        """Reset state and remove persisted data."""
+        if not self.state.sensitive:
+            self.state = State()
+            await self._store.async_remove()
+        else:
+            self.state.presumed_dead = False
+            self.state.crash_time = None
+            self.state.translation_key = None
+            self.state.translation_placeholders = None
+            await self._store.async_save(self._as_stored())
 
     async def async_clear_after_success(self) -> None:
         """Clear saved state after a successful setup."""
