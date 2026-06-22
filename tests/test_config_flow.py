@@ -15,6 +15,7 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.components.recorder import Recorder
 import homeassistant.components.solcast_solar as solcast_module
+from homeassistant.components.solcast_solar import state
 
 # As a core component, these imports would be homeassistant.components.solcast_solar and not config.custom_components.solcast_solar
 from homeassistant.components.solcast_solar.config_flow import (
@@ -182,6 +183,12 @@ TEST_KEY_CHANGES: list[tuple[Any, Any, str | None, list[str]]] = [
     (
         None,
         {CONF_API_KEY: "1", API_LIMIT: "10", AUTO_UPDATE: "1"},
+        None,
+        [],
+    ),
+    (
+        None,
+        {CONF_API_KEY: "2", API_LIMIT: "10", AUTO_UPDATE: "1"},
         None,
         [],
     ),
@@ -447,6 +454,7 @@ async def test_reconfigure_api_key2(
     """Test that valid/invalid API key is handled in reconfigure."""
 
     try:
+        caplog.clear()
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
         assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
@@ -470,6 +478,8 @@ async def test_reconfigure_api_key2(
                 re.compile(r"https://api\.solcastxxxx\.com\.au/rooftop_sites\?.*api_key=.*$"),
             )
         await hass.async_block_till_done()
+        if set is None and options[CONF_API_KEY] == "2":
+            assert "Sensitive startup" in caplog.text
 
         if set:
             session_clear(set)
@@ -501,6 +511,7 @@ async def test_reconfigure_api_quota(
         _input = None
         for test in TEST_API_LIMIT:
             entry = await async_init_integration(hass, test[OPTIONS])  # type: ignore[arg-type]
+            state_store = await state.async_get(hass, entry.entry_id)
             assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
             if _input is None or test[OPTIONS] != _input:
                 _input = copy.deepcopy(test[OPTIONS])
@@ -517,6 +528,8 @@ async def test_reconfigure_api_quota(
                 user_input=test[USER_INPUT],  # type: ignore[arg-type]
             )
             await hass.async_block_till_done()
+            if test[USER_INPUT][CONF_API_KEY] == KEY1:
+                assert not state_store.state.sensitive
             if test[REASON]:
                 assert result["errors"]["base"] == test[REASON]  # type: ignore[index]
 

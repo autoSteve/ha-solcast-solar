@@ -71,7 +71,7 @@ class StateStore:
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
         """Initialise the backing store for a config entry."""
-        self._store: Store[_StoredState] = Store(hass, _STORAGE_VERSION, f"{DOMAIN}.crash_state.{entry_id}")
+        self._store: Store[_StoredState] = Store(hass, _STORAGE_VERSION, f"{DOMAIN}.state.{entry_id}")
         self.state: State = State()
 
     async def async_load(self) -> None:

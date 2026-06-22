@@ -342,6 +342,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     state_store.state.presumed_dead = True
     await state_store.async_save()
+    if state_store.sensitive:
+        _LOGGER.info("Sensitive startup, sites cache will not be loaded")
     solcast = SolcastApi(aiohttp_client.async_get_clientsession(hass), options, hass, entry)
     await solcast.async_migrate_config_files()
     await solcast.advanced_opt.read_advanced_options()
