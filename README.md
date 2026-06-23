@@ -1489,6 +1489,7 @@ Latest minor/patch releases.
 v4.5.3
 
 * Fix enable estimated actuals skips a day (caution: enabling may exhaust API calls available for a day) by @autoSteve
+* Fix options flow corner case by @autoSteve
 * Add rooftop site migration between accounts by @autoSteve
 * Add `api_actuals_used` attribute to API Used Total entity by @autoSteve
 * Add `daily_typical_forecast_updates` and `api_used_total_combined` attributes by @autoSteve

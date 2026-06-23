@@ -434,8 +434,16 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             and entry.startswith("sensor.")
             and details.disabled_by is None
             and (
-                SensorDeviceClass.ENERGY in (details.device_class, details.original_device_class)
-                or SensorDeviceClass.POWER in (details.device_class, details.original_device_class)
+                SensorDeviceClass.ENERGY
+                in (
+                    details.device_class,
+                    details.original_device_class,
+                )
+                or SensorDeviceClass.POWER
+                in (
+                    details.device_class,
+                    details.original_device_class,
+                )
             )
         ]
         state_entities = self.hass.states.async_entity_ids("sensor")
@@ -445,9 +453,13 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             for entity in state_entities
             if entity not in sensor_values
             and entity not in own_entities
-            and (state := self.hass.states.get(entity)) is not None
-            and (device_class := state.attributes.get("device_class")) is not None
-            and device_class in (SensorDeviceClass.ENERGY, SensorDeviceClass.POWER)
+            and (_state := self.hass.states.get(entity)) is not None
+            and (device_class := _state.attributes.get("device_class")) is not None
+            and device_class
+            in (
+                SensorDeviceClass.ENERGY,
+                SensorDeviceClass.POWER,
+            )
         ]
         sensors.sort(key=lambda x: x["label"])
         energy_sensors: list[SelectOptionDict] = [
@@ -456,7 +468,13 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             if entry not in own_entities
             and entry.startswith("sensor.")
             and details.disabled_by is None
-            and (SensorDeviceClass.ENERGY in (details.device_class, details.original_device_class))
+            and (
+                SensorDeviceClass.ENERGY
+                in (
+                    details.device_class,
+                    details.original_device_class,
+                )
+            )
         ]
         energy_sensor_values = {option["value"] for option in energy_sensors}
         energy_sensors += [
@@ -464,9 +482,9 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             for entity in state_entities
             if entity not in energy_sensor_values
             and entity not in own_entities
-            and (state := self.hass.states.get(entity)) is not None
-            and (device_class := state.attributes.get("device_class")) is not None
-            and device_class in (SensorDeviceClass.ENERGY)
+            and (_state := self.hass.states.get(entity)) is not None
+            and (device_class := _state.attributes.get("device_class")) is not None
+            and device_class == SensorDeviceClass.ENERGY
         ]
         energy_sensors.sort(key=lambda x: x["label"])
         return sensors, energy_sensors
