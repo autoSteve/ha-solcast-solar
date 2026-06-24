@@ -433,6 +433,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             if entry not in own_entities
             and entry.startswith("sensor.")
             and details.disabled_by is None
+            and isinstance(details.device_class, str)
             and (
                 SensorDeviceClass.ENERGY
                 in (
@@ -455,6 +456,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             and entity not in own_entities
             and (_state := self.hass.states.get(entity)) is not None
             and (device_class := _state.attributes.get("device_class")) is not None
+            and isinstance(device_class, str)
             and device_class
             in (
                 SensorDeviceClass.ENERGY,
@@ -468,6 +470,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             if entry not in own_entities
             and entry.startswith("sensor.")
             and details.disabled_by is None
+            and isinstance(details.device_class, str)
             and (
                 SensorDeviceClass.ENERGY
                 in (
@@ -484,6 +487,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             and entity not in own_entities
             and (_state := self.hass.states.get(entity)) is not None
             and (device_class := _state.attributes.get("device_class")) is not None
+            and isinstance(device_class, str)
             and device_class == SensorDeviceClass.ENERGY
         ]
         energy_sensors.sort(key=lambda x: x["label"])
