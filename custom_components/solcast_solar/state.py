@@ -56,7 +56,7 @@ class _StoredState(TypedDict, total=False):
 
 @dataclass
 class State:
-    """In-memory view of crash state for a single config entry."""
+    """In-memory view of state."""
 
     presumed_dead: bool = False
     sensitive: bool = False
@@ -66,12 +66,20 @@ class State:
     translation_placeholders: dict[str, Any] | None = None
 
 
+class GlobalStateStore(Store[_StoredState]):
+    """Forced global backing store."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialise with a simple all-entries key string."""
+        super().__init__(hass, _STORAGE_VERSION, f"{DOMAIN}.state")
+
+
 class StateStore:
-    """Per-entry crash state backed by helpers.storage.Store."""
+    """State backed by helpers.storage.Store."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
-        """Initialise the backing store for a config entry."""
-        self._store: Store[_StoredState] = Store(hass, _STORAGE_VERSION, f"{DOMAIN}.state.{entry_id}")
+        """Initialise the backing store."""
+        self._store = GlobalStateStore(hass)
         self.state: State = State()
 
     async def async_load(self) -> None:
@@ -131,17 +139,16 @@ class StateStore:
         return self.state.sensitive
 
 
-# Module-level cache so config entry uses one StateStore. One entry.
-_STORES: dict[str, StateStore] = {}
+_STORE: dict[str, StateStore] = {}
 
 
 async def async_get(hass: HomeAssistant, entry_id: str) -> StateStore:
     """Return the state store for the entry, loading from disk on first use."""
-    store = _STORES.get(entry_id)
+    store = _STORE.get(entry_id)  # Keyed by entry_id to enable global variable use safely.
     if store is None:
         store = StateStore(hass, entry_id)
         await store.async_load()
-        _STORES[entry_id] = store
+        _STORE[entry_id] = store
     return store
 
 
