@@ -1486,10 +1486,8 @@ The code itself resides at `/config/custom_components/solcast_solar`, and removi
 
 Latest minor/patch releases.
 
-v4.5.3
+v4.6.0
 
-* Fix enable estimated actuals skips a day (caution: enabling may exhaust API calls available for a day) by @autoSteve
-* Fix options flow corner case by @autoSteve
 * Add rooftop site migration between accounts by @autoSteve
 * Add `api_actuals_used` attribute to API Used Total entity by @autoSteve
 * Add `daily_typical_forecast_updates` and `api_used_total_combined` attributes by @autoSteve
@@ -1501,12 +1499,17 @@ v4.5.3
 * Enable return of per-site and un-dampened estimated actuals by @autoSteve
 * Expand scope for raised issue when actuals enabled and API limit is too high by @autoSteve
 * Compact forecast attribute selection in options dialogue by @autoSteve
+* Fix enable estimated actuals skips a day (caution: enabling may exhaust API calls available for a day) by @autoSteve
+* Fix options flow corner case by @autoSteve
 * Remove legacy dampening file location move by @autoSteve
 * Code refactoring by @autoSteve
 * Add tests to suite to ensure runtime reliability by @autoSteve
 * API simulator improvements by @autoSteve
 
 Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.5.2...v4.5.3
+
+### Prior changes
+<details><summary><i>Click here for changes back to v3.0</i></summary>
 
 v4.5.2
 
@@ -1549,9 +1552,6 @@ v4.5.0
 * Fix advanced option validation for `not_set_if` (#435) by @autoSteve
 
 Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.4.10...v4.5.0
-
-### Prior changes
-<details><summary><i>Click here for changes back to v3.0</i></summary>
 
 v4.4.10
 
