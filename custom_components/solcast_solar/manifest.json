@@ -20,7 +20,6 @@
     "aiofiles>=23.2.0",
     "watchfiles>=1.0.0"
   ],
-  "repair_flow": true,
   "single_config_entry": true,
   "version": "4.6.0"
 }
