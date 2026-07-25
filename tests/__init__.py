@@ -10,7 +10,7 @@ import logging
 from pathlib import Path
 import re
 from re import Pattern
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from aiohttp import ClientConnectionError
@@ -176,8 +176,8 @@ MOCK_OVER_LIMIT = "return_429_over"
 
 MOCK_SESSION_CONFIG: dict[str, Any] = {
     "aioresponses": None,
-    "api_limit": int(min(DEFAULT_INPUT2[API_LIMIT].split(","))),
-    "api_used": dict.fromkeys(DEFAULT_INPUT2[CONF_API_KEY].split(","), 0),
+    "api_limit": int(min(cast(str, DEFAULT_INPUT2[API_LIMIT]).split(","))),
+    "api_used": dict.fromkeys(cast(str, DEFAULT_INPUT2[CONF_API_KEY]).split(","), 0),
     MOCK_ALTER_HISTORY: False,
     MOCK_BAD_REQUEST: False,
     MOCK_BUSY: False,
@@ -386,7 +386,7 @@ async def _get_actuals(url: str, **kwargs: Any) -> CallbackResult:
 
 def session_reset_usage() -> None:
     """Reset the mock session config."""
-    MOCK_SESSION_CONFIG["api_used"] = dict.fromkeys(DEFAULT_INPUT2[CONF_API_KEY].split(","), 0)
+    MOCK_SESSION_CONFIG["api_used"] = dict.fromkeys(cast(str, DEFAULT_INPUT2[CONF_API_KEY]).split(","), 0)
 
 
 def session_set(setting: str, **kwargs: Any) -> None:

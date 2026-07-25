@@ -10,7 +10,7 @@ import json
 import logging
 from pathlib import Path
 import re
-from typing import Any
+from typing import Any, cast
 import unittest.mock
 from zoneinfo import ZoneInfo
 
@@ -117,7 +117,7 @@ from homeassistant.components.solcast_solar.const import (
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
-from homeassistant.components.solcast_solar.enums import AutoUpdate, SitesStatus
+from homeassistant.components.solcast_solar.enums import AutoUpdate, HistoryType, SitesStatus
 from homeassistant.components.solcast_solar.forecast import ForecastQuery
 from homeassistant.components.solcast_solar.solcastapi import (
     ConnectionOptions,
@@ -1539,29 +1539,29 @@ async def test_usage_typical_forecast_updates_default(
     async with aiohttp.ClientSession() as session:
         connection_options = ConnectionOptions(
             api_key,
-            DEFAULT_INPUT1[API_LIMIT],
+            cast(str, DEFAULT_INPUT1[API_LIMIT]),
             DEFAULT_SOLCAST_HTTPS_URL,
             "solcast.json",
             ZoneInfo(ZONE_RAW),
             AutoUpdate(int(DEFAULT_INPUT1[AUTO_UPDATE])),
-            {str(hour): DEFAULT_INPUT1[f"damp{hour:02}"] for hour in range(24)},
-            DEFAULT_INPUT1[CUSTOM_HOURS],
-            DEFAULT_INPUT1[KEY_ESTIMATE],
-            DEFAULT_INPUT1[HARD_LIMIT_API],
-            DEFAULT_INPUT1[BRK_ESTIMATE],
-            DEFAULT_INPUT1[BRK_ESTIMATE10],
-            DEFAULT_INPUT1[BRK_ESTIMATE90],
-            DEFAULT_INPUT1[BRK_SITE],
-            DEFAULT_INPUT1[BRK_HALFHOURLY],
-            DEFAULT_INPUT1[BRK_HOURLY],
-            DEFAULT_INPUT1[BRK_SITE_DETAILED],
-            DEFAULT_INPUT1[EXCLUDE_SITES],
-            DEFAULT_INPUT1[GET_ACTUALS],
-            DEFAULT_INPUT1[USE_ACTUALS],
-            DEFAULT_INPUT1[GENERATION_ENTITIES],
-            DEFAULT_INPUT1[SITE_EXPORT_ENTITY],
-            DEFAULT_INPUT1[SITE_EXPORT_LIMIT],
-            DEFAULT_INPUT1[AUTO_DAMPEN],
+            {str(hour): cast(float, DEFAULT_INPUT1[f"damp{hour:02}"]) for hour in range(24)},
+            cast(int, DEFAULT_INPUT1[CUSTOM_HOURS]),
+            cast(str, DEFAULT_INPUT1[KEY_ESTIMATE]),
+            cast(str, DEFAULT_INPUT1[HARD_LIMIT_API]),
+            cast(bool, DEFAULT_INPUT1[BRK_ESTIMATE]),
+            cast(bool, DEFAULT_INPUT1[BRK_ESTIMATE10]),
+            cast(bool, DEFAULT_INPUT1[BRK_ESTIMATE90]),
+            cast(bool, DEFAULT_INPUT1[BRK_SITE]),
+            cast(bool, DEFAULT_INPUT1[BRK_HALFHOURLY]),
+            cast(bool, DEFAULT_INPUT1[BRK_HOURLY]),
+            cast(bool, DEFAULT_INPUT1[BRK_SITE_DETAILED]),
+            cast(list[str], DEFAULT_INPUT1[EXCLUDE_SITES]),
+            cast(bool, DEFAULT_INPUT1[GET_ACTUALS]),
+            cast(HistoryType, DEFAULT_INPUT1[USE_ACTUALS]),
+            cast(list[str], DEFAULT_INPUT1[GENERATION_ENTITIES]),
+            cast(str, DEFAULT_INPUT1[SITE_EXPORT_ENTITY]),
+            cast(float, DEFAULT_INPUT1[SITE_EXPORT_LIMIT]),
+            cast(bool, DEFAULT_INPUT1[AUTO_DAMPEN]),
         )
         solcast = SolcastApi(session, connection_options, hass)
         usage_file = Path(solcast.sites_cache._get_usage_cache_filename(api_key))
@@ -1619,30 +1619,30 @@ async def test_scenarios(
         _LOGGER.debug("Testing bad serialise data")
         async with aiohttp.ClientSession() as session:
             connection_options = ConnectionOptions(
-                DEFAULT_INPUT1[CONF_API_KEY],
-                DEFAULT_INPUT1[API_LIMIT],
+                cast(str, DEFAULT_INPUT1[CONF_API_KEY]),
+                cast(str, DEFAULT_INPUT1[API_LIMIT]),
                 "api.whatever.com",
                 config_dir,
                 ZoneInfo(ZONE_RAW),
-                DEFAULT_INPUT1[AUTO_UPDATE],
-                {str(hour): DEFAULT_INPUT1[f"damp{hour:02}"] for hour in range(24)},
-                DEFAULT_INPUT1[CUSTOM_HOURS],
-                DEFAULT_INPUT1[KEY_ESTIMATE],
-                DEFAULT_INPUT1[HARD_LIMIT_API],
-                DEFAULT_INPUT1[BRK_ESTIMATE],
-                DEFAULT_INPUT1[BRK_ESTIMATE10],
-                DEFAULT_INPUT1[BRK_ESTIMATE90],
-                DEFAULT_INPUT1[BRK_SITE],
-                DEFAULT_INPUT1[BRK_HALFHOURLY],
-                DEFAULT_INPUT1[BRK_HOURLY],
-                DEFAULT_INPUT1[BRK_SITE_DETAILED],
-                DEFAULT_INPUT1[EXCLUDE_SITES],
-                DEFAULT_INPUT1[GET_ACTUALS],
-                DEFAULT_INPUT1[USE_ACTUALS],
-                DEFAULT_INPUT1[GENERATION_ENTITIES],
-                DEFAULT_INPUT1[SITE_EXPORT_ENTITY],
-                DEFAULT_INPUT1[SITE_EXPORT_LIMIT],
-                DEFAULT_INPUT1[AUTO_DAMPEN],
+                AutoUpdate(int(DEFAULT_INPUT1[AUTO_UPDATE])),
+                {str(hour): cast(float, DEFAULT_INPUT1[f"damp{hour:02}"]) for hour in range(24)},
+                cast(int, DEFAULT_INPUT1[CUSTOM_HOURS]),
+                cast(str, DEFAULT_INPUT1[KEY_ESTIMATE]),
+                cast(str, DEFAULT_INPUT1[HARD_LIMIT_API]),
+                cast(bool, DEFAULT_INPUT1[BRK_ESTIMATE]),
+                cast(bool, DEFAULT_INPUT1[BRK_ESTIMATE10]),
+                cast(bool, DEFAULT_INPUT1[BRK_ESTIMATE90]),
+                cast(bool, DEFAULT_INPUT1[BRK_SITE]),
+                cast(bool, DEFAULT_INPUT1[BRK_HALFHOURLY]),
+                cast(bool, DEFAULT_INPUT1[BRK_HOURLY]),
+                cast(bool, DEFAULT_INPUT1[BRK_SITE_DETAILED]),
+                cast(list[str], DEFAULT_INPUT1[EXCLUDE_SITES]),
+                cast(bool, DEFAULT_INPUT1[GET_ACTUALS]),
+                cast(HistoryType, DEFAULT_INPUT1[USE_ACTUALS]),
+                cast(list[str], DEFAULT_INPUT1[GENERATION_ENTITIES]),
+                cast(str, DEFAULT_INPUT1[SITE_EXPORT_ENTITY]),
+                cast(float, DEFAULT_INPUT1[SITE_EXPORT_LIMIT]),
+                cast(bool, DEFAULT_INPUT1[AUTO_DAMPEN]),
             )
             solcast_bad: SolcastApi = SolcastApi(session, connection_options, hass, entry)
             await solcast_bad.sites_cache.serialise_data(solcast_bad.data, str(Path(f"{config_dir}/solcast.json")))
