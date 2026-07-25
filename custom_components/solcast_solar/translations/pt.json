@@ -221,6 +221,9 @@
     "export_no_entity": {
       "message": "O site de exportação deve ser especificado se o limite de exportação do site estiver definido."
     },
+    "export_no_limit": {
+      "message": "Um limite de exportação de site deve ser especificado se uma entidade de exportação de site estiver definida."
+    },
     "hard_empty": {
       "message": "Valor de limite rígido vazio."
     },
@@ -380,6 +383,7 @@
       "dampen_without_generation": "Pelo menos um sensor de geração fotovoltaica deve ser especificado para usar amortecimento automático (energia ou potência).",
       "export_multiple_entities": "O site de exportação deve ser uma única entidade, não várias entidades",
       "export_no_entity": "O site de exportação deve ser especificado se o limite de exportação do site estiver definido",
+      "export_no_limit": "Um limite de exportação do site deve ser especificado se uma entidade de exportação do site estiver definida.",
       "generation_mixed_types": "Todas as entidades de geração fotovoltaica devem ser do mesmo tipo (toda energia ou toda potência, não uma mistura).",
       "hard_not_positive_number": "Limite rígido não é um número positivo",
       "hard_too_many": "Existem mais limites rígidos inseridos do que chaves",

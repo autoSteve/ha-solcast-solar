@@ -221,6 +221,9 @@
     "export_no_entity": {
       "message": "Le site d'exportation doit être spécifié si la limite d'exportation du site est définie."
     },
+    "export_no_limit": {
+      "message": "Une limite d'exportation de site doit être spécifiée si une entité d'exportation de site est définie."
+    },
     "hard_empty": {
       "message": "Valeur limite stricte vide."
     },
@@ -380,6 +383,7 @@
       "dampen_without_generation": "Au moins un capteur de production photovoltaïque doit être spécifié pour utiliser l'amortissement automatique (énergie ou puissance).",
       "export_multiple_entities": "Le site d'exportation doit être une seule entité, pas plusieurs entités",
       "export_no_entity": "Le site d'exportation doit être spécifié si la limite d'exportation du site est définie",
+      "export_no_limit": "La limite d'exportation du site doit être spécifiée si une entité d'exportation du site est définie.",
       "generation_mixed_types": "Les unités de production photovoltaïque doivent toutes être du même type (toute énergie ou toute puissance, pas un mélange).",
       "hard_not_positive_number": "La limite dure n'est pas un nombre positif",
       "hard_too_many": "Il y a plus de limites strictes saisies que de clés",

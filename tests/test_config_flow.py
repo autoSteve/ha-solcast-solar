@@ -52,6 +52,7 @@ from homeassistant.components.solcast_solar.const import (
     EXCEPTION_DAMPEN_WITHOUT_GENERATION,
     EXCEPTION_EXPORT_MULTIPLE_ENTITIES,
     EXCEPTION_EXPORT_NO_ENTITY,
+    EXCEPTION_EXPORT_NO_LIMIT,
     EXCEPTION_HARD_NOT_POSITIVE_NUMBER,
     EXCEPTION_HARD_TOO_MANY,
     EXCEPTION_LIMIT_EXCEEDS_MAXIMUM,
@@ -645,7 +646,7 @@ async def test_options_hard_limit(hass: HomeAssistant, options: dict[str, Any], 
         (({AUTO_DAMPEN: True, GET_ACTUALS: False, SITE_EXPORT_ENTITY: []}, EXCEPTION_DAMPEN_WITHOUT_ACTUALS)),
         (({AUTO_DAMPEN: True, GET_ACTUALS: True, GENERATION_ENTITIES: [], SITE_EXPORT_ENTITY: []}, EXCEPTION_DAMPEN_WITHOUT_GENERATION)),
         (({SITE_EXPORT_ENTITY: ["entity.one", "entity.two"]}, EXCEPTION_EXPORT_MULTIPLE_ENTITIES)),
-        (({SITE_EXPORT_LIMIT: 5, SITE_EXPORT_ENTITY: []}, EXCEPTION_EXPORT_NO_ENTITY)),
+        (({SITE_EXPORT_LIMIT: 0, SITE_EXPORT_ENTITY: ["test.entity"]}, EXCEPTION_EXPORT_NO_LIMIT)),
     ],
 )
 async def test_options_auto_dampen(hass: HomeAssistant, options: dict[str, Any], reason: str | None) -> None:

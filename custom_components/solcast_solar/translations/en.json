@@ -218,6 +218,9 @@
     "export_no_entity": {
       "message": "A site export entity must be specified if the site export limit is set."
     },
+    "export_no_limit": {
+      "message": "A site export limit must be specified if a site export entity is set."
+    },
     "hard_empty": {
       "message": "Empty hard limit value."
     },
@@ -383,6 +386,7 @@
       "dampen_without_generation": "At least one PV generation sensor must be specified to use auto-dampening (energy or power)",
       "export_multiple_entities": "Site export entity must be a single entity, not multiple entities",
       "export_no_entity": "Site export entity must be specified if site export limit is set",
+      "export_no_limit": "Site export limit must be specified if site export entity is set",
       "generation_mixed_types": "PV generation entities must all be the same type (all energy or all power, not a mix)",
       "hard_not_positive_number": "Hard limit is not a positive number",
       "hard_too_many": "There are more hard limits entered than keys",

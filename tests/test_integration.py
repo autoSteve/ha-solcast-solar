@@ -67,6 +67,7 @@ from homeassistant.components.solcast_solar.const import (
     EXCEPTION_DAMPEN_WITHOUT_ACTUALS,
     EXCEPTION_DAMPEN_WITHOUT_GENERATION,
     EXCEPTION_EXPORT_NO_ENTITY,
+    EXCEPTION_EXPORT_NO_LIMIT,
     EXCEPTION_NOT_A_SITE,
     EXCEPTION_SET_OPTIONS_EMPTY,
     EXCLUDE_SITES,
@@ -1208,6 +1209,13 @@ async def test_remaining_actions(
         with pytest.raises(ServiceValidationError) as exc_info:
             await hass.services.async_call(DOMAIN, SERVICE_SET_OPTIONS, {SITE_EXPORT_LIMIT: "5.0", SITE_EXPORT_ENTITY: ""}, blocking=True)
         assert exc_info.value.translation_key == EXCEPTION_EXPORT_NO_ENTITY
+
+        _LOGGER.debug("Test set_options export entity without limit")
+        with pytest.raises(ServiceValidationError) as exc_info:
+            await hass.services.async_call(
+                DOMAIN, SERVICE_SET_OPTIONS, {SITE_EXPORT_ENTITY: "sensor.grid_export", SITE_EXPORT_LIMIT: "0.0"}, blocking=True
+            )
+        assert exc_info.value.translation_key == EXCEPTION_EXPORT_NO_LIMIT
 
         # Valid set_options calls
         _LOGGER.debug("Test set_options custom hours only")

@@ -221,6 +221,9 @@
     "export_no_entity": {
       "message": "Er moet een site-exportentiteit worden opgegeven als de site-exportlimiet is ingesteld."
     },
+    "export_no_limit": {
+      "message": "Een site-exportlimiet moet worden opgegeven als een site-exportentiteit is ingesteld."
+    },
     "hard_empty": {
       "message": "Lege harde grenswaarde."
     },
@@ -380,6 +383,7 @@
       "dampen_without_generation": "Er moet ten minste één PV opwekkingssensor (energie of vermogen) worden opgegeven om automatische demping te kunnen gebruiken",
       "export_multiple_entities": "De entiteit voor site-export moet één enkele entiteit zijn, niet meerdere entiteiten",
       "export_no_entity": "De site exportentiteit moet worden opgegeven als er een site exportlimiet is ingesteld",
+      "export_no_limit": "Er moet een site-exportlimiet worden opgegeven als er een site-exportentiteit is ingesteld",
       "generation_mixed_types": "PV-opwekkingsentiteiten moeten allemaal van hetzelfde type zijn (allemaal energie of allemaal vermogen, geen mix)",
       "hard_not_positive_number": "Hard limit is geen positief getal",
       "hard_too_many": "Er zijn meer harde limieten ingevoerd dan API-sleutels",

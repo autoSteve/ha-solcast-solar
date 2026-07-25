@@ -221,6 +221,9 @@
     "export_no_entity": {
       "message": "Entita exportu lokality musí byť špecifikovaná, ak je nastavený limit exportu lokality."
     },
+    "export_no_limit": {
+      "message": "Limit exportu lokality musí byť špecifikovaný, ak je nastavená entita exportu lokality."
+    },
     "hard_empty": {
       "message": "Prázdna hodnota pevného limitu."
     },
@@ -380,6 +383,7 @@
       "dampen_without_generation": "Na použitie automatického tlmenia (energia alebo výkon) musí byť špecifikovaný aspoň jeden snímač výroby FV energie.",
       "export_multiple_entities": "Export lokality musí byť jedna entita, nie viacero entít",
       "export_no_entity": "Export lokality musí byť špecifikovaný, ak je nastavený limit exportu lokality",
+      "export_no_limit": "Limit exportu lokality musí byť špecifikovaný, ak je nastavená entita exportu lokality",
       "generation_mixed_types": "Všetky jednotky na výrobu fotovoltaiky musia byť rovnakého typu (iba energia alebo iba výkon, nie zmiešané)",
       "hard_not_positive_number": "Pevný limit nie je kladné číslo",
       "hard_too_many": "Je zadaných viac tvrdých limitov ako kľúčov",

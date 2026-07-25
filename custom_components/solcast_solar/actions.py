@@ -63,6 +63,7 @@ from .const import (
     EXCEPTION_DAMPEN_WITHOUT_ACTUALS,
     EXCEPTION_DAMPEN_WITHOUT_GENERATION,
     EXCEPTION_EXPORT_NO_ENTITY,
+    EXCEPTION_EXPORT_NO_LIMIT,
     EXCEPTION_INIT_KEY_INVALID,
     EXCEPTION_INTEGRATION_NOT_LOADED,
     EXCEPTION_INVALID_QUERY_RANGE,
@@ -714,8 +715,11 @@ class ServiceActions:
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key=EXCEPTION_DAMPEN_WITHOUT_ACTUALS)
         if opt.get(AUTO_DAMPEN, False) and not opt.get(GENERATION_ENTITIES, []):
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key=EXCEPTION_DAMPEN_WITHOUT_GENERATION)
+        # Require entity and limit to be both set or both cleared. No partial configurations.
         if opt.get(SITE_EXPORT_LIMIT, 0) > 0.0 and not opt.get(SITE_EXPORT_ENTITY, ""):
             raise ServiceValidationError(translation_domain=DOMAIN, translation_key=EXCEPTION_EXPORT_NO_ENTITY)
+        if opt.get(SITE_EXPORT_LIMIT, 0) == 0.0 and opt.get(SITE_EXPORT_ENTITY, ""):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key=EXCEPTION_EXPORT_NO_LIMIT)
 
         # Sync legacy keys before updating the entry to keep downgrade compatibility.
         sync_legacy_keys(opt)
