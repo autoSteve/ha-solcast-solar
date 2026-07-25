@@ -1,3 +1,9 @@
 [report]
 exclude_lines =
+    pragma: no cover
     if TYPE_CHECKING:
+    try:
+    except ImportError:
+    _USE_ASTRAL
+    get_astral_observer|get_astral_location
+    def _get_solar_
