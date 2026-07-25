@@ -507,6 +507,10 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
 
         if user_input is not None:
             try:
+                # Normalize empty/None limit values to 0 to allow clearing
+                if SITE_EXPORT_LIMIT in user_input and user_input[SITE_EXPORT_LIMIT] in (None, "", "0"):
+                    user_input[SITE_EXPORT_LIMIT] = 0.0
+                
                 all_config_data = {**self._options}
                 _old_api_key = all_config_data[CONF_API_KEY]
 
@@ -550,6 +554,9 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                 all_config_data[AUTO_DAMPEN] = user_input.get(AUTO_DAMPEN, False)
                 all_config_data[SITE_EXPORT_ENTITY] = user_input[SITE_EXPORT_ENTITY][0] if user_input.get(SITE_EXPORT_ENTITY) else ""
                 all_config_data[SITE_EXPORT_LIMIT] = user_input.get(SITE_EXPORT_LIMIT, 0)
+                # If site export entity is removed, automatically clear the limit since it's irrelevant
+                if not all_config_data[SITE_EXPORT_ENTITY]:
+                    all_config_data[SITE_EXPORT_LIMIT] = 0.0
                 if not errors:
                     if int(user_input.get(USE_ACTUALS, 0)) != HistoryType.FORECASTS and not user_input.get(GET_ACTUALS, False):
                         errors[BASE] = EXCEPTION_ACTUALS_WITHOUT_GET
@@ -580,7 +587,10 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                         errors[BASE] = EXCEPTION_EXPORT_MULTIPLE_ENTITIES
                         _LOGGER.debug("Options validation failed: %s", errors[BASE])
                 if not errors:
-                    if user_input.get(SITE_EXPORT_LIMIT, 0) > 0.0 and len(user_input.get(SITE_EXPORT_ENTITY, [])) == 0:
+                    # Only require entity if limit is being set (> 0). Allow clearing both together.
+                    site_export_limit = user_input.get(SITE_EXPORT_LIMIT, 0)
+                    site_export_entity = user_input.get(SITE_EXPORT_ENTITY, [])
+                    if site_export_limit > 0.0 and len(site_export_entity) == 0:
                         errors[BASE] = EXCEPTION_EXPORT_NO_ENTITY
                         _LOGGER.debug("Options validation failed: %s", errors[BASE])
                 self._options = MappingProxyType(all_config_data)
@@ -707,7 +717,10 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                     vol.Optional(
                         SITE_EXPORT_LIMIT,
                         default=self._options.get(SITE_EXPORT_LIMIT, 0.0),
-                    ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=100.0)),
+                    ): vol.Any(
+                        vol.All(vol.Coerce(float), vol.Range(min=0.0, max=100.0)),
+                        vol.All(str, vol.Match(r"^\s*$"), vol.Transform(lambda x: 0.0))  # Empty string becomes 0.0
+                    ),
                     vol.Required(USE_ACTUALS, default=str(int(self._options.get(USE_ACTUALS, 0)))): SelectSelector(
                         SelectSelectorConfig(options=history, mode=SelectSelectorMode.DROPDOWN, translation_key=ENERGY_HISTORY)
                     ),
