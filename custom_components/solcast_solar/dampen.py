@@ -96,32 +96,25 @@ _SITE_EXPORT_INTERVAL_MINUTES: Final[int] = 5
 _LOGGER = logging.getLogger(__name__)
 
 try:
+    from astral.sun import (
+        azimuth as _astral_azimuth,  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+        elevation as _astral_elevation,  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
+    )
+
     from homeassistant.helpers.sun import get_astral_observer  # pyright: ignore[reportAttributeAccessIssue]
 
     _USE_ASTRAL_OBSERVER = True
-except ImportError:
+except ImportError:  # pragma: no cover
     from homeassistant.helpers.sun import get_astral_location
 
     _USE_ASTRAL_OBSERVER = False
     _LOGGER.info("Using get_astral_location approach for solar geometry calculations")
 
+    def _astral_elevation(loc: Any, ts: dt) -> float:  # pyright: ignore[reportAssignmentType]
+        return loc.solar_elevation(ts)
 
-def _get_solar_elevation(observer_or_location: Any, timestamp: dt) -> float:
-    """Get solar elevation from either Observer or Location object."""
-    if _USE_ASTRAL_OBSERVER:
-        import astral.sun  # noqa: PLC0415
-
-        return astral.sun.elevation(observer_or_location, timestamp)
-    return observer_or_location.solar_elevation(timestamp)
-
-
-def _get_solar_azimuth(observer_or_location: Any, timestamp: dt) -> float:
-    """Get solar azimuth from either Observer or Location object."""
-    if _USE_ASTRAL_OBSERVER:
-        import astral.sun  # noqa: PLC0415
-
-        return astral.sun.azimuth(observer_or_location, timestamp)
-    return observer_or_location.solar_azimuth(timestamp)
+    def _astral_azimuth(loc: Any, ts: dt) -> float:  # pyright: ignore[reportAssignmentType]
+        return loc.solar_azimuth(ts)
 
 
 def compute_power_intervals(
@@ -341,18 +334,20 @@ class Dampening:
         Returns:
             (float) A clamped multiplier to apply to the past value.
         """
-        observer_or_location = get_astral_observer(self.api.hass) if _USE_ASTRAL_OBSERVER else get_astral_location(self.api.hass)[0]
+        observer_or_location = (
+            get_astral_observer(self.api.hass) if _USE_ASTRAL_OBSERVER else get_astral_location(self.api.hass)[0]
+        )  # pragma: no cover
 
-        elev_past = _get_solar_elevation(observer_or_location, past_ts)
-        elev_target = _get_solar_elevation(observer_or_location, target_ts)
+        elev_past = _astral_elevation(observer_or_location, past_ts)
+        elev_target = _astral_elevation(observer_or_location, target_ts)
 
         # Skip adjustment near the horizon where tiny sin values blow up the ratio
         # and where shading models break down anyway.
         if elev_past < 5.0 or elev_target < 5.0:
             return 1.0
 
-        azimuth_past = _get_solar_azimuth(observer_or_location, past_ts)
-        azimuth_target = _get_solar_azimuth(observer_or_location, target_ts)
+        azimuth_past = _astral_azimuth(observer_or_location, past_ts)
+        azimuth_target = _astral_azimuth(observer_or_location, target_ts)
 
         ratio_sum = 0.0
         count = 0
