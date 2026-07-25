@@ -269,6 +269,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
         self.estimate_set: list[str] = self._get_estimate_set(options)
         self.extant_advanced_options: dict[str, Any] = {}
         self.hard_limit: str = options.hard_limit
+        self._hard_limit_values: tuple[float, ...] | None = None
+        self._api_key_list: tuple[str, ...] = ()
         self.hass: HomeAssistant = hass
         self.headers: dict[str, str] = {}
         self.integration_version: str = ""
@@ -410,6 +412,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
             options[AUTO_DAMPEN],
         )
         self.hard_limit = self.options.hard_limit
+        self._hard_limit_values = None
+        self._api_key_list = ()
         self.use_forecast_confidence = f"pv_{self.options.key_estimate}"
         self.estimate_set = self._get_estimate_set(self.options)
 
@@ -570,31 +574,46 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 break
         return api_key
 
+    def _get_hard_limit_values(self) -> tuple[float, ...]:
+        """Ensure parsed hard limit values are cached.
+
+        Returns:
+            tuple[float, ...]: Parsed hard limit values as floats (immutable).
+        """
+        if self._hard_limit_values is None:
+            self._hard_limit_values = tuple(float(h) for h in self.hard_limit.split(","))
+        return self._hard_limit_values
+
+    def _get_api_key_list(self) -> tuple[str, ...]:
+        """Ensure api key list is cached.
+
+        Returns:
+            tuple[str, ...]: Parsed API keys as a tuple of stripped strings.
+        """
+        if not self._api_key_list:
+            self._api_key_list = tuple(k.strip() for k in self.options.api_key.split(","))
+        return self._api_key_list
+
     def hard_limit_set(self) -> tuple[bool, bool]:
         """Determine whether a hard limit is set.
 
         Returns:
             tuple[bool, bool]: Flags indicating whether a hard limit is set, and whether multiple keys are in use.
         """
-        limit_set = False
-        hard_limit = self.hard_limit.split(",")
-        multi_key = len(hard_limit) > 1
-        for limit in hard_limit:
-            if limit != "100.0":
-                limit_set = True
-                break
+        hard_limit_values = self._get_hard_limit_values()
+        multi_key = len(hard_limit_values) > 1
+        limit_set = any(limit != 100.0 for limit in hard_limit_values)
         return limit_set, multi_key
 
     def _hard_limit_for_key(self, api_key: str) -> float:
-        hard_limit = self.hard_limit.split(",")
-        limit = 100.0
-        if len(hard_limit) == 1:
-            limit = float(hard_limit[0])
-        else:
-            for index, key in enumerate(self.options.api_key.split(",")):
-                if key == api_key:
-                    limit = float(hard_limit[index])
-                    break
+        hard_limit_values = self._get_hard_limit_values()
+        if len(hard_limit_values) == 1:
+            return hard_limit_values[0]
+        limit: float = 100.0
+        for index, key in enumerate(self._get_api_key_list()):
+            if key == api_key:
+                limit = float(hard_limit_values[index])
+                break
         return limit
 
     async def _build_hard_limit(
@@ -680,7 +699,7 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                 data_set,
             )
         elif multi_key:
-            for api_key in self.options.api_key.split(","):
+            for api_key in self._get_api_key_list():
                 sites_hard_limit[api_key] = {est: {} for est in estimates}
         else:
             sites_hard_limit[ALL] = {est: {} for est in estimates}
