@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Ein interner Fehler ist aufgetreten",
+      "internal_error": "Ein unerwarteter Fehler ist aufgetreten. Weitere Informationen finden Sie in den Protokollen.",
       "reauth_successful": "Neuer API-Schlüssel erfolgreich angewendet",
-      "reconfigured": "Neue Konfiguration angewendet"
+      "reconfigured": "Neue Konfiguration angewendet",
+      "unchanged": "Konfiguration unverändert"
     },
     "error": {
+      "api_error": "Solcast-API-Fehler: {error_detail}",
       "api_duplicate": "Doppelter API-Schlüssel angegeben",
       "api_key_empty": "API-Schlüssel darf nicht leer sein",
       "api_looks_like_site": "Der API-Schlüssel sieht aus wie eine Site-ID",
+      "internal_error": "Ein unerwarteter Fehler ist aufgetreten. Weitere Informationen finden Sie in den Protokollen.",
       "limit_not_number": "Das API-Limit ist keine Zahl",
       "limit_one_or_greater": "Das API-Limit muss eins oder größer sein",
       "limit_too_many": "Es wurden mehr API-Limit-Zähler als Schlüssel eingegeben",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "Neue Konfiguration angewendet"
+          "entry_not_found": "Der Solcast Solar-Konfigurationseintrag wurde nicht gefunden.",
+          "reconfigured": "Neue Konfiguration angewendet",
+          "unchanged": "Konfiguration unverändert"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Ein interner Fehler ist aufgetreten",
-      "reconfigured": "Neue Konfiguration angewendet"
+      "internal_error": "Ein unerwarteter Fehler ist aufgetreten. Weitere Informationen finden Sie in den Protokollen.",
+      "reconfigured": "Neue Konfiguration angewendet",
+      "unchanged": "Konfiguration unverändert"
     },
     "error": {
       "actuals_not_enabled": "Die Erfassung geschätzter Istwerte ist nicht aktiviert",
       "actuals_without_get": "Geschätzte Istwerte können nicht verwendet werden, ohne sie zu erhalten",
+      "api_error": "Solcast-API-Fehler: {error_detail}",
       "api_duplicate": "Doppelter API-Schlüssel angegeben",
       "api_key_empty": "API-Schlüssel darf nicht leer sein",
       "api_looks_like_site": "Der API-Schlüssel sieht aus wie eine Site-ID",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "PV-Erzeugungsentitäten müssen alle denselben Typ haben (entweder alle Energie oder alle Leistung, keine Mischung)",
       "hard_not_positive_number": "Der fester Grenzwert ist keine positive Zahl",
       "hard_too_many": "Es sind mehr harte Grenzen als Schlüssel eingegeben",
+      "internal_error": "Ein unerwarteter Fehler ist aufgetreten. Weitere Informationen finden Sie in den Protokollen.",
       "limit_not_number": "Das API-Limit ist keine Zahl",
       "limit_one_or_greater": "Das API-Limit muss eins oder größer sein",
       "limit_too_many": "Es wurden mehr API-Limit-Zähler als Schlüssel eingegeben",

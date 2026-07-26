@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Internal error occurred",
+      "internal_error": "An unexpected error occurred. Check the logs for more information.",
       "reauth_successful": "New API key applied successfully",
-      "reconfigured": "New configuration applied successfully"
+      "reconfigured": "New configuration applied successfully",
+      "unchanged": "Configuration unchanged"
     },
     "error": {
       "api_duplicate": "Duplicate API key specified",
+      "api_error": "Solcast API error: {error_detail}",
       "api_key_empty": "API key must not be empty",
       "api_looks_like_site": "API key looks like a site ID",
+      "internal_error": "An unexpected error occurred. Check the logs for more information.",
       "limit_exceeds_maximum": "API limit cannot exceed 50 (and likely should be 10 or less).",
       "limit_not_number": "API limit is not a number",
       "limit_one_or_greater": "API limit must be one or greater",
@@ -339,7 +342,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "New configuration applied successfully"
+          "entry_not_found": "The Solcast Solar configuration entry was not found.",
+          "reconfigured": "New configuration applied successfully",
+          "unchanged": "Configuration unchanged"
         },
         "step": {
           "offer_auto": {
@@ -372,13 +377,15 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Internal error occurred",
-      "reconfigured": "New configuration applied successfully"
+      "internal_error": "An unexpected error occurred. Check the logs for more information.",
+      "reconfigured": "New configuration applied successfully",
+      "unchanged": "Configuration unchanged"
     },
     "error": {
       "actuals_not_enabled": "Estimated actuals acquisition is not enabled",
       "actuals_without_get": "Estimated actuals cannot be used without getting them",
       "api_duplicate": "Duplicate API key specified",
+      "api_error": "Solcast API error: {error_detail}",
       "api_key_empty": "API key must not be empty",
       "api_looks_like_site": "API key looks like a site ID",
       "custom_invalid": "Custom sensor not between 1 and 144",
@@ -390,6 +397,7 @@
       "generation_mixed_types": "PV generation entities must all be the same type (all energy or all power, not a mix)",
       "hard_not_positive_number": "Hard limit is not a positive number",
       "hard_too_many": "There are more hard limits entered than keys",
+      "internal_error": "An unexpected error occurred. Check the logs for more information.",
       "limit_exceeds_maximum": "API limit cannot exceed 50 (and likely should be 10 or less).",
       "limit_not_number": "API limit is not a number",
       "limit_one_or_greater": "API limit must be one or greater",

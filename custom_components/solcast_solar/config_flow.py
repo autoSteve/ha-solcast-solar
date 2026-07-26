@@ -6,8 +6,6 @@ from collections.abc import Mapping
 from datetime import timezone
 import logging
 from pathlib import Path
-import traceback
-from types import MappingProxyType
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -39,6 +37,7 @@ from .advanced import async_is_allow_exceed_api_limit
 from .const import (
     AFFIRMATION_REAUTH_SUCCESSFUL,
     AFFIRMATION_RECONFIGURED,
+    AFFIRMATION_UNCHANGED,
     API_LIMIT,
     AUTO_DAMPEN,
     AUTO_UPDATE,
@@ -59,6 +58,7 @@ from .const import (
     ENERGY_HISTORY,
     ENTRY_ID,
     EXCEPTION_ACTUALS_WITHOUT_GET,
+    EXCEPTION_API_ERROR,
     EXCEPTION_CUSTOM_INVALID,
     EXCEPTION_DAMPEN_WITHOUT_ACTUALS,
     EXCEPTION_DAMPEN_WITHOUT_GENERATION,
@@ -212,43 +212,50 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle a re-key flow."""
         errors: dict[str, str] = {}
+        description_placeholders = {DEVICE_NAME: self._entry.title if self._entry is not None else UNKNOWN}
+        submitted_input: dict[str, Any] | None = None
 
         all_config_data = {**self._entry.options} if self._entry is not None else {}
 
         if user_input is not None:
+            submitted_input = {**user_input}
             api_key, _, abort = validate_api_key(user_input)
             if abort is not None:
                 errors[BASE] = abort
             if not errors:
+                key_changed = api_key != all_config_data[CONF_API_KEY]
                 all_config_data[CONF_API_KEY] = api_key
-
                 status, message = await validate_sites(self.hass, all_config_data)
                 if status != 200:
-                    errors[BASE] = message
-                elif self._entry is not None:
+                    errors[BASE] = EXCEPTION_API_ERROR
+                    description_placeholders["error_detail"] = message
+                elif key_changed and self._entry is not None:
                     await set_sensitive(self.hass, self._entry)
             if not errors:
                 result = self.async_abort(reason=EXCEPTION_INTERNAL_ERROR)
                 if self._entry is not None:
-                    self._mark_reset_old_key()
-                    data = {**self._entry.data, **all_config_data}
-                    sync_legacy_keys(data)
-                    self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=data)
+                    if key_changed:
+                        self._mark_reset_old_key()
+                        sync_legacy_keys(all_config_data)
+                        self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=all_config_data)
                     if self._entry.state is not ConfigEntryState.LOADED:
                         _LOGGER.debug("Loading presumed dead integration")
                         await (await state.async_get(self.hass, self._entry.entry_id)).async_clear()
                         self.hass.config_entries.async_schedule_reload(self._entry.entry_id)
-                    result = self.async_abort(reason=AFFIRMATION_REAUTH_SUCCESSFUL)
+                    result = self.async_abort(reason=AFFIRMATION_REAUTH_SUCCESSFUL if key_changed else AFFIRMATION_UNCHANGED)
                 return result
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_API_KEY, default=all_config_data[CONF_API_KEY]): str,
-                }
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_API_KEY, default=all_config_data[CONF_API_KEY]): str,
+                    }
+                ),
+                submitted_input if errors else None,
             ),
-            description_placeholders={DEVICE_NAME: self._entry.title if self._entry is not None else UNKNOWN},
+            description_placeholders=description_placeholders,
             errors=errors,
         )
 
@@ -260,10 +267,13 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle a reconfiguration flow."""
         errors: dict[str, str] = {}
+        description_placeholders = {DEVICE_NAME: self._entry.title if self._entry is not None else UNKNOWN}
+        submitted_input: dict[str, Any] | None = None
 
         all_config_data = {**self._entry.options} if self._entry is not None else {}
 
         if user_input is not None:
+            submitted_input = {**user_input}
             api_key, api_count, abort = validate_api_key(user_input)
             api_limit = "10"
             if abort is not None:
@@ -274,41 +284,53 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
                 if abort is not None:
                     errors[BASE] = abort
             if not errors:
+                key_changed = api_key != all_config_data[CONF_API_KEY]
+                options_changed = (
+                    key_changed
+                    or api_limit != all_config_data[API_LIMIT]
+                    or int(user_input[AUTO_UPDATE]) != int(all_config_data[AUTO_UPDATE])
+                )
                 all_config_data[CONF_API_KEY] = api_key
                 all_config_data[API_LIMIT] = api_limit
                 all_config_data[AUTO_UPDATE] = int(user_input[AUTO_UPDATE])
 
-                status, message = await validate_sites(self.hass, all_config_data)
-                if status != 200:
-                    errors[BASE] = message
-                elif self._entry is not None:
-                    await set_sensitive(self.hass, self._entry)
+                if key_changed:
+                    status, message = await validate_sites(self.hass, all_config_data)
+                    if status != 200:
+                        errors[BASE] = EXCEPTION_API_ERROR
+                        description_placeholders["error_detail"] = message
+                    elif self._entry is not None:
+                        await set_sensitive(self.hass, self._entry)
             if not errors:
                 result = self.async_abort(reason=EXCEPTION_INTERNAL_ERROR)
                 if self._entry is not None:
-                    self._mark_reset_old_key()
-                    data = {**self._entry.data, **all_config_data}
-                    sync_legacy_keys(data)
-                    self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=data)
-                    if self._entry.state is not ConfigEntryState.LOADED:
-                        _LOGGER.debug("Loading presumed dead integration")
-                        await (await state.async_get(self.hass, self._entry.entry_id)).async_clear()
-                        self.hass.config_entries.async_schedule_reload(self._entry.entry_id)
-                    result = self.async_abort(reason=AFFIRMATION_RECONFIGURED)
+                    if options_changed:
+                        sync_legacy_keys(all_config_data)
+                        if key_changed:
+                            self._mark_reset_old_key()
+                        self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=all_config_data)
+                        if self._entry.state is not ConfigEntryState.LOADED:
+                            _LOGGER.debug("Loading presumed dead integration")
+                            await (await state.async_get(self.hass, self._entry.entry_id)).async_clear()
+                            self.hass.config_entries.async_schedule_reload(self._entry.entry_id)
+                    result = self.async_abort(reason=AFFIRMATION_RECONFIGURED if options_changed else AFFIRMATION_UNCHANGED)
                 return result
 
         return self.async_show_form(
             step_id="reconfigure_confirm",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_API_KEY, default=all_config_data[CONF_API_KEY]): str,
-                    vol.Required(API_LIMIT, default=all_config_data[API_LIMIT]): str,
-                    vol.Required(AUTO_UPDATE, default=str(all_config_data[AUTO_UPDATE])): SelectSelector(
-                        SelectSelectorConfig(options=AUTO_UPDATE_OPTIONS, mode=SelectSelectorMode.DROPDOWN, translation_key=AUTO_UPDATE)
-                    ),
-                }
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_API_KEY, default=all_config_data[CONF_API_KEY]): str,
+                        vol.Required(API_LIMIT, default=all_config_data[API_LIMIT]): str,
+                        vol.Required(AUTO_UPDATE, default=str(all_config_data[AUTO_UPDATE])): SelectSelector(
+                            SelectSelectorConfig(options=AUTO_UPDATE_OPTIONS, mode=SelectSelectorMode.DROPDOWN, translation_key=AUTO_UPDATE)
+                        ),
+                    }
+                ),
+                submitted_input if errors else None,
             ),
-            description_placeholders={DEVICE_NAME: self._entry.title if self._entry is not None else UNKNOWN},
+            description_placeholders=description_placeholders,
             errors=errors,
         )
 
@@ -323,8 +345,11 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
 
         """
         errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+        submitted_input: dict[str, Any] | None = None
 
         if user_input is not None:
+            submitted_input = {**user_input}
             api_key, api_count, abort = validate_api_key(user_input)
             api_limit = "10"
             if abort is not None:
@@ -361,7 +386,8 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
 
                 status, message = await validate_sites(self.hass, options)
                 if status != 200:
-                    errors[BASE] = message
+                    errors[BASE] = EXCEPTION_API_ERROR
+                    description_placeholders["error_detail"] = message
                 else:
                     return self.async_create_entry(
                         title=TITLE, data={}, options=options | {f"damp{factor:02d}": 1.0 for factor in range(24)}
@@ -375,15 +401,19 @@ class SolcastSolarFlowHandler(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_API_KEY, default=""): str,
-                    vol.Required(API_LIMIT, default="10"): str,
-                    vol.Required(AUTO_UPDATE, default=str(int(not solcast_json_exists))): SelectSelector(
-                        SelectSelectorConfig(options=AUTO_UPDATE_OPTIONS, mode=SelectSelectorMode.DROPDOWN, translation_key=AUTO_UPDATE)
-                    ),
-                }
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_API_KEY, default=""): str,
+                        vol.Required(API_LIMIT, default="10"): str,
+                        vol.Required(AUTO_UPDATE, default=str(int(not solcast_json_exists))): SelectSelector(
+                            SelectSelectorConfig(options=AUTO_UPDATE_OPTIONS, mode=SelectSelectorMode.DROPDOWN, translation_key=AUTO_UPDATE)
+                        ),
+                    }
+                ),
+                submitted_input if errors else None,
             ),
+            description_placeholders=description_placeholders,
             errors=errors,
         )
 
@@ -401,6 +431,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
         self._entry = config_entry
         self._options = config_entry.options
         self._all_config_data: dict[str, Any] | None = None
+        self._api_key_changed = False
 
     async def check_dead(self) -> None:
         """Check if the integration is presumed dead and reload if so."""
@@ -434,19 +465,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             if entry not in own_entities
             and entry.startswith("sensor.")
             and details.disabled_by is None
-            and isinstance(details.device_class, str)
-            and (
-                SensorDeviceClass.ENERGY
-                in (
-                    details.device_class,
-                    details.original_device_class,
-                )
-                or SensorDeviceClass.POWER
-                in (
-                    details.device_class,
-                    details.original_device_class,
-                )
-            )
+            and (details.device_class or details.original_device_class) in (SensorDeviceClass.ENERGY, SensorDeviceClass.POWER)
         ]
         state_entities = self.hass.states.async_entity_ids("sensor")
         sensor_values = {option["value"] for option in sensors}
@@ -471,14 +490,7 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             if entry not in own_entities
             and entry.startswith("sensor.")
             and details.disabled_by is None
-            and isinstance(details.device_class, str)
-            and (
-                SensorDeviceClass.ENERGY
-                in (
-                    details.device_class,
-                    details.original_device_class,
-                )
-            )
+            and (details.device_class or details.original_device_class) == SensorDeviceClass.ENERGY
         ]
         energy_sensor_values = {option["value"] for option in energy_sensors}
         energy_sensors += [
@@ -505,15 +517,18 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
 
         """
         errors: dict[str, str] = {}
+        description_placeholders: dict[str, str] = {}
+        submitted_input: dict[str, Any] | None = None
 
         if user_input is not None:
+            submitted_input = {**user_input}
             try:
                 # Normalize empty/None limit values to 0 to allow clearing
                 if SITE_EXPORT_LIMIT in user_input and user_input[SITE_EXPORT_LIMIT] in (None, "", "0"):
                     user_input[SITE_EXPORT_LIMIT] = 0.0
 
                 all_config_data = {**self._options}
-                _old_api_key = all_config_data[CONF_API_KEY]
+                _old_api_key = self._entry.options[CONF_API_KEY]
 
                 all_config_data[CONF_API_KEY], api_count, abort = validate_api_key(user_input)
                 if abort is not None:
@@ -558,7 +573,6 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                 # If site export entity is removed, automatically clear the limit since it's irrelevant
                 if not all_config_data[SITE_EXPORT_ENTITY]:
                     all_config_data[SITE_EXPORT_LIMIT] = 0.0
-                    user_input[SITE_EXPORT_LIMIT] = 0.0
                 if not errors:
                     if int(user_input.get(USE_ACTUALS, 0)) != HistoryType.FORECASTS and not user_input.get(GET_ACTUALS, False):
                         errors[BASE] = EXCEPTION_ACTUALS_WITHOUT_GET
@@ -577,10 +591,12 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                     _entity_registry = er.async_get(self.hass)
                     for gen_entity in gen_entities:
                         r_entity = _entity_registry.async_get(gen_entity)
-                        if r_entity is not None:
-                            dc = r_entity.device_class or r_entity.original_device_class
-                            if dc in (SensorDeviceClass.ENERGY, SensorDeviceClass.POWER):
-                                device_classes.add(dc)
+                        dc = r_entity.device_class or r_entity.original_device_class if r_entity is not None else None
+                        if dc not in (SensorDeviceClass.ENERGY, SensorDeviceClass.POWER):
+                            entity_state = self.hass.states.get(gen_entity)
+                            dc = entity_state.attributes.get("device_class") if entity_state is not None else None
+                        if dc in (SensorDeviceClass.ENERGY, SensorDeviceClass.POWER):
+                            device_classes.add(dc)
                     if len(device_classes) > 1:
                         errors[BASE] = EXCEPTION_GENERATION_MIXED_TYPES
                         _LOGGER.debug("Options validation failed: %s", errors[BASE])
@@ -600,8 +616,6 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                         # If entity is set, limit must also be set (> 0)
                         errors[BASE] = EXCEPTION_EXPORT_NO_LIMIT
                         _LOGGER.debug("Options validation failed: %s", errors[BASE])
-                self._options = MappingProxyType(all_config_data)
-
                 if not errors:
                     # Disable granular dampening if requested.
                     if user_input.get(SITE_DAMP) is not None:
@@ -623,26 +637,25 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
                     if all_config_data[CONF_API_KEY] != _old_api_key:
                         status, message = await validate_sites(self.hass, all_config_data)
                         if status != 200:
-                            errors[BASE] = message
-
-                # For any successful API key change a 'sensitive' reload is required
-                # to ensure that the load refreshes cached data with the new key(s).
-                # A subsequent failure would otherwise load an invalid cache on that
-                # failure, so using a sensitive reload will prevent this.
-                if user_input[CONF_API_KEY] != _old_api_key and self._entry is not None:
-                    await set_sensitive(self.hass, self._entry)
+                            errors[BASE] = EXCEPTION_API_ERROR
+                            description_placeholders["error_detail"] = message
 
                 if not errors:
+                    self._api_key_changed = all_config_data[CONF_API_KEY] != _old_api_key
                     if user_input.get(CONFIG_DAMP) and not user_input.get(AUTO_DAMPEN, False):
                         return await self.async_step_dampen()
 
                     sync_legacy_keys(all_config_data)
-                    self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=all_config_data)
-                    await self.check_dead()
-                    return self.async_abort(reason=AFFIRMATION_RECONFIGURED)
-            except Exception as e:  # noqa: BLE001
-                _LOGGER.error(traceback.format_exc())
-                errors[BASE] = f"Exception: {e!s}"
+                    if all_config_data != self._entry.options:
+                        if self._api_key_changed:
+                            await set_sensitive(self.hass, self._entry)
+                        self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=all_config_data)
+                        await self.check_dead()
+                        return self.async_abort(reason=AFFIRMATION_RECONFIGURED)
+                    return self.async_abort(reason=AFFIRMATION_UNCHANGED)
+            except Exception:
+                _LOGGER.exception("Unexpected exception while validating options")
+                errors[BASE] = EXCEPTION_INTERNAL_ERROR
 
         update: list[SelectOptionDict] = [
             SelectOptionDict(label="none", value="0"),
@@ -690,47 +703,51 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
         breakdown_defaults = [breakdown_key for breakdown_key in BREAKDOWN_ATTRIBUTE_OPTIONS if self._options.get(breakdown_key, False)]
         return self.async_show_form(
             step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_API_KEY, default=self._options.get(CONF_API_KEY)): str,
-                    vol.Required(API_LIMIT, default=self._options[API_LIMIT]): str,
-                    vol.Required(AUTO_UPDATE, default=str(int(self._options[AUTO_UPDATE]))): SelectSelector(
-                        SelectSelectorConfig(options=update, mode=SelectSelectorMode.DROPDOWN, translation_key=AUTO_UPDATE)
-                    ),
-                    vol.Required(KEY_ESTIMATE, default=self._options.get(KEY_ESTIMATE, "estimate")): SelectSelector(
-                        SelectSelectorConfig(options=forecasts, mode=SelectSelectorMode.DROPDOWN, translation_key=KEY_ESTIMATE)
-                    ),
-                    vol.Required(CUSTOM_HOURS, default=self._options[CUSTOM_HOURS]): int,
-                    vol.Required(HARD_LIMIT_API, default=self._options.get(HARD_LIMIT_API)): str,
-                    vol.Optional(ATTR_BREAKDOWN, default=breakdown_defaults): SelectSelector(
-                        SelectSelectorConfig(
-                            options=[SelectOptionDict(label=option, value=option) for option in BREAKDOWN_ATTRIBUTE_OPTIONS],
-                            mode=SelectSelectorMode.DROPDOWN,
-                            multiple=True,
-                            translation_key=ATTR_BREAKDOWN,
-                        )
-                    ),
-                    vol.Optional(EXCLUDE_SITES, default=self._options.get(EXCLUDE_SITES, [])): SelectSelector(
-                        SelectSelectorConfig(options=exclude, mode=SelectSelectorMode.DROPDOWN, multiple=True)
-                    ),
-                    vol.Optional(GET_ACTUALS, default=self._options[GET_ACTUALS]): bool,
-                    vol.Optional(AUTO_DAMPEN, default=self._options[AUTO_DAMPEN]): bool,
-                    vol.Optional(GENERATION_ENTITIES, default=self._options.get(GENERATION_ENTITIES, [])): SelectSelector(
-                        SelectSelectorConfig(options=sensors, mode=SelectSelectorMode.DROPDOWN, multiple=True)
-                    ),
-                    vol.Optional(SITE_EXPORT_ENTITY, default=site_export_default): SelectSelector(
-                        SelectSelectorConfig(options=energy_sensors, mode=SelectSelectorMode.DROPDOWN, multiple=True)
-                    ),
-                    vol.Optional(
-                        SITE_EXPORT_LIMIT,
-                        default=self._options.get(SITE_EXPORT_LIMIT, 0.0),
-                    ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=100.0)),
-                    vol.Required(USE_ACTUALS, default=str(int(self._options.get(USE_ACTUALS, 0)))): SelectSelector(
-                        SelectSelectorConfig(options=history, mode=SelectSelectorMode.DROPDOWN, translation_key=ENERGY_HISTORY)
-                    ),
-                }
-                | damp
+            data_schema=self.add_suggested_values_to_schema(
+                vol.Schema(
+                    {
+                        vol.Required(CONF_API_KEY, default=self._options.get(CONF_API_KEY)): str,
+                        vol.Required(API_LIMIT, default=self._options[API_LIMIT]): str,
+                        vol.Required(AUTO_UPDATE, default=str(int(self._options[AUTO_UPDATE]))): SelectSelector(
+                            SelectSelectorConfig(options=update, mode=SelectSelectorMode.DROPDOWN, translation_key=AUTO_UPDATE)
+                        ),
+                        vol.Required(KEY_ESTIMATE, default=self._options.get(KEY_ESTIMATE, "estimate")): SelectSelector(
+                            SelectSelectorConfig(options=forecasts, mode=SelectSelectorMode.DROPDOWN, translation_key=KEY_ESTIMATE)
+                        ),
+                        vol.Required(CUSTOM_HOURS, default=self._options[CUSTOM_HOURS]): int,
+                        vol.Required(HARD_LIMIT_API, default=self._options.get(HARD_LIMIT_API)): str,
+                        vol.Optional(ATTR_BREAKDOWN, default=breakdown_defaults): SelectSelector(
+                            SelectSelectorConfig(
+                                options=[SelectOptionDict(label=option, value=option) for option in BREAKDOWN_ATTRIBUTE_OPTIONS],
+                                mode=SelectSelectorMode.DROPDOWN,
+                                multiple=True,
+                                translation_key=ATTR_BREAKDOWN,
+                            )
+                        ),
+                        vol.Optional(EXCLUDE_SITES, default=self._options.get(EXCLUDE_SITES, [])): SelectSelector(
+                            SelectSelectorConfig(options=exclude, mode=SelectSelectorMode.DROPDOWN, multiple=True)
+                        ),
+                        vol.Optional(GET_ACTUALS, default=self._options[GET_ACTUALS]): bool,
+                        vol.Optional(AUTO_DAMPEN, default=self._options[AUTO_DAMPEN]): bool,
+                        vol.Optional(GENERATION_ENTITIES, default=self._options.get(GENERATION_ENTITIES, [])): SelectSelector(
+                            SelectSelectorConfig(options=sensors, mode=SelectSelectorMode.DROPDOWN, multiple=True)
+                        ),
+                        vol.Optional(SITE_EXPORT_ENTITY, default=site_export_default): SelectSelector(
+                            SelectSelectorConfig(options=energy_sensors, mode=SelectSelectorMode.DROPDOWN, multiple=True)
+                        ),
+                        vol.Optional(
+                            SITE_EXPORT_LIMIT,
+                            default=self._options.get(SITE_EXPORT_LIMIT, 0.0),
+                        ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=100.0)),
+                        vol.Required(USE_ACTUALS, default=str(int(self._options.get(USE_ACTUALS, 0)))): SelectSelector(
+                            SelectSelectorConfig(options=history, mode=SelectSelectorMode.DROPDOWN, translation_key=ENERGY_HISTORY)
+                        ),
+                    }
+                    | damp
+                ),
+                submitted_input if errors else None,
             ),
+            description_placeholders=description_placeholders,
             errors=errors,
         )
 
@@ -757,9 +774,13 @@ class SolcastSolarOptionFlowHandler(OptionsFlow):
             all_config_data[SITE_DAMP] = False
 
             sync_legacy_keys(all_config_data)
-            self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=all_config_data)
-            await self.check_dead()
-            return self.async_abort(reason=AFFIRMATION_RECONFIGURED)
+            if all_config_data != self._entry.options:
+                if self._api_key_changed:
+                    await set_sensitive(self.hass, self._entry)
+                self.hass.config_entries.async_update_entry(self._entry, title=TITLE, options=all_config_data)
+                await self.check_dead()
+                return self.async_abort(reason=AFFIRMATION_RECONFIGURED)
+            return self.async_abort(reason=AFFIRMATION_UNCHANGED)
 
         return self.async_show_form(
             step_id="dampen",

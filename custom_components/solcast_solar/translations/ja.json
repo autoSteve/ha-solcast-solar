@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "内部エラーが発生しました",
+      "internal_error": "予期しないエラーが発生しました。詳細についてはログを確認してください。",
       "reauth_successful": "新しいAPIキーが正常に適用されました",
-      "reconfigured": "新しい設定が正常に適用されました"
+      "reconfigured": "新しい設定が正常に適用されました",
+      "unchanged": "設定は変更されていません"
     },
     "error": {
+      "api_error": "Solcast APIエラー: {error_detail}",
       "api_duplicate": "重複したAPIキーが指定されました",
       "api_key_empty": "APIキーは空にすることはできません",
       "api_looks_like_site": "APIキーがサイトIDのように見えます",
+      "internal_error": "予期しないエラーが発生しました。詳細についてはログを確認してください。",
       "limit_exceeds_maximum": "APIリミットは50を超えることはできません（10以下にすべきです）",
       "limit_not_number": "APIリミットは数字ではありません",
       "limit_one_or_greater": "APIリミットは1以上である必要があります",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "新しい設定が正常に適用されました"
+          "entry_not_found": "Solcast Solarの設定エントリが見つかりませんでした。",
+          "reconfigured": "新しい設定が正常に適用されました",
+          "unchanged": "設定は変更されていません"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "内部エラーが発生しました",
-      "reconfigured": "新しい設定が正常に適用されました"
+      "internal_error": "予期しないエラーが発生しました。詳細についてはログを確認してください。",
+      "reconfigured": "新しい設定が正常に適用されました",
+      "unchanged": "設定は変更されていません"
     },
     "error": {
       "actuals_not_enabled": "推定実績値の取得が有効化されていません",
       "actuals_without_get": "推定実績値の取得を有効にしないと、推定実績値は使用できません",
+      "api_error": "Solcast APIエラー: {error_detail}",
       "api_duplicate": "重複したAPIキーが指定されました",
       "api_key_empty": "APIキーは空にすることはできません",
       "api_looks_like_site": "APIキーがサイトIDのように見えます",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "PV発電エンティティはすべて同じ型（すべてエネルギーまたはすべて電力、混在なし）である必要があります",
       "hard_not_positive_number": "ハードリミットは正の数字ではありません",
       "hard_too_many": "入力されたハードリミットの数がキーの数より多すぎます",
+      "internal_error": "予期しないエラーが発生しました。詳細についてはログを確認してください。",
       "limit_exceeds_maximum": "APIリミットは50を超えることはできません（10以下にすべきです）",
       "limit_not_number": "APIリミットは数字ではありません",
       "limit_one_or_greater": "APIリミットは1以上である必要があります",

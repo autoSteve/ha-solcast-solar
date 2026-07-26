@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Ocorreu um erro interno",
+      "internal_error": "Ocorreu um erro inesperado. Consulte os registos para obter mais informações.",
       "reauth_successful": "Nova chave API aplicada com sucesso",
-      "reconfigured": "Nova configuração aplicada com sucesso"
+      "reconfigured": "Nova configuração aplicada com sucesso",
+      "unchanged": "Configuração inalterada"
     },
     "error": {
+      "api_error": "Erro da API Solcast: {error_detail}",
       "api_duplicate": "Chave de API duplicada especificada",
       "api_key_empty": "A chave da API não pode estar vazia",
       "api_looks_like_site": "A chave da API parece um ID de site",
+      "internal_error": "Ocorreu um erro inesperado. Consulte os registos para obter mais informações.",
       "limit_not_number": "O limite da API não é um número",
       "limit_one_or_greater": "O limite da API deve ser um ou maior",
       "limit_too_many": "Há mais contagens de limite de API inseridas do que chaves",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "Nova configuração aplicada com sucesso"
+          "entry_not_found": "A entrada de configuração do Solcast Solar não foi encontrada.",
+          "reconfigured": "Nova configuração aplicada com sucesso",
+          "unchanged": "Configuração inalterada"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Ocorreu um erro interno",
-      "reconfigured": "Nova configuração aplicada com sucesso"
+      "internal_error": "Ocorreu um erro inesperado. Consulte os registos para obter mais informações.",
+      "reconfigured": "Nova configuração aplicada com sucesso",
+      "unchanged": "Configuração inalterada"
     },
     "error": {
       "actuals_not_enabled": "A aquisição de valores reais estimados não está habilitada",
       "actuals_without_get": "Os valores reais estimados não podem ser usados ​​sem obtê-los",
+      "api_error": "Erro da API Solcast: {error_detail}",
       "api_duplicate": "Chave de API duplicada especificada",
       "api_key_empty": "A chave da API não pode estar vazia",
       "api_looks_like_site": "A chave da API parece um ID de site",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "Todas as entidades de geração fotovoltaica devem ser do mesmo tipo (toda energia ou toda potência, não uma mistura).",
       "hard_not_positive_number": "Limite rígido não é um número positivo",
       "hard_too_many": "Existem mais limites rígidos inseridos do que chaves",
+      "internal_error": "Ocorreu um erro inesperado. Consulte os registos para obter mais informações.",
       "limit_not_number": "O limite da API não é um número",
       "limit_one_or_greater": "O limite da API deve ser um ou maior",
       "limit_too_many": "Há mais contagens de limite de API inseridas do que chaves",

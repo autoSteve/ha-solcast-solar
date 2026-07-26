@@ -11,7 +11,6 @@ from operator import itemgetter
 from pathlib import Path
 import sys
 import time
-import traceback
 from types import MappingProxyType
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -790,8 +789,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                             )
 
                 return sorted(actuals.values(), key=itemgetter(PERIOD_START))
-            except Exception as e:  # noqa: BLE001
-                _LOGGER.error("Exception in build_data_actuals(): %s: %s", e, traceback.format_exc())
+            except Exception:
+                _LOGGER.exception("Exception in build_data_actuals()")
                 build_success = False
                 return []
 
@@ -926,8 +925,8 @@ class SolcastApi:  # pylint: disable=too-many-public-methods
                     self.data_forecasts = sorted(forecasts.values(), key=itemgetter(PERIOD_START))
                 else:
                     self.data_forecasts_undampened = sorted(forecasts.values(), key=itemgetter(PERIOD_START))
-            except Exception as e:  # noqa: BLE001, handle all exceptions
-                _LOGGER.error("Exception in build_data(): %s: %s", e, traceback.format_exc())
+            except Exception:
+                _LOGGER.exception("Exception in build_data()")
                 self.data_forecasts = []
                 self.data_forecasts_undampened = []
                 if dampened:

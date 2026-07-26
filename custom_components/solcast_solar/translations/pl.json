@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Wystąpił błąd wewnętrzny",
+      "internal_error": "Wystąpił nieoczekiwany błąd. Więcej informacji znajdziesz w dziennikach.",
       "reauth_successful": "Nowy klucz API został pomyślnie zastosowany",
-      "reconfigured": "Zastosowano nową konfigurację"
+      "reconfigured": "Zastosowano nową konfigurację",
+      "unchanged": "Konfiguracja bez zmian"
     },
     "error": {
+      "api_error": "Błąd API Solcast: {error_detail}",
       "api_duplicate": "Określono duplikat klucza API",
       "api_key_empty": "Klucz API nie może być pusty",
       "api_looks_like_site": "Klucz API wygląda jak identyfikator witryny",
+      "internal_error": "Wystąpił nieoczekiwany błąd. Więcej informacji znajdziesz w dziennikach.",
       "limit_not_number": "Limit API nie jest liczbą",
       "limit_one_or_greater": "Limit API musi wynosić jeden lub więcej",
       "limit_too_many": "Wprowadzono więcej limitów API niż kluczy",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "Zastosowano nową konfigurację"
+          "entry_not_found": "Nie znaleziono wpisu konfiguracji Solcast Solar.",
+          "reconfigured": "Zastosowano nową konfigurację",
+          "unchanged": "Konfiguracja bez zmian"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Wystąpił błąd wewnętrzny",
-      "reconfigured": "Zastosowano nową konfigurację"
+      "internal_error": "Wystąpił nieoczekiwany błąd. Więcej informacji znajdziesz w dziennikach.",
+      "reconfigured": "Zastosowano nową konfigurację",
+      "unchanged": "Konfiguracja bez zmian"
     },
     "error": {
       "actuals_not_enabled": "Pozyskiwanie szacunkowych wartości rzeczywistych nie jest włączone",
       "actuals_without_get": "Nie można używać szacunkowych wartości rzeczywistych bez ich uzyskania",
+      "api_error": "Błąd API Solcast: {error_detail}",
       "api_duplicate": "Określono duplikat klucza API",
       "api_key_empty": "Klucz API nie może być pusty",
       "api_looks_like_site": "Klucz API wygląda jak identyfikator witryny",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "Wszystkie jednostki generujące energię fotowoltaiczną muszą być tego samego typu (cała energia lub cała moc, a nie mieszanka)",
       "hard_not_positive_number": "Twardy limit nie jest liczbą dodatnią",
       "hard_too_many": "Wprowadzono więcej sztywnych limitów niż kluczy",
+      "internal_error": "Wystąpił nieoczekiwany błąd. Więcej informacji znajdziesz w dziennikach.",
       "limit_not_number": "Limit API nie jest liczbą",
       "limit_one_or_greater": "Limit API musi wynosić jeden lub więcej",
       "limit_too_many": "Wprowadzono więcej limitów API niż kluczy",

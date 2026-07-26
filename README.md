@@ -1499,6 +1499,7 @@ v4.6.0
 * Enable return of per-site and un-dampened estimated actuals by @autoSteve
 * Expand scope for raised issue when actuals enabled and API limit is too high by @autoSteve
 * Compact forecast attribute selection in options dialogue by @autoSteve
+* Improve re-config, options and re-auth flow validations by @autoSteve
 * Fix enable estimated actuals skips a day (caution: enabling may exhaust API calls available for a day) by @autoSteve
 * Fix options flow corner case by @autoSteve
 * Remove legacy dampening file location move by @autoSteve
@@ -1506,7 +1507,7 @@ v4.6.0
 * Add tests to suite to ensure runtime reliability by @autoSteve
 * API simulator improvements by @autoSteve
 
-Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.5.2...v4.5.3
+Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.5.2...v4.6
 
 ### Prior changes
 <details><summary><i>Click here for changes back to v3.0</i></summary>

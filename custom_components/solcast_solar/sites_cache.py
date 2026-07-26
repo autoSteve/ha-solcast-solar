@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 import re
 import shutil
-import traceback
 from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
@@ -1226,9 +1225,9 @@ class SitesCache:
                 "Cached sites loaded" if self.api.sites_status == SitesStatus.OK else "Cached sites not loaded",
                 api_key_in_error,
             )
-        except Exception as e:  # noqa: BLE001
-            _LOGGER.error("Exception in _sites_data(): %s: %s", e, traceback.format_exc())
-            return 999, f"Exception in _sites_data(): {e}", ""
+        except Exception as err:
+            _LOGGER.exception("Exception in _sites_data()")
+            return 999, f"Exception in _sites_data(): {err}", ""
 
         return status, self.api.http_status_translate(status), api_key_in_error
 
@@ -1361,6 +1360,6 @@ class SitesCache:
                     self.api.api_limits[api_key],
                 )
 
-        except Exception as e:  # noqa: BLE001
-            _LOGGER.error("Exception in _sites_usage(): %s: %s", e, traceback.format_exc())
+        except Exception:
+            _LOGGER.exception("Exception in _sites_usage()")
             self.api.usage_status = UsageStatus.ERROR

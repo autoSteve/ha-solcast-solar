@@ -1942,7 +1942,8 @@ async def test_scenarios(
         session_set(MOCK_BUSY)
         sites_file.write_text(corrupt, encoding="utf-8")
         await _reload(hass, entry)
-        assert "Exception in _sites_data(): Expecting value:" in caplog.text
+        assert "Exception in _sites_data()" in caplog.text
+        assert "JSONDecodeError: Expecting value:" in caplog.text
         sites_file.write_text(json.dumps(sites), encoding="utf-8")
         session_clear(MOCK_BUSY)
         caplog.clear()

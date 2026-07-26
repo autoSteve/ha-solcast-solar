@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "اندرونی خرابی پیش آگئی ہے۔",
+      "internal_error": "ایک غیر متوقع خرابی پیش آگئی ہے۔ مزید معلومات کے لیے لاگز چیک کریں۔",
       "reauth_successful": "نئی کلید کامیابی کے ساتھ لاگو ہو گئی۔",
-      "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔"
+      "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔",
+      "unchanged": "کنفیگریشن میں کوئی تبدیلی نہیں کی گئی۔"
     },
     "error": {
+      "api_error": "Solcast API خرابی: {error_detail}",
       "api_duplicate": "پلیکیٹ API کلید بتائی گئی ہے۔",
       "api_key_empty": "API کلید خالی نہیں ہونی چاہی۔",
       "api_looks_like_site": "API کلید سائٹ ID کی طرح نظر آتی ہے۔",
+      "internal_error": "ایک غیر متوقع خرابی پیش آگئی ہے۔ مزید معلومات کے لیے لاگز چیک کریں۔",
       "limit_not_number": "API کی حد نمبر نہیں ہے۔",
       "limit_one_or_greater": "API کی حد ایک یا اس سے زیادہ ہونی چاہیے۔",
       "limit_too_many": "چابیاں سے زیادہ API کی حد کی تعداد درج کی گئی ہے۔",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔"
+          "entry_not_found": "Solcast Solar کنفیگریشن اندراج نہیں ملا۔",
+          "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔",
+          "unchanged": "کنفیگریشن میں کوئی تبدیلی نہیں کی گئی۔"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "اندرونی خرابی پیش آگئی ہے۔",
-      "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔"
+      "internal_error": "ایک غیر متوقع خرابی پیش آگئی ہے۔ مزید معلومات کے لیے لاگز چیک کریں۔",
+      "reconfigured": "نئی کنفیگریشن لاگو کر دی گئی۔",
+      "unchanged": "کنفیگریشن میں کوئی تبدیلی نہیں کی گئی۔"
     },
     "error": {
       "actuals_not_enabled": "تخمینی حقیقی حصول فعال نہیں ہے۔",
       "actuals_without_get": "تخمینہ شدہ حقیقی ان کو حاصل کیے بغیر استعمال نہیں کیا جا سکتا",
+      "api_error": "Solcast API خرابی: {error_detail}",
       "api_duplicate": "پلیکیٹ API کلید بتائی گئی ہے۔",
       "api_key_empty": "API کلید خالی نہیں ہونی چاہی۔",
       "api_looks_like_site": "API کلید سائٹ ID کی طرح نظر آتی ہے۔",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "PV جنریشن اداروں کو ایک ہی قسم کا ہونا چاہیے (تمام توانائی یا تمام طاقت، مکس نہیں)",
       "hard_not_positive_number": "سخت حد ایک مثبت نمبر نہیں ہے۔",
       "hard_too_many": "چابیاں سے زیادہ سخت حدود درج ہیں۔",
+      "internal_error": "ایک غیر متوقع خرابی پیش آگئی ہے۔ مزید معلومات کے لیے لاگز چیک کریں۔",
       "limit_not_number": "API کی حد نمبر نہیں ہے۔",
       "limit_one_or_greater": "API کی حد ایک یا اس سے زیادہ ہونی چاہیے۔",
       "limit_too_many": "چابیاں سے زیادہ API کی حد کی تعداد درج کی گئی ہے۔",

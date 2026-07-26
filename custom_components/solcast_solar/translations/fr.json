@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Une erreur interne est survenue",
+      "internal_error": "Une erreur inattendue est survenue. Consultez les journaux pour plus d'informations.",
       "reauth_successful": "Nouvelle clé API appliquée avec succès",
-      "reconfigured": "Nouvelle configuration appliquée"
+      "reconfigured": "Nouvelle configuration appliquée",
+      "unchanged": "Configuration inchangée"
     },
     "error": {
+      "api_error": "Erreur de l'API Solcast : {error_detail}",
       "api_duplicate": "Clé API en double spécifiée",
       "api_key_empty": "La clé API ne doit pas être vide",
       "api_looks_like_site": "La clé API ressemble à un identifiant de site",
+      "internal_error": "Une erreur inattendue est survenue. Consultez les journaux pour plus d'informations.",
       "limit_not_number": "La limite de l'API n'est pas un nombre",
       "limit_one_or_greater": "La limite de l'API doit être égale ou supérieure à un",
       "limit_too_many": "Il y a plus de limites d'API saisies que de clés",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "Nouvelle configuration appliquée"
+          "entry_not_found": "L'entrée de configuration Solcast Solar est introuvable.",
+          "reconfigured": "Nouvelle configuration appliquée",
+          "unchanged": "Configuration inchangée"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Une erreur interne est survenue",
-      "reconfigured": "Nouvelle configuration appliquée"
+      "internal_error": "Une erreur inattendue est survenue. Consultez les journaux pour plus d'informations.",
+      "reconfigured": "Nouvelle configuration appliquée",
+      "unchanged": "Configuration inchangée"
     },
     "error": {
       "actuals_not_enabled": "L'acquisition des valeurs réelles estimées n'est pas activée",
       "actuals_without_get": "Les estimations réelles ne peuvent pas être utilisées sans les obtenir",
+      "api_error": "Erreur de l'API Solcast : {error_detail}",
       "api_duplicate": "Clé API en double spécifiée",
       "api_key_empty": "La clé API ne doit pas être vide",
       "api_looks_like_site": "La clé API ressemble à un identifiant de site",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "Les unités de production photovoltaïque doivent toutes être du même type (toute énergie ou toute puissance, pas un mélange).",
       "hard_not_positive_number": "La limite dure n'est pas un nombre positif",
       "hard_too_many": "Il y a plus de limites strictes saisies que de clés",
+      "internal_error": "Une erreur inattendue est survenue. Consultez les journaux pour plus d'informations.",
       "limit_not_number": "La limite de l'API n'est pas un nombre",
       "limit_one_or_greater": "La limite de l'API doit être égale ou supérieure à un",
       "limit_too_many": "Il y a plus de limites d'API saisies que de clés",

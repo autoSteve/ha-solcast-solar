@@ -782,6 +782,65 @@ async def test_config_flow_mixed_generation_entity_types(
     assert result["errors"]["base"] == EXCEPTION_GENERATION_MIXED_TYPES  # type: ignore[index]
 
 
+async def test_config_flow_mixed_generation_state_entity_types(
+    hass: HomeAssistant,
+) -> None:
+    """Test config flow rejects mixed state-only generation entity types."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="solcast_pv_solar",
+        title=INTEGRATION,
+        data=copy.deepcopy(DEFAULT_INPUT2),
+        options=copy.deepcopy(DEFAULT_INPUT2),
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set("sensor.energy_sensor", "1", {"device_class": SensorDeviceClass.ENERGY})
+    hass.states.async_set("sensor.power_sensor", "1", {"device_class": SensorDeviceClass.POWER})
+
+    flow = SolcastSolarOptionFlowHandler(entry)
+    flow.hass = hass
+    user_input = copy.deepcopy(DEFAULT_INPUT2)
+    user_input[GENERATION_ENTITIES] = ["sensor.energy_sensor", "sensor.power_sensor"]
+    user_input[SITE_EXPORT_ENTITY] = []
+    result = await flow.async_step_init(user_input)
+    assert result["errors"]["base"] == EXCEPTION_GENERATION_MIXED_TYPES  # type: ignore[index]
+
+
+async def test_config_flow_mixed_generation_registry_and_state_entity_types(
+    hass: HomeAssistant,
+) -> None:
+    """Test config flow rejects mixed registry and state generation types."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="solcast_pv_solar",
+        title=INTEGRATION,
+        data=copy.deepcopy(DEFAULT_INPUT2),
+        options=copy.deepcopy(DEFAULT_INPUT2),
+    )
+    entry.add_to_hass(hass)
+    entity_registry = er.async_get(hass)
+    entity_registry.async_get_or_create(
+        "sensor",
+        "pytest",
+        "energy_sensor",
+        config_entry=entry,
+        suggested_object_id="energy_sensor",
+        unit_of_measurement="kWh",
+        original_device_class=SensorDeviceClass.ENERGY,
+    )
+    hass.states.async_set("sensor.power_sensor", "1", {"device_class": SensorDeviceClass.POWER})
+
+    flow = SolcastSolarOptionFlowHandler(entry)
+    flow.hass = hass
+    user_input = copy.deepcopy(DEFAULT_INPUT2)
+    user_input[GENERATION_ENTITIES] = ["sensor.energy_sensor", "sensor.power_sensor"]
+    user_input[SITE_EXPORT_ENTITY] = []
+    result = await flow.async_step_init(user_input)
+    assert result["errors"]["base"] == EXCEPTION_GENERATION_MIXED_TYPES  # type: ignore[index]
+
+
 def test_target_timestamp_shifts_to_target_day() -> None:
     """_target_timestamp should preserve the UTC time-of-day on the target day."""
     dampening = Dampening.__new__(Dampening)

@@ -8,6 +8,7 @@ import json
 import logging
 from pathlib import Path
 import re
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from freezegun.api import FrozenDateTimeFactory
@@ -17,11 +18,13 @@ from homeassistant.components.recorder import Recorder
 from homeassistant.components.repairs import ConfirmRepairFlow
 from homeassistant.components.solcast_solar.const import (
     AFFIRMATION_RECONFIGURED,
+    AFFIRMATION_UNCHANGED,
     AUTO_UPDATE,
     CONFIG_DISCRETE_NAME,
     CONFIG_FOLDER_DISCRETE,
     DOMAIN,
     ENTRY_ID,
+    EXCEPTION_ENTRY_NOT_FOUND,
     FAILURE,
     FORECASTS,
     GET_ACTUALS,
@@ -103,6 +106,11 @@ async def test_missing_data_fixable(
         flow = await async_create_fix_flow(hass, "not_handled_issue", {})
         assert type(flow) is ConfirmRepairFlow
 
+        flow = await async_create_fix_flow(hass, ISSUE_RECORDS_MISSING_FIXABLE, {ENTRY_ID: "missing"})
+        flow.hass = hass
+        result = await flow.async_step_init()  # type: ignore[attr-defined]
+        assert result["reason"] == EXCEPTION_ENTRY_NOT_FOUND
+
         flow = await async_create_fix_flow(hass, issue.issue_id, {"contiguous": 8, ENTRY_ID: entry.entry_id})
         flow.hass = hass
         flow.issue_id = issue.issue_id
@@ -118,6 +126,12 @@ async def test_missing_data_fixable(
         assert "Auto forecast updates" in caplog.text
         assert result["type"] == FlowResultType.ABORT
         assert result["reason"] == AFFIRMATION_RECONFIGURED
+
+        with patch.object(hass.config_entries, "async_update_entry") as mock_update_entry:
+            result = await flow.async_step_offer_auto({AUTO_UPDATE: "1"})  # type: ignore[attr-defined]
+
+        assert result["reason"] == AFFIRMATION_UNCHANGED
+        mock_update_entry.assert_not_called()
 
     finally:
         await async_cleanup_integration_tests(hass)

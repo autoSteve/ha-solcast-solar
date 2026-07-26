@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime as dt
 from enum import Enum
 import logging
-import traceback
 from typing import Any, Final
 
 from propcache.api import cached_property
@@ -479,8 +478,8 @@ class SolcastSensor(CoordinatorEntity, SensorEntity):
 
         try:
             self._sensor_data = self._coordinator.get_sensor_value(self.entity_description.key)
-        except Exception as e:  # noqa: BLE001
-            _LOGGER.error("Unable to get sensor value: %s: %s", e, traceback.format_exc())
+        except Exception:
+            _LOGGER.exception("Unable to get sensor value")
 
         self._attr_available = self._sensor_data is not None
 
@@ -546,8 +545,8 @@ class SolcastSensor(CoordinatorEntity, SensorEntity):
 
         try:
             self._sensor_data = self._coordinator.get_sensor_value(self.entity_description.key)
-        except Exception as e:  # noqa: BLE001
-            _LOGGER.error("Unable to get sensor value: %s: %s", e, traceback.format_exc())
+        except Exception:
+            _LOGGER.exception("Unable to get sensor value")
             self._sensor_data = None
         finally:
             if self._coordinator.advanced_entity_logging:
@@ -591,8 +590,8 @@ class RooftopSensor(CoordinatorEntity, SensorEntity):
 
         try:
             self._sensor_data = self._coordinator.solcast.query.get_rooftop_site_total_today(self._rooftop_id)
-        except Exception as e:  # noqa: BLE001
-            _LOGGER.error("Unable to get sensor value: %s", e)
+        except Exception:
+            _LOGGER.exception("Unable to get sensor value")
 
         self._attr_available = self._sensor_data is not None
 
@@ -656,8 +655,8 @@ class RooftopSensor(CoordinatorEntity, SensorEntity):
             return
         try:
             self._sensor_data = self._coordinator.solcast.query.get_rooftop_site_total_today(self._rooftop_id)
-        except Exception as e:  # noqa: BLE001
-            _LOGGER.error("Unable to get sensor value: %s: %s", e, traceback.format_exc())
+        except Exception:
+            _LOGGER.exception("Unable to get sensor value")
             self._sensor_data = None
         finally:
             if self._coordinator.advanced_entity_logging:

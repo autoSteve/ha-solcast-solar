@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Vyskytla sa interná chyba",
+      "internal_error": "Vyskytla sa neočakávaná chyba. Ďalšie informácie nájdete v denníkoch.",
       "reauth_successful": "Nový kľúč API bol úspešne použitý",
-      "reconfigured": "Použila sa nová konfigurácia"
+      "reconfigured": "Použila sa nová konfigurácia",
+      "unchanged": "Konfigurácia nezmenená"
     },
     "error": {
+      "api_error": "Chyba API Solcast: {error_detail}",
       "api_duplicate": "Bol zadaný duplicitný kľúč API",
       "api_key_empty": "Kľúč API nesmie byť prázdny",
       "api_looks_like_site": "Kľúč API vyzerá ako ID lokality",
+      "internal_error": "Vyskytla sa neočakávaná chyba. Ďalšie informácie nájdete v denníkoch.",
       "limit_not_number": "Limit API nie je číslo",
       "limit_one_or_greater": "Limit API musí byť jeden alebo väčší",
       "limit_too_many": "Je zadaných viac limitov API ako kľúčov",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "Použila sa nová konfigurácia"
+          "entry_not_found": "Konfiguračný záznam Solcast Solar sa nenašiel.",
+          "reconfigured": "Použila sa nová konfigurácia",
+          "unchanged": "Konfigurácia nezmenená"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Vyskytla sa interná chyba",
-      "reconfigured": "Použila sa nová konfigurácia"
+      "internal_error": "Vyskytla sa neočakávaná chyba. Ďalšie informácie nájdete v denníkoch.",
+      "reconfigured": "Použila sa nová konfigurácia",
+      "unchanged": "Konfigurácia nezmenená"
     },
     "error": {
       "actuals_not_enabled": "Získanie odhadovaných skutočných hodnôt nie je povolené",
       "actuals_without_get": "Odhadované skutočné hodnoty nie je možné použiť bez ich získania",
+      "api_error": "Chyba API Solcast: {error_detail}",
       "api_duplicate": "Bol zadaný duplicitný kľúč API",
       "api_key_empty": "Kľúč API nesmie byť prázdny",
       "api_looks_like_site": "Kľúč API vyzerá ako ID lokality",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "Všetky jednotky na výrobu fotovoltaiky musia byť rovnakého typu (iba energia alebo iba výkon, nie zmiešané)",
       "hard_not_positive_number": "Pevný limit nie je kladné číslo",
       "hard_too_many": "Je zadaných viac tvrdých limitov ako kľúčov",
+      "internal_error": "Vyskytla sa neočakávaná chyba. Ďalšie informácie nájdete v denníkoch.",
       "limit_not_number": "Limit API nie je číslo",
       "limit_one_or_greater": "Limit API musí byť jeden alebo väčší",
       "limit_too_many": "Je zadaných viac limitov API ako kľúčov",

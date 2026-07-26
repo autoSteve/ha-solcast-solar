@@ -1,14 +1,17 @@
 {
   "config": {
     "abort": {
-      "internal_error": "Interne fout opgetreden",
+      "internal_error": "Er is een onverwachte fout opgetreden. Controleer de logboeken voor meer informatie.",
       "reauth_successful": "Nieuwe API-sleutel succesvol toegepast",
-      "reconfigured": "Nieuwe configuratie succesvol toegepast"
+      "reconfigured": "Nieuwe configuratie succesvol toegepast",
+      "unchanged": "Configuratie ongewijzigd"
     },
     "error": {
+      "api_error": "Solcast API-fout: {error_detail}",
       "api_duplicate": "Dubbele API-sleutel opgegeven",
       "api_key_empty": "API-sleutel mag niet leeg zijn",
       "api_looks_like_site": "De API-sleutel lijkt op een site-ID",
+      "internal_error": "Er is een onverwachte fout opgetreden. Controleer de logboeken voor meer informatie.",
       "limit_not_number": "API-limiet is geen getal",
       "limit_one_or_greater": "De API-limiet moet één of hoger zijn",
       "limit_too_many": "Er zijn meer API-limietwaarden ingevoerd dan sleutels",
@@ -336,7 +339,9 @@
     "records_missing_fixable": {
       "fix_flow": {
         "abort": {
-          "reconfigured": "Nieuwe configuratie succesvol toegepast"
+          "entry_not_found": "De Solcast Solar-configuratie is niet gevonden.",
+          "reconfigured": "Nieuwe configuratie succesvol toegepast",
+          "unchanged": "Configuratie ongewijzigd"
         },
         "step": {
           "offer_auto": {
@@ -369,12 +374,14 @@
   },
   "options": {
     "abort": {
-      "internal_error": "Interne fout opgetreden",
-      "reconfigured": "Nieuwe configuratie succesvol toegepast"
+      "internal_error": "Er is een onverwachte fout opgetreden. Controleer de logboeken voor meer informatie.",
+      "reconfigured": "Nieuwe configuratie succesvol toegepast",
+      "unchanged": "Configuratie ongewijzigd"
     },
     "error": {
       "actuals_not_enabled": "Geschatte werkelijke acquisitie is niet ingeschakeld",
       "actuals_without_get": "Geschatte werkelijke cijfers kunnen niet worden gebruikt zonder ze te verkrijgen",
+      "api_error": "Solcast API-fout: {error_detail}",
       "api_duplicate": "Meerdere keer dezelfde API-sleutel opgegeven",
       "api_key_empty": "API-sleutel mag niet leeg zijn",
       "api_looks_like_site": "De API-sleutel lijkt op een site-ID",
@@ -387,6 +394,7 @@
       "generation_mixed_types": "PV-opwekkingsentiteiten moeten allemaal van hetzelfde type zijn (allemaal energie of allemaal vermogen, geen mix)",
       "hard_not_positive_number": "Hard limit is geen positief getal",
       "hard_too_many": "Er zijn meer harde limieten ingevoerd dan API-sleutels",
+      "internal_error": "Er is een onverwachte fout opgetreden. Controleer de logboeken voor meer informatie.",
       "limit_not_number": "API-limiet is geen getal",
       "limit_one_or_greater": "API-limiet moet één of meer zijn",
       "limit_too_many": "Er zijn meer API-limietwaarden ingevoerd dan API-sleutels",
