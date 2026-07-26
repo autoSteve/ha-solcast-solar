@@ -7,7 +7,6 @@ import contextlib
 import copy
 from datetime import datetime as dt, timedelta
 import json
-import logging
 from pathlib import Path
 import re
 from typing import TYPE_CHECKING, Any
@@ -51,7 +50,9 @@ from .migration import clear_cache
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 
 async def async_is_allow_exceed_api_limit(hass: HomeAssistant) -> bool:

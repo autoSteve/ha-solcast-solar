@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime as dt
 from enum import Enum
-import logging
 from typing import Any, Final
 
 from propcache.api import cached_property
@@ -66,9 +65,10 @@ from .const import (
 )
 from .coordinator import SolcastUpdateCoordinator
 from .entity import build_service_device_info
+from .log import get_logger
 from .redact import format_site_key, redact_api_key
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 PARALLEL_UPDATES = 0
 

@@ -4,7 +4,6 @@ import asyncio
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import Enum
-import logging
 from pathlib import Path
 from typing import Any, Final
 
@@ -128,6 +127,7 @@ from .const import (
 )
 from .coordinator import SolcastUpdateCoordinator
 from .enums import AutoUpdate, UsageStatus
+from .log import get_logger
 from .migration import sync_legacy_keys
 from .solcastapi import SolcastApi
 from .updater import Updater
@@ -211,8 +211,7 @@ SERVICE_CUSTOM_HOURS_SCHEMA: Final = vol.All(
     }
 )
 
-
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 _ALL_ACTIONS: Final = [
     SERVICE_CLEAR_DATA,

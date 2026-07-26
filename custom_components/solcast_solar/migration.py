@@ -1,6 +1,5 @@
 """Schema migration, legacy key sync, and cache cleanup helpers."""
 
-import logging
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +21,9 @@ from .const import (
     SUCCESS_TRACKED,
     VERSION,
 )
+from .log import get_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 def sync_legacy_keys(data: dict[str, Any]) -> None:

@@ -53,7 +53,9 @@ from .util import ordinal
 if TYPE_CHECKING:
     from .dampen import Dampening
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 _MODEL_RANGE: Final = range(
     ADVANCED_OPTIONS[ADVANCED_AUTOMATED_DAMPENING_MODEL][MINIMUM],

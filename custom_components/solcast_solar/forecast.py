@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import datetime as dt, timedelta
-import logging
 import math
 import time
 from typing import TYPE_CHECKING, Any
@@ -46,7 +45,9 @@ from .util import azimuth_to_compass_degrees, azimuth_to_compass_direction, diff
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 
 class ForecastQuery:

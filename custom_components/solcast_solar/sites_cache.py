@@ -7,7 +7,6 @@ import contextlib
 import copy
 from datetime import UTC, datetime as dt, timedelta
 import json
-import logging
 from pathlib import Path
 import re
 import shutil
@@ -84,6 +83,7 @@ from .enums import (
     UsageStatus,
 )
 from .issues import check_unusual_azimuth
+from .log import get_logger
 from .migration import SchemaIncompatibleError, clear_cache, upgrade_cache_schema
 from .redact import (
     redact_api_key,
@@ -109,8 +109,7 @@ FRESH_DATA: Final[dict[str, Any]] = {
     VERSION: JSON_VERSION,
 }
 
-
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 class SitesCache:

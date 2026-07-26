@@ -5,7 +5,6 @@ import contextlib
 from dataclasses import dataclass
 from datetime import datetime as dt, timedelta
 import json
-import logging
 from pathlib import Path
 import random
 from typing import Any, Final
@@ -81,6 +80,7 @@ from .const import (
 from .coordinator import SolcastUpdateCoordinator
 from .enums import AutoUpdate, HistoryType, SitesStatus, UsageStatus
 from .issues import sync_actuals_api_limit_issue
+from .log import get_logger
 from .solcastapi import ConnectionOptions, SolcastApi
 from .state import raise_and_record
 
@@ -92,7 +92,7 @@ PLATFORMS: Final = [
     Platform.SENSOR,
 ]
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 @dataclass

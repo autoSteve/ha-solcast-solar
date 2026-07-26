@@ -1751,11 +1751,8 @@ async def test_scenarios(
         no_error_or_exception(caplog)
 
         # Get last auto-update time for a subsequent test
-        last_update = ""
-        for line in caplog.messages:
-            if line.startswith("Previous auto update UTC "):
-                last_update = line[-25:]
-                break
+        assert coordinator.interval_just_passed is not None
+        last_update = coordinator.interval_just_passed.isoformat()
 
         caplog.clear()
         restore_data()

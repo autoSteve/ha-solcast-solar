@@ -1,10 +1,11 @@
 """Solcast utilities."""
 
-import logging
 import math
 from typing import Any
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 
 def split_and_strip(value: str) -> list[str]:

@@ -7,7 +7,6 @@ from collections import OrderedDict, defaultdict
 import copy
 from datetime import UTC, date, datetime as dt, timedelta
 import json
-import logging
 import math
 from operator import itemgetter
 from pathlib import Path
@@ -77,6 +76,7 @@ from .const import (
 from .dampen_adapt import DampeningAdaptive
 from .dates import JSONDecoder, NoIndentEncoder
 from .enums import EnergyResult
+from .log import get_logger
 from .redact import format_site_key
 from .util import diff, interquartile_bounds, percentile
 
@@ -93,7 +93,7 @@ _SUPPRESSION_ENTITY_ON_STATES: Final[tuple[str, ...]] = ("on", "1", "true", "Tru
 _SUPPRESSION_ENTITY_STATES: Final[tuple[str, ...]] = ("on", "off", "1", "0", "true", "false", "True", "False")
 _SITE_EXPORT_INTERVAL_MINUTES: Final[int] = 5
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 try:
     from astral.sun import (
@@ -101,7 +101,9 @@ try:
         elevation as _astral_elevation,  # pyright: ignore[reportAssignmentType, reportAttributeAccessIssue]
     )
 
-    from homeassistant.helpers.sun import get_astral_observer  # pyright: ignore[reportAttributeAccessIssue]
+    from homeassistant.helpers.sun import (
+        get_astral_observer,  # pyright: ignore[reportAttributeAccessIssue]
+    )
 
     _USE_ASTRAL_OBSERVER = True
 except ImportError:  # pragma: no cover

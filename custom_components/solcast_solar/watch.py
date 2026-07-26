@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime as dt
-import logging
 from pathlib import Path
 from threading import Event
 from typing import TYPE_CHECKING, Any
@@ -28,7 +27,9 @@ from .const import (
 if TYPE_CHECKING:
     from .coordinator import SolcastUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 
 class FileWatcher:

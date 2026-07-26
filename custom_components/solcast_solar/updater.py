@@ -46,7 +46,9 @@ from .util import ordinal
 if TYPE_CHECKING:
     from .coordinator import SolcastUpdateCoordinator
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 
 class Updater:
@@ -165,7 +167,6 @@ class Updater:
                             just_passed = self.interval_just_passed.astimezone(self._coordinator.solcast.options.tz).strftime(
                                 DT_TIME_FORMAT
                             )
-                        _LOGGER.debug("Previous auto update UTC %s", self.interval_just_passed.isoformat())
                     _LOGGER.debug("Previous auto update would have been at %s", just_passed)
             return intervals
 

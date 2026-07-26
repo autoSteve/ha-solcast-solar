@@ -1,6 +1,5 @@
 """Repairs for the Solcast Solar integration."""
 
-import logging
 from typing import Any
 
 import voluptuous as vol
@@ -26,8 +25,9 @@ from .const import (
     EXCEPTION_ENTRY_NOT_FOUND,
     LEARN_MORE,
 )
+from .log import get_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 AUTO_UPDATE_OPTIONS: list[SelectOptionDict] = [
     SelectOptionDict(label="sunrise_sunset", value="1"),

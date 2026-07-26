@@ -1,7 +1,6 @@
 """Solcast select platform."""
 
 from enum import IntEnum
-import logging
 from typing import Any
 
 from homeassistant.components.select import SelectEntity, SelectEntityDescription
@@ -13,8 +12,9 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from .const import ESTIMATE_MODE, KEY_ESTIMATE
 from .coordinator import SolcastUpdateCoordinator
 from .entity import build_service_device_info
+from .log import get_logger
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 PARALLEL_UPDATES = 0
 

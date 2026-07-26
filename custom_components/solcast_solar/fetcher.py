@@ -8,7 +8,6 @@ from datetime import UTC, datetime as dt, timedelta
 from enum import Enum
 from hashlib import md5
 import json
-import logging
 import math
 from operator import itemgetter
 import random
@@ -78,7 +77,9 @@ from .state import raise_and_record
 if TYPE_CHECKING:
     from .solcastapi import SolcastApi
 
-_LOGGER = logging.getLogger(__name__)
+from .log import get_logger
+
+_LOGGER = get_logger(__name__)
 
 
 async def async_trigger_automation_by_name(hass: HomeAssistant, name: str) -> bool:

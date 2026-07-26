@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import timezone
-import logging
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -83,6 +82,7 @@ from .const import (
     USE_ACTUALS,
 )
 from .enums import HistoryType, SitesStatus
+from .log import get_logger
 from .migration import sync_legacy_keys
 from .solcastapi import ConnectionOptions, SolcastApi
 from .state import set_sensitive
@@ -93,7 +93,7 @@ from .validators import (
     validate_hard_limit_value,
 )
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 AUTO_UPDATE_OPTIONS: list[SelectOptionDict] = [
     SelectOptionDict(label="none", value="0"),

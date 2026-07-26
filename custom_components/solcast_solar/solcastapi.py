@@ -6,7 +6,6 @@ import contextlib
 import copy
 from dataclasses import dataclass
 from datetime import date, datetime as dt, timedelta, tzinfo
-import logging
 from operator import itemgetter
 from pathlib import Path
 import sys
@@ -90,10 +89,11 @@ from .dates import DateTimeHelper
 from .enums import AutoUpdate, HistoryType, SitesStatus, SolcastApiStatus, UsageStatus
 from .fetcher import Fetcher
 from .forecast import ForecastQuery
+from .log import get_logger
 from .redact import redact_api_key
 from .sites_cache import FRESH_DATA, SitesCache
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 # Status code translation, HTTP and more.
 # A HTTP 418 error is included here for fun. This was introduced in RFC2324#section-2.3.2 as an April Fools joke in 1998.

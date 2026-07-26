@@ -2,7 +2,6 @@
 
 from collections.abc import Mapping
 from datetime import datetime as dt
-import logging
 from typing import Any
 
 from homeassistant.const import CONF_API_KEY
@@ -32,9 +31,10 @@ from .const import (
     SUGGESTED_VALUE,
 )
 from .enums import AutoUpdate
+from .log import get_logger
 from .util import split_and_strip
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 
 def check_unusual_azimuth(latitude: float, azimuth: float) -> tuple[bool, str, int]:

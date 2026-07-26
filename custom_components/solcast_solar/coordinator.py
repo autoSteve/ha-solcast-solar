@@ -1,7 +1,6 @@
 """Solcast update coordinator."""
 
 from datetime import datetime as dt, timedelta
-import logging
 from operator import itemgetter
 from typing import Any
 
@@ -73,11 +72,12 @@ from .const import (
     VALUE,
 )
 from .enums import AutoUpdate
+from .log import get_logger
 from .solcastapi import SolcastApi
 from .updater import Updater
 from .watch import FileWatcher
 
-_LOGGER = logging.getLogger(__name__)
+_LOGGER = get_logger(__name__)
 
 NO_ATTRIBUTES = [ENTITY_API_COUNTER, ENTITY_API_LIMIT, ENTITY_DAMPEN, ENTITY_ACCURACY, ENTITY_LAST_UPDATED_OLD]
 
