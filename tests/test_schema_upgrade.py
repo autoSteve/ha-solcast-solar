@@ -6,6 +6,7 @@ import pytest
 
 from homeassistant.components.solcast_solar.const import (
     AUTO_UPDATED,
+    ESTIMATE,
     FAILURE,
     FORECASTS,
     INTEGRATION_VERSION,
@@ -15,16 +16,17 @@ from homeassistant.components.solcast_solar.const import (
     LAST_24H,
     LAST_ATTEMPT,
     LAST_UPDATED,
+    PERIOD_START,
     SITE_INFO,
     VERSION,
 )
-from homeassistant.components.solcast_solar.util import (
+from homeassistant.components.solcast_solar.migration import (
     SchemaIncompatibleError,
     upgrade_cache_schema,
 )
 
 SITE_ID = "3333-3333-3333-3333"
-SAMPLE_FORECASTS: list = [{"period_start": "2025-01-01T00:00:00", "pv_estimate": 1.0}]
+SAMPLE_FORECASTS: list = [{PERIOD_START: "2025-01-01T00:00:00", ESTIMATE: 1.0}]
 LAST_UPDATED_VALUE = "2025-01-01T00:00:00+00:00"
 
 # Base data resembling a current v9 cache file.

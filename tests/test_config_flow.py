@@ -1,6 +1,6 @@
 """Test the Solcast Solar config flow."""
 
-import asyncio
+import contextlib
 import copy
 import json
 import logging
@@ -14,19 +14,21 @@ import pytest
 
 from homeassistant import config_entries
 from homeassistant.components.recorder import Recorder
+from homeassistant.components.sensor import SensorDeviceClass
 import homeassistant.components.solcast_solar as solcast_module
+from homeassistant.components.solcast_solar import state
 
 # As a core component, these imports would be homeassistant.components.solcast_solar and not config.custom_components.solcast_solar
 from homeassistant.components.solcast_solar.config_flow import (
+    ATTR_BREAKDOWN,
     CONFIG_DAMP,
     SolcastSolarFlowHandler,
     SolcastSolarOptionFlowHandler,
-    _async_is_allow_exceed_api_limit,
 )
 from homeassistant.components.solcast_solar.const import (
-    ADVANCED_ALLOW_EXCEED_API_LIMIT_MAXIMUM,
-    ADVANCED_INVALID_JSON_TASK,
-    ADVANCED_OPTION,
+    AFFIRMATION_REAUTH_SUCCESSFUL,
+    AFFIRMATION_RECONFIGURED,
+    AFFIRMATION_UNCHANGED,
     API_LIMIT,
     AUTO_DAMPEN,
     AUTO_UPDATE,
@@ -41,30 +43,48 @@ from homeassistant.components.solcast_solar.const import (
     CONFIG_FOLDER_DISCRETE,
     CONFIG_VERSION,
     CUSTOM_HOURS,
+    DAILY_LIMIT,
+    DAILY_LIMIT_CONSUMED,
     DOMAIN,
+    EXCEPTION_ACTUALS_WITHOUT_GET,
+    EXCEPTION_API_DUPLICATE,
+    EXCEPTION_API_ERROR,
+    EXCEPTION_API_LOOKS_LIKE_SITE,
+    EXCEPTION_CUSTOM_INVALID,
+    EXCEPTION_DAMPEN_WITHOUT_ACTUALS,
+    EXCEPTION_DAMPEN_WITHOUT_GENERATION,
+    EXCEPTION_EXPORT_MULTIPLE_ENTITIES,
+    EXCEPTION_EXPORT_NO_ENTITY,
+    EXCEPTION_EXPORT_NO_LIMIT,
+    EXCEPTION_HARD_NOT_POSITIVE_NUMBER,
+    EXCEPTION_HARD_TOO_MANY,
+    EXCEPTION_INTERNAL_ERROR,
+    EXCEPTION_LIMIT_EXCEEDS_MAXIMUM,
+    EXCEPTION_LIMIT_NOT_NUMBER,
+    EXCEPTION_LIMIT_ONE_OR_GREATER,
+    EXCEPTION_LIMIT_TOO_MANY,
     EXCLUDE_SITES,
     GENERATION_ENTITIES,
     GET_ACTUALS,
     HARD_LIMIT,
     HARD_LIMIT_API,
-    ISSUE_ADVANCED_DEPRECATED,
-    ISSUE_ADVANCED_PROBLEM,
     KEY_ESTIMATE,
-    PRESUMED_DEAD,
+    RESET,
     SITE_DAMP,
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
-    TASK_WATCHDOG_ADVANCED_FILE_CHANGE,
+    SUGGESTED_VALUE,
     TITLE,
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
+from homeassistant.components.solcast_solar.enums import HistoryType
 from homeassistant.components.solcast_solar.solcastapi import SitesStatus, SolcastApi
-from homeassistant.components.solcast_solar.util import HistoryType
+from homeassistant.config_entries import ConfigEntryState, ConfigFlowResult
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.helpers import entity_registry as er, issue_registry as ir
+from homeassistant.helpers import entity_registry as er
 
 from . import (
     DEFAULT_INPUT1,
@@ -80,14 +100,64 @@ from . import (
     async_cleanup_integration_tests,
     async_init_integration,
     async_setup_aioresponses,
+    get_state,
     session_clear,
     session_set,
+    set_presumed_dead,
     simulator,
 )
 
 from tests.common import MockConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+# Keep config flow tests on one xdist worker to reduce scheduling variance
+# and shared-state side effects across workers.
+pytestmark = pytest.mark.xdist_group("solcast_config_flow")
+
+
+def _attr_breakdown_input(data: dict[str, Any]) -> list[str]:
+    """Build options-flow attr_breakdown multiselect payload."""
+
+    return [
+        key
+        for key in (
+            BRK_ESTIMATE10,
+            BRK_ESTIMATE,
+            BRK_ESTIMATE90,
+            BRK_SITE,
+            BRK_HALFHOURLY,
+            BRK_HOURLY,
+            BRK_SITE_DETAILED,
+        )
+        if data.get(key, False)
+    ]
+
+
+def _schema_suggested_values(result: ConfigFlowResult) -> dict[str, Any]:
+    """Return suggested values from a flow form schema."""
+
+    data_schema = result.get("data_schema")
+    assert data_schema is not None
+    return {
+        marker.schema: marker.description[SUGGESTED_VALUE]
+        for marker in data_schema.schema
+        if marker.description and SUGGESTED_VALUE in marker.description
+    }
+
+
+def _assert_flow_error(result: ConfigFlowResult, reason: str) -> None:
+    """Assert a local validation key or translated API error detail."""
+
+    errors = result.get("errors")
+    assert errors is not None
+    if errors["base"] == EXCEPTION_API_ERROR:
+        description_placeholders = result.get("description_placeholders")
+        assert description_placeholders is not None
+        assert reason in description_placeholders["error_detail"]
+    else:
+        assert errors["base"] == reason
+
 
 API_KEY1 = "65sa6d46-sadf876_sd54"
 API_KEY2 = "65sa6946-glad876_pf69"
@@ -102,76 +172,68 @@ MOCK_ENTRY1 = MockConfigEntry(domain=DOMAIN, data={}, options=DEFAULT_INPUT1_COP
 MOCK_ENTRY2 = MockConfigEntry(domain=DOMAIN, data={}, options=DEFAULT_INPUT2_COPY)
 
 TEST_API_KEY: list[tuple[Any, Any]] = [
-    ({CONF_API_KEY: "1234-5678-8765-4321", API_LIMIT: "10", AUTO_UPDATE: "1"}, "api_looks_like_site"),
-    ({CONF_API_KEY: KEY1 + "," + KEY1, API_LIMIT: "10", AUTO_UPDATE: "1"}, "api_duplicate"),
+    ({CONF_API_KEY: "1234-5678-8765-4321", API_LIMIT: "10", AUTO_UPDATE: "1"}, EXCEPTION_API_LOOKS_LIKE_SITE),
+    ({CONF_API_KEY: KEY1 + "," + KEY1, API_LIMIT: "10", AUTO_UPDATE: "1"}, EXCEPTION_API_DUPLICATE),
     ({CONF_API_KEY: KEY1, API_LIMIT: "10", AUTO_UPDATE: "0"}, None),
     ({CONF_API_KEY: KEY1, API_LIMIT: "10", AUTO_UPDATE: "1"}, None),
     ({CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10", AUTO_UPDATE: "2"}, None),
-    ({CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "0", AUTO_UPDATE: "2"}, "limit_one_or_greater"),
+    ({CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "0", AUTO_UPDATE: "2"}, EXCEPTION_LIMIT_ONE_OR_GREATER),
 ]
 
 TEST_REAUTH_API_KEY: list[tuple[Any, Any]] = [
-    ({CONF_API_KEY: "1234-5678-8765-4321"}, "api_looks_like_site"),
-    ({CONF_API_KEY: KEY1 + "," + KEY1}, "api_duplicate"),
-    ({CONF_API_KEY: "555"}, "Bad API key, 403/Forbidden"),
+    ({CONF_API_KEY: "1234-5678-8765-4321"}, EXCEPTION_API_LOOKS_LIKE_SITE),
+    ({CONF_API_KEY: KEY1 + "," + KEY1}, EXCEPTION_API_DUPLICATE),
+    ({CONF_API_KEY: " 555 "}, "Bad API key, 403/Forbidden"),
     ({CONF_API_KEY: KEY1 + "," + KEY2}, None),
 ]
 
-TEST_KEY_CHANGES: list[tuple[Any, Any, str | None, list[str]]] = [
+TEST_KEY_CHANGES: list[tuple[Any, Any, str | None]] = [
     (
         None,
-        {CONF_API_KEY: "555", API_LIMIT: "10", AUTO_UPDATE: "1"},
+        {CONF_API_KEY: " 555 ", API_LIMIT: "10", AUTO_UPDATE: "1"},
         "Bad API key, 403/Forbidden",
-        ["component.solcast_solar.config.error.Bad API key, 403/Forbidden returned for ******555"],
     ),
     (
         None,
         {CONF_API_KEY: "no_sites", API_LIMIT: "10", AUTO_UPDATE: "1"},
         "No sites for the API key",
-        ["component.solcast_solar.config.error.No sites for the API key ******_sites are configured at solcast.com"],
     ),
     (
         MOCK_BUSY,
-        {CONF_API_KEY: "1", API_LIMIT: "10", AUTO_UPDATE: "1"},
+        {CONF_API_KEY: "2", API_LIMIT: "10", AUTO_UPDATE: "1"},
         "Error 429/Try again later for API key",
-        ["component.solcast_solar.config.error.Error 429/Try again later for API key ******1"],
     ),
     (
         MOCK_EXCEPTION,
         {CONF_API_KEY: "2", API_LIMIT: "10", AUTO_UPDATE: "1"},
         None,
-        [],
     ),
     (
         None,
         {CONF_API_KEY: "1", API_LIMIT: "10", AUTO_UPDATE: "1"},
         None,
-        [],
+    ),
+    (
+        None,
+        {CONF_API_KEY: "2", API_LIMIT: "10", AUTO_UPDATE: "1"},
+        None,
     ),
 ]
 
 TEST_API_LIMIT: list[tuple[dict[Any, Any], dict[Any, Any], str | None]] = [
-    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "invalid", AUTO_UPDATE: "1"}, "limit_not_number"),
-    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "0", AUTO_UPDATE: "1"}, "limit_one_or_greater"),
-    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "51", AUTO_UPDATE: "1"}, "limit_exceeds_maximum"),
-    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "10,10", AUTO_UPDATE: "1"}, "limit_too_many"),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "invalid", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_NOT_NUMBER),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "\u00b2", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_NOT_NUMBER),  # Unicode superscript 2
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_ONE_OR_GREATER),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: " ", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_ONE_OR_GREATER),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: ",", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_ONE_OR_GREATER),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "0", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_ONE_OR_GREATER),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "51", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_EXCEEDS_MAXIMUM),
+    (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "10,10", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_TOO_MANY),
     (DEFAULT_INPUT1, {CONF_API_KEY: KEY1, API_LIMIT: "10", AUTO_UPDATE: "1"}, None),
     (DEFAULT_INPUT2, {CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10,10", AUTO_UPDATE: "1"}, None),
-    (DEFAULT_INPUT2, {CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10,10,10", AUTO_UPDATE: "1"}, "limit_too_many"),
+    (DEFAULT_INPUT2, {CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10,10,10", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_TOO_MANY),
     (DEFAULT_INPUT2, {CONF_API_KEY: KEY1 + "," + KEY2, API_LIMIT: "10", AUTO_UPDATE: "1"}, None),
 ]
-
-
-async def test_single_instance(
-    recorder_mock: Recorder,
-    hass: HomeAssistant,
-) -> None:
-    """Test allow a single config only."""
-    MockConfigEntry(domain=DOMAIN).add_to_hass(hass)
-
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result.get("type") is FlowResultType.ABORT
-    assert result.get("reason") == "single_instance_allowed"
 
 
 async def test_create_entry(hass: HomeAssistant) -> None:
@@ -221,6 +283,7 @@ async def test_init_api_key(hass: HomeAssistant, user_input: dict[str, Any], rea
     result = await flow.async_step_user(user_input)
     if reason is not None:
         assert result["errors"]["base"] == reason  # type: ignore[index]
+        assert _schema_suggested_values(result) == user_input
 
 
 async def test_config_api_key_invalid(hass: HomeAssistant) -> None:
@@ -231,15 +294,21 @@ async def test_config_api_key_invalid(hass: HomeAssistant) -> None:
     flow = SolcastSolarFlowHandler()
     flow.hass = hass
 
-    result = await flow.async_step_user({CONF_API_KEY: "555", API_LIMIT: "10", AUTO_UPDATE: "1"})
-    assert "Bad API key, 403/Forbidden" in result["errors"]["base"]  # type: ignore[index]
+    user_input = {CONF_API_KEY: " 555 ", API_LIMIT: "10", AUTO_UPDATE: "1"}
+    result = await flow.async_step_user(user_input)
+    _assert_flow_error(result, "Bad API key, 403/Forbidden")
+    assert _schema_suggested_values(result) == user_input
 
-    result = await flow.async_step_user({CONF_API_KEY: "no_sites", API_LIMIT: "10", AUTO_UPDATE: "1"})
-    assert "No sites for the API key" in result["errors"]["base"]  # type: ignore[index]
+    user_input = {CONF_API_KEY: "no_sites", API_LIMIT: "10", AUTO_UPDATE: "1"}
+    result = await flow.async_step_user(user_input)
+    _assert_flow_error(result, "No sites for the API key")
+    assert _schema_suggested_values(result) == user_input
 
     session_set(MOCK_BUSY)
-    result = await flow.async_step_user({CONF_API_KEY: "1", API_LIMIT: "10", AUTO_UPDATE: "1"})
-    assert "Error 429/Try again later for API key" in result["errors"]["base"]  # type: ignore[index]
+    user_input = {CONF_API_KEY: "1", API_LIMIT: "10", AUTO_UPDATE: "1"}
+    result = await flow.async_step_user(user_input)
+    _assert_flow_error(result, "Error 429/Try again later for API key")
+    assert _schema_suggested_values(result) == user_input
     session_clear(MOCK_BUSY)
 
 
@@ -256,12 +325,9 @@ async def test_config_api_quota(hass: HomeAssistant, options: dict[str, Any], us
     result = await flow.async_step_user(user_input)
     if reason is not None:
         assert result["errors"]["base"] == reason  # type: ignore[index]
+        assert _schema_suggested_values(result) == user_input
 
 
-@pytest.mark.parametrize(
-    "ignore_missing_translations",
-    ["component.solcast_solar.config.error.Bad API key, 403/Forbidden returned for ******555"],
-)
 async def test_reauth_api_key(
     recorder_mock: Recorder,
     hass: HomeAssistant,
@@ -272,12 +338,14 @@ async def test_reauth_api_key(
 
     Not parameterised for performance reasons and to maintain caches between tests.
     """
+    entry = None
+    api_key_sites_backup = copy.deepcopy(simulator.API_KEY_SITES)
     try:
         USER_INPUT = 0
         REASON = 1
 
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
-        assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
         for test in TEST_REAUTH_API_KEY:
             result = await entry.start_reauth_flow(hass)
@@ -288,8 +356,9 @@ async def test_reauth_api_key(
                 user_input=test[USER_INPUT],
             )
             await hass.async_block_till_done()
-            if result.get("reason") != "reauth_successful":
-                assert test[REASON] in result["errors"]["base"]  # type: ignore[index]
+            if result.get("reason") != AFFIRMATION_REAUTH_SUCCESSFUL:
+                _assert_flow_error(result, test[REASON])
+                assert _schema_suggested_values(result) == test[USER_INPUT]
 
         await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
@@ -303,7 +372,7 @@ async def test_reauth_api_key(
             user_input={CONF_API_KEY: "4" + "," + KEY2},
         )
         await hass.async_block_till_done()
-        assert result.get("reason") == "reauth_successful"
+        assert result.get("reason") == AFFIRMATION_REAUTH_SUCCESSFUL
         assert "An API key has changed, resetting usage" not in caplog.text  # Existing key change, so not seen
         assert "API key ******4 has changed" in caplog.text
         assert "Using extant cache data for API key ******4" in caplog.text
@@ -342,9 +411,41 @@ async def test_reauth_api_key(
         assert "Loading presumed dead integration" in caplog.text
 
     finally:
-        if simulator.API_KEY_SITES.get("4"):
-            simulator.API_KEY_SITES["1"] = simulator.API_KEY_SITES.pop("4")  # Restore the key
+        simulator.API_KEY_SITES.clear()
+        simulator.API_KEY_SITES.update(api_key_sites_backup)
+        session_clear(MOCK_FORBIDDEN)
+        if entry is not None:
+            with contextlib.suppress(Exception):
+                await hass.config_entries.async_unload(entry.entry_id)
+            await hass.async_block_till_done()
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
+
+
+@pytest.mark.usefixtures("recorder_mock")
+async def test_reauth_unchanged_key_retries_setup_without_key_change(hass: HomeAssistant) -> None:
+    """Test reauth retries setup without treating an unchanged key as new."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={"legacy": "value"}, options=copy.deepcopy(DEFAULT_INPUT1), title=TITLE)
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+
+    with (
+        patch("homeassistant.components.solcast_solar.config_flow.validate_sites", return_value=(200, "")) as mock_validate_sites,
+        patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive,
+        patch.object(SolcastSolarFlowHandler, "_mark_reset_old_key") as mock_mark_reset_old_key,
+        patch.object(hass.config_entries, "async_update_entry") as mock_update_entry,
+        patch.object(hass.config_entries, "async_schedule_reload") as mock_schedule_reload,
+    ):
+        result = await hass.config_entries.flow.async_configure(  # pyright: ignore[reportUnknownMemberType]
+            result["flow_id"], user_input={CONF_API_KEY: KEY1}
+        )
+
+    assert result.get("reason") == AFFIRMATION_UNCHANGED
+    mock_validate_sites.assert_awaited_once()
+    mock_set_sensitive.assert_not_awaited()
+    mock_mark_reset_old_key.assert_not_called()
+    mock_update_entry.assert_not_called()
+    mock_schedule_reload.assert_called_once_with(entry.entry_id)
 
 
 async def test_reconfigure_api_key1(
@@ -362,7 +463,7 @@ async def test_reconfigure_api_key1(
         REASON = 1
 
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
-        assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
         for test in TEST_API_KEY:
             result = await hass.config_entries.flow.async_init(
@@ -370,7 +471,6 @@ async def test_reconfigure_api_key1(
                 context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
                 data=entry.data,
             )
-            # await hass.async_block_till_done()
             assert result.get("type") is FlowResultType.FORM
             assert result.get("step_id") == "reconfigure_confirm"
             result = await hass.config_entries.flow.async_configure(  # pyright: ignore[reportUnknownMemberType]
@@ -378,14 +478,15 @@ async def test_reconfigure_api_key1(
                 user_input=test[USER_INPUT],
             )
             await hass.async_block_till_done()
-            if result.get("reason") != "reconfigured":
+            if result.get("reason") != AFFIRMATION_RECONFIGURED:
                 assert result["errors"]["base"] == test[REASON]  # type: ignore[index]
+                assert _schema_suggested_values(result) == test[USER_INPUT]
 
         await hass.config_entries.async_unload(entry.entry_id)
         await hass.async_block_till_done()
 
         # Test start after reconfigure when presumed dead...
-        hass.data[DOMAIN][PRESUMED_DEAD] = True
+        await set_presumed_dead(hass, entry, True)
         simulator.API_KEY_SITES["4"] = simulator.API_KEY_SITES.pop("1")  # Change the key
         result = await hass.config_entries.flow.async_init(
             DOMAIN, context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id}, data=entry.data
@@ -403,7 +504,52 @@ async def test_reconfigure_api_key1(
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
 
-@pytest.mark.parametrize(("set", "options", "to_assert", "ignore_missing_translations"), TEST_KEY_CHANGES)
+@pytest.mark.usefixtures("recorder_mock")
+async def test_reconfigure_errors_then_unchanged_does_not_update(hass: HomeAssistant) -> None:
+    """Test unchanged reconfigure values are a no-op after validation errors."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={"legacy": "value"}, options=copy.deepcopy(DEFAULT_INPUT1), title=TITLE)
+    entry.add_to_hass(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+        data=entry.data,
+    )
+
+    for user_input, reason in (
+        ({CONF_API_KEY: f"{KEY1},{KEY1}", API_LIMIT: "10", AUTO_UPDATE: "1"}, EXCEPTION_API_DUPLICATE),
+        ({CONF_API_KEY: KEY1, API_LIMIT: "invalid", AUTO_UPDATE: "1"}, EXCEPTION_LIMIT_NOT_NUMBER),
+    ):
+        result = await hass.config_entries.flow.async_configure(  # pyright: ignore[reportUnknownMemberType]
+            result["flow_id"], user_input=user_input
+        )
+        assert result["errors"]["base"] == reason  # type: ignore[index]
+
+    with (
+        patch("homeassistant.components.solcast_solar.config_flow.validate_sites") as mock_validate_sites,
+        patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive,
+        patch.object(SolcastSolarFlowHandler, "_mark_reset_old_key") as mock_mark_reset_old_key,
+        patch.object(hass.config_entries, "async_update_entry") as mock_update_entry,
+        patch.object(hass.config_entries, "async_schedule_reload") as mock_schedule_reload,
+    ):
+        result = await hass.config_entries.flow.async_configure(  # pyright: ignore[reportUnknownMemberType]
+            result["flow_id"],
+            user_input={
+                CONF_API_KEY: entry.options[CONF_API_KEY],
+                API_LIMIT: entry.options[API_LIMIT],
+                AUTO_UPDATE: str(entry.options[AUTO_UPDATE]),
+            },
+        )
+
+    assert result.get("reason") == AFFIRMATION_UNCHANGED
+    mock_validate_sites.assert_not_awaited()
+    mock_set_sensitive.assert_not_awaited()
+    mock_mark_reset_old_key.assert_not_called()
+    mock_update_entry.assert_not_called()
+    mock_schedule_reload.assert_not_called()
+
+
+@pytest.mark.parametrize(("set", "options", "to_assert"), TEST_KEY_CHANGES)
 async def test_reconfigure_api_key2(
     recorder_mock: Recorder,
     hass: HomeAssistant,
@@ -416,8 +562,9 @@ async def test_reconfigure_api_key2(
     """Test that valid/invalid API key is handled in reconfigure."""
 
     try:
+        caplog.clear()
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
-        assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
         if set == MOCK_EXCEPTION:
             await async_cleanup_integration_caches(hass)
@@ -439,17 +586,18 @@ async def test_reconfigure_api_key2(
                 re.compile(r"https://api\.solcastxxxx\.com\.au/rooftop_sites\?.*api_key=.*$"),
             )
         await hass.async_block_till_done()
+        if set is None and options[CONF_API_KEY] == "2":
+            assert "Sensitive startup" in caplog.text
 
         if set:
             session_clear(set)
         if set == MOCK_EXCEPTION:
             assert "Error retrieving sites" in caplog.text
-            assert "Attempting to continue" in caplog.text
-            assert "Sites loaded" in caplog.text
         if to_assert:
-            assert to_assert in result["errors"]["base"]  # type: ignore[index]
+            _assert_flow_error(result, to_assert)
+            assert _schema_suggested_values(result) == options
         else:
-            assert result.get("reason") == "reconfigured"
+            assert result.get("reason") == AFFIRMATION_RECONFIGURED
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
@@ -472,7 +620,8 @@ async def test_reconfigure_api_quota(
         _input = None
         for test in TEST_API_LIMIT:
             entry = await async_init_integration(hass, test[OPTIONS])  # type: ignore[arg-type]
-            assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+            state_store = await state.async_get(hass, entry.entry_id)
+            assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
             if _input is None or test[OPTIONS] != _input:
                 _input = copy.deepcopy(test[OPTIONS])
             result = await hass.config_entries.flow.async_init(
@@ -488,8 +637,11 @@ async def test_reconfigure_api_quota(
                 user_input=test[USER_INPUT],  # type: ignore[arg-type]
             )
             await hass.async_block_till_done()
+            if test[USER_INPUT][CONF_API_KEY] == KEY1:
+                assert not state_store.state.sensitive
             if test[REASON]:
                 assert result["errors"]["base"] == test[REASON]  # type: ignore[index]
+                assert _schema_suggested_values(result) == test[USER_INPUT]
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
@@ -505,9 +657,12 @@ async def test_options_api_key(hass: HomeAssistant, user_input: dict[str, Any], 
     result = await flow.async_step_init()
     assert result.get("type") == FlowResultType.FORM
     assert result.get("step_id") == "init"
-    result = await flow.async_step_init(user_input)
+    with patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive:
+        result = await flow.async_step_init(user_input)
     if reason is not None:
         assert result["errors"]["base"] == reason  # type: ignore[index]
+        assert _schema_suggested_values(result)[CONF_API_KEY] == user_input[CONF_API_KEY]  # type: ignore[arg-type]
+        mock_set_sensitive.assert_not_awaited()
 
 
 async def test_options_api_key_invalid(hass: HomeAssistant) -> None:
@@ -521,18 +676,160 @@ async def test_options_api_key_invalid(hass: HomeAssistant) -> None:
     options = DEFAULT_INPUT1.copy()
     options[SITE_EXPORT_ENTITY] = [options[SITE_EXPORT_ENTITY]]
 
-    inject = {CONF_API_KEY: "555"}
-    result = await flow.async_step_init({**options, **inject})
-    assert "Bad API key, 403/Forbidden" in result["errors"]["base"]  # type: ignore[index]
+    with patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive:
+        inject = {CONF_API_KEY: "555"}
+        result = await flow.async_step_init({**options, **inject})
+        _assert_flow_error(result, "Bad API key, 403/Forbidden")
+        assert _schema_suggested_values(result)[CONF_API_KEY] == inject[CONF_API_KEY]  # type: ignore[arg-type]
 
-    inject = {CONF_API_KEY: "no_sites"}
-    result = await flow.async_step_init({**options, **inject})
-    assert "No sites for the API key" in result["errors"]["base"]  # type: ignore[index]
+        inject = {CONF_API_KEY: "no_sites"}
+        result = await flow.async_step_init({**options, **inject})
+        _assert_flow_error(result, "No sites for the API key")
+        assert _schema_suggested_values(result)[CONF_API_KEY] == inject[CONF_API_KEY]  # type: ignore[arg-type]
 
-    session_set(MOCK_BUSY)
-    result = await flow.async_step_init(options)
-    assert "Error 429/Try again later for API key" in result["errors"]["base"]  # type: ignore[index]
-    session_clear(MOCK_BUSY)
+        session_set(MOCK_BUSY)
+        result = await flow.async_step_init(options)
+        _assert_flow_error(result, "Error 429/Try again later for API key")
+        assert _schema_suggested_values(result)[CONF_API_KEY] == options[CONF_API_KEY]  # type: ignore[arg-type]
+        session_clear(MOCK_BUSY)
+
+        mock_set_sensitive.assert_not_awaited()
+
+
+async def test_options_api_key_change_sets_sensitive(hass: HomeAssistant) -> None:
+    """Test that a valid API key change marks the integration sensitive."""
+
+    flow = SolcastSolarOptionFlowHandler(MOCK_ENTRY1)
+    flow.hass = hass
+
+    options = copy.deepcopy(DEFAULT_INPUT1)
+    options[SITE_EXPORT_ENTITY] = []
+
+    with (
+        patch("homeassistant.components.solcast_solar.config_flow.validate_sites", return_value=(200, "")),
+        patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive,
+    ):
+        await flow.async_step_init(options)
+
+    mock_set_sensitive.assert_awaited_once_with(hass, MOCK_ENTRY1)
+
+
+async def test_options_api_key_change_defers_sensitive_until_dampen_commit(hass: HomeAssistant) -> None:
+    """Test a key change is not sensitive until the dampening step commits."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options=copy.deepcopy(DEFAULT_INPUT1), title=TITLE)
+    flow = SolcastSolarOptionFlowHandler(entry)
+    flow.hass = hass
+    options = copy.deepcopy(DEFAULT_INPUT1)
+    options[CONF_API_KEY] = KEY2
+    options[CONFIG_DAMP] = True
+    options[SITE_EXPORT_ENTITY] = []
+
+    with (
+        patch("homeassistant.components.solcast_solar.config_flow.validate_sites", return_value=(200, "")),
+        patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive,
+        patch.object(hass.config_entries, "async_update_entry") as mock_update_entry,
+        patch.object(flow, "check_dead") as mock_check_dead,
+    ):
+        result = await flow.async_step_init(options)
+        assert result.get("step_id") == "dampen"
+        mock_set_sensitive.assert_not_awaited()
+        mock_update_entry.assert_not_called()
+
+        result = await flow.async_step_dampen({f"damp{factor:02d}": 0.8 for factor in range(24)})
+
+    assert result.get("reason") == AFFIRMATION_RECONFIGURED
+    mock_set_sensitive.assert_awaited_once_with(hass, entry)
+    mock_update_entry.assert_called_once()
+    mock_check_dead.assert_awaited_once()
+
+
+async def test_options_unexpected_exception_is_translated(hass: HomeAssistant, caplog: pytest.LogCaptureFixture) -> None:
+    """Test unexpected option validation errors use a stable translation key."""
+
+    flow = SolcastSolarOptionFlowHandler(MOCK_ENTRY1)
+    flow.hass = hass
+
+    with patch("homeassistant.components.solcast_solar.config_flow.validate_api_key", side_effect=RuntimeError("secret detail")):
+        result = await flow.async_step_init(copy.deepcopy(DEFAULT_INPUT1))
+
+    errors = result.get("errors")
+    assert errors is not None
+    assert errors["base"] == EXCEPTION_INTERNAL_ERROR
+    assert "secret detail" not in errors["base"]
+    assert "Unexpected exception while validating options" in caplog.text
+    assert "Traceback (most recent call last)" in caplog.text
+    assert "RuntimeError: secret detail" in caplog.text
+
+
+async def test_sensor_options_use_original_registry_device_class(hass: HomeAssistant) -> None:
+    """Test registry-only sensors use their integration device class."""
+
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options=copy.deepcopy(DEFAULT_INPUT1))
+    entity_registry = er.async_get(hass)
+    energy_entry = entity_registry.async_get_or_create(
+        "sensor", "pytest", "registry_energy", original_device_class=SensorDeviceClass.ENERGY
+    )
+    power_entry = entity_registry.async_get_or_create("sensor", "pytest", "registry_power", original_device_class=SensorDeviceClass.POWER)
+    flow = SolcastSolarOptionFlowHandler(entry)
+    flow.hass = hass
+
+    sensors, energy_sensors = flow._build_sensor_options()
+
+    assert {option["value"] for option in sensors} >= {energy_entry.entity_id, power_entry.entity_id}
+    assert {option["value"] for option in energy_sensors} >= {energy_entry.entity_id}
+    assert power_entry.entity_id not in {option["value"] for option in energy_sensors}
+
+
+async def test_options_form_configured_defaults(hass: HomeAssistant) -> None:
+    """Test configured export and auto-dampening options form defaults."""
+
+    entry_options = copy.deepcopy(DEFAULT_INPUT1)
+    entry_options[AUTO_DAMPEN] = True
+    entry_options[SITE_EXPORT_ENTITY] = "sensor.grid_export"
+    entry_options[SITE_EXPORT_LIMIT] = 5.0
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options=entry_options)
+    flow = SolcastSolarOptionFlowHandler(entry)
+    flow.hass = hass
+
+    result = await flow.async_step_init()
+    schema = result["data_schema"].schema  # type: ignore[union-attr]
+    export_entity_marker = next(marker for marker in schema if marker == SITE_EXPORT_ENTITY)
+
+    assert export_entity_marker.default() == ["sensor.grid_export"]
+    assert CONFIG_DAMP not in schema
+
+
+async def test_options_duplicate_api_key_then_unchanged_does_not_update(hass: HomeAssistant) -> None:
+    """Test restoring unchanged API keys after a duplicate error is a no-op."""
+
+    entry_options = copy.deepcopy(DEFAULT_INPUT2)
+    entry_options[HARD_LIMIT_API] = "12.0,6.0"
+    entry = MockConfigEntry(domain=DOMAIN, data={}, options=entry_options, title=TITLE)
+    flow = SolcastSolarOptionFlowHandler(entry)
+    flow.hass = hass
+    user_input = copy.deepcopy(entry_options)
+    user_input[SITE_EXPORT_ENTITY] = []
+
+    duplicate_input = {**user_input, CONF_API_KEY: f"{KEY1},{KEY1}"}
+    result = await flow.async_step_init(duplicate_input)
+    assert result["errors"]["base"] == EXCEPTION_API_DUPLICATE  # type: ignore[index]
+    suggested_values = _schema_suggested_values(result)  # type: ignore[arg-type]
+    assert suggested_values == {key: value for key, value in duplicate_input.items() if key in suggested_values}
+
+    with (
+        patch("homeassistant.components.solcast_solar.config_flow.validate_sites") as mock_validate_sites,
+        patch("homeassistant.components.solcast_solar.config_flow.set_sensitive") as mock_set_sensitive,
+        patch.object(hass.config_entries, "async_update_entry") as mock_update_entry,
+        patch.object(flow, "check_dead") as mock_check_dead,
+    ):
+        result = await flow.async_step_init(user_input)
+
+    assert result.get("reason") == AFFIRMATION_UNCHANGED
+    mock_validate_sites.assert_not_awaited()
+    mock_set_sensitive.assert_not_awaited()
+    mock_update_entry.assert_not_called()
+    mock_check_dead.assert_not_awaited()
 
 
 @pytest.mark.parametrize(("options", "user_input", "reason"), TEST_API_LIMIT)
@@ -548,49 +845,14 @@ async def test_options_api_quota(hass: HomeAssistant, options: dict[str, Any], u
     result = await flow.async_step_init({**options, **user_input})
     if reason is not None:
         assert result["errors"]["base"] == reason  # type: ignore[index]
-
-
-async def test_allow_exceed_api_limit_advanced_option_enabled(hass: HomeAssistant) -> None:
-    """Test advanced option enables exceeding API limit maximum."""
-
-    config_dir = Path(hass.config.config_dir)
-    advanced_dir = config_dir / CONFIG_DISCRETE_NAME if CONFIG_FOLDER_DISCRETE else config_dir
-    advanced_dir.mkdir(parents=True, exist_ok=True)
-    advanced_file = advanced_dir / "solcast-advanced.json"
-    advanced_file.write_text(json.dumps({ADVANCED_ALLOW_EXCEED_API_LIMIT_MAXIMUM: True}), encoding="utf-8")
-
-    assert await _async_is_allow_exceed_api_limit(hass), "API limit exceed should be allowed"
-
-
-async def test_allow_exceed_api_limit_advanced_option_invalid_json(hass: HomeAssistant) -> None:
-    """Test invalid advanced options JSON defaults to not allowing exceed."""
-
-    config_dir = Path(hass.config.config_dir)
-    advanced_dir = config_dir / CONFIG_DISCRETE_NAME if CONFIG_FOLDER_DISCRETE else config_dir
-    advanced_dir.mkdir(parents=True, exist_ok=True)
-    advanced_file = advanced_dir / "solcast-advanced.json"
-    advanced_file.write_text('{"bad_json":', encoding="utf-8")
-
-    assert not await _async_is_allow_exceed_api_limit(hass), "API limit exceed should not be allowed"
-
-
-async def test_allow_exceed_api_limit_advanced_option_not_dict(hass: HomeAssistant) -> None:
-    """Test that a non-dict advanced options JSON defaults to not allowing exceed."""
-
-    config_dir = Path(hass.config.config_dir)
-    advanced_dir = config_dir / CONFIG_DISCRETE_NAME if CONFIG_FOLDER_DISCRETE else config_dir
-    advanced_dir.mkdir(parents=True, exist_ok=True)
-    advanced_file = advanced_dir / "solcast-advanced.json"
-    advanced_file.write_text(json.dumps([True]), encoding="utf-8")
-
-    assert not await _async_is_allow_exceed_api_limit(hass), "API limit exceed should not be allowed"
+        assert _schema_suggested_values(result)[API_LIMIT] == user_input[API_LIMIT]  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
     ("options", "value", "reason"),
     [
-        ((DEFAULT_INPUT1, 0, "custom_invalid")),
-        ((DEFAULT_INPUT1, 145, "custom_invalid")),
+        ((DEFAULT_INPUT1, 0, EXCEPTION_CUSTOM_INVALID)),
+        ((DEFAULT_INPUT1, 145, EXCEPTION_CUSTOM_INVALID)),
         ((DEFAULT_INPUT1, 8, None)),
     ],
 )
@@ -605,14 +867,15 @@ async def test_options_custom_hour_sensor(hass: HomeAssistant, options: dict[str
     result = await flow.async_step_init(user_input)
     if reason is not None:
         assert result["errors"]["base"] == reason  # type: ignore[index]
+        assert _schema_suggested_values(result)[CUSTOM_HOURS] == value  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
     ("options", "value", "reason"),
     [
-        ((DEFAULT_INPUT1, "invalid", "hard_not_positive_number")),
-        ((DEFAULT_INPUT1, "-1", "hard_not_positive_number")),
-        ((DEFAULT_INPUT1, "6,6.0", "hard_too_many")),
+        ((DEFAULT_INPUT1, "invalid", EXCEPTION_HARD_NOT_POSITIVE_NUMBER)),
+        ((DEFAULT_INPUT1, "-1", EXCEPTION_HARD_NOT_POSITIVE_NUMBER)),
+        ((DEFAULT_INPUT1, "6,6.0", EXCEPTION_HARD_TOO_MANY)),
         ((DEFAULT_INPUT1, "6", None)),
         ((DEFAULT_INPUT2, "6,6.0", None)),
         ((DEFAULT_INPUT2, "6", None)),
@@ -630,16 +893,19 @@ async def test_options_hard_limit(hass: HomeAssistant, options: dict[str, Any], 
     result = await flow.async_step_init(user_input)
     if reason is not None:
         assert result["errors"]["base"] == reason  # type: ignore[index]
+        assert _schema_suggested_values(result)[HARD_LIMIT_API] == value  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
     ("options", "reason"),
     [
-        (({GET_ACTUALS: False, USE_ACTUALS: 1, SITE_EXPORT_ENTITY: []}, "actuals_without_get")),
-        (({AUTO_DAMPEN: True, GET_ACTUALS: False, SITE_EXPORT_ENTITY: []}, "dampen_without_actuals")),
-        (({AUTO_DAMPEN: True, GET_ACTUALS: True, GENERATION_ENTITIES: [], SITE_EXPORT_ENTITY: []}, "dampen_without_generation")),
-        (({SITE_EXPORT_ENTITY: ["entity.one", "entity.two"]}, "export_multiple_entities")),
-        (({SITE_EXPORT_LIMIT: 5, SITE_EXPORT_ENTITY: []}, "export_no_entity")),
+        (({GET_ACTUALS: False, USE_ACTUALS: 1, SITE_EXPORT_ENTITY: []}, EXCEPTION_ACTUALS_WITHOUT_GET)),
+        (({AUTO_DAMPEN: True, GET_ACTUALS: False, SITE_EXPORT_ENTITY: []}, EXCEPTION_DAMPEN_WITHOUT_ACTUALS)),
+        (({AUTO_DAMPEN: True, GET_ACTUALS: True, GENERATION_ENTITIES: [], SITE_EXPORT_ENTITY: []}, EXCEPTION_DAMPEN_WITHOUT_GENERATION)),
+        (({SITE_EXPORT_ENTITY: ["entity.one", "entity.two"]}, EXCEPTION_EXPORT_MULTIPLE_ENTITIES)),
+        (({SITE_EXPORT_LIMIT: 5, SITE_EXPORT_ENTITY: []}, EXCEPTION_EXPORT_NO_ENTITY)),
+        (({SITE_EXPORT_LIMIT: 0, SITE_EXPORT_ENTITY: ["test.entity"]}, EXCEPTION_EXPORT_NO_LIMIT)),
+        (({SITE_EXPORT_LIMIT: "0", SITE_EXPORT_ENTITY: ["test.entity"]}, EXCEPTION_EXPORT_NO_LIMIT)),
     ],
 )
 async def test_options_auto_dampen(hass: HomeAssistant, options: dict[str, Any], reason: str | None) -> None:
@@ -650,6 +916,8 @@ async def test_options_auto_dampen(hass: HomeAssistant, options: dict[str, Any],
     user_input = copy.deepcopy(DEFAULT_INPUT1) | options
     result = await flow.async_step_init(user_input)
     assert result["errors"]["base"] == reason  # type: ignore[index]
+    suggested_values = _schema_suggested_values(result)  # type: ignore[arg-type]
+    assert all(suggested_values[key] == value for key, value in options.items() if key in suggested_values)
 
 
 async def test_step_to_dampen(hass: HomeAssistant) -> None:
@@ -692,9 +960,19 @@ async def test_dampen(
         flow.hass = hass
 
         result = await flow.async_step_dampen(user_input)
-        assert result.get("reason") == "reconfigured"
+        assert result.get("reason") == AFFIRMATION_RECONFIGURED
         for key, expect in value.items():
             assert entry.options[key] == expect
+
+        with (
+            patch.object(hass.config_entries, "async_update_entry") as mock_update_entry,
+            patch.object(flow, "check_dead") as mock_check_dead,
+        ):
+            result = await flow.async_step_dampen(user_input)
+
+        assert result.get("reason") == AFFIRMATION_UNCHANGED
+        mock_update_entry.assert_not_called()
+        mock_check_dead.assert_not_awaited()
 
         assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
         await hass.async_block_till_done()
@@ -719,7 +997,7 @@ async def test_entry_options_upgrade(
     try:
         config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
         entry = await async_init_integration(hass, copy.deepcopy(V3OPTIONS), version=START_VERSION)
-        assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
         assert entry.version == FINAL_VERSION
         # V4
@@ -765,11 +1043,9 @@ async def test_entry_options_upgrade(
 
         # Test API limit gets imported from existing cache in upgrade to V9
         data_file = Path(f"{config_dir}/solcast-usage.json")
-        data_file.write_text(
-            json.dumps({"daily_limit": 50, "daily_limit_consumed": 34, "reset": "2024-01-01T00:00:00+00:00"}), encoding="utf-8"
-        )
+        data_file.write_text(json.dumps({DAILY_LIMIT: 50, DAILY_LIMIT_CONSUMED: 34, RESET: "2024-01-01T00:00:00+00:00"}), encoding="utf-8")
         entry = await async_init_integration(hass, copy.deepcopy(V3OPTIONS), version=START_VERSION)
-        assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
         assert entry.options.get("api_quota") == "50"
 
         assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
@@ -792,11 +1068,14 @@ async def test_presumed_dead_and_full_flow(
 
         # Test presumed dead
         caplog.clear()
-        assert hass.data[DOMAIN].get(PRESUMED_DEAD, True) is False, "Integration presumed dead after setup"
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
         option: dict[str, Any] = {BRK_ESTIMATE: False, USE_ACTUALS: "0", SITE_EXPORT_ENTITY: []}
         user_input = DEFAULT_INPUT1_NO_DAMP | option
-        hass.data[DOMAIN][PRESUMED_DEAD] = True
+        user_input[ATTR_BREAKDOWN] = _attr_breakdown_input(user_input)
+        for key in (BRK_ESTIMATE10, BRK_ESTIMATE, BRK_ESTIMATE90, BRK_SITE, BRK_HALFHOURLY, BRK_HOURLY, BRK_SITE_DETAILED):
+            user_input.pop(key, None)
+        await set_presumed_dead(hass, entry, True)
         result = await hass.config_entries.options.async_init(entry.entry_id)
         await hass.async_block_till_done()
         result = await hass.config_entries.options.async_configure(  # pyright: ignore[reportUnknownMemberType]
@@ -804,7 +1083,7 @@ async def test_presumed_dead_and_full_flow(
             user_input,
         )
         await hass.async_block_till_done()  # Integration will reload
-        assert "Integration presumed dead, reloading" in caplog.text
+        assert "Integration presumed dead, reloading" in caplog.text or "Integration reload already in progress" in caplog.text
         coordinator: SolcastUpdateCoordinator = entry.runtime_data.coordinator
         solcast: SolcastApi = coordinator.solcast
         assert solcast.sites_status is SitesStatus.OK, f"Expected sites status SitesStatus.OK, got {solcast.sites_status}"
@@ -816,6 +1095,9 @@ async def test_presumed_dead_and_full_flow(
         # Test dampening step can  be reached
         option = {CONFIG_DAMP: True, USE_ACTUALS: "0", SITE_EXPORT_ENTITY: []}
         user_input = DEFAULT_INPUT1_NO_DAMP | option
+        user_input[ATTR_BREAKDOWN] = _attr_breakdown_input(user_input)
+        for key in (BRK_ESTIMATE10, BRK_ESTIMATE, BRK_ESTIMATE90, BRK_SITE, BRK_HALFHOURLY, BRK_HOURLY, BRK_SITE_DETAILED):
+            user_input.pop(key, None)
 
         result = await hass.config_entries.options.async_init(entry.entry_id)
         await hass.async_block_till_done()
@@ -832,297 +1114,101 @@ async def test_presumed_dead_and_full_flow(
             user_input,
         )
         await hass.async_block_till_done()
-        assert result.get("reason") == "reconfigured"
+        assert result.get("reason") == AFFIRMATION_RECONFIGURED
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
 
-async def test_advanced_options(
+async def test_check_dead_reload_without_presumed_dead_warning(
     recorder_mock: Recorder,
     hass: HomeAssistant,
-    freezer: FrozenDateTimeFactory,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test setting advanced options."""
+    """Test check_dead reload path does not warn about presumed death when crash-state is clear."""
 
-    LEAST = 1
     try:
-        issue_registry = ir.async_get(hass)
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
-        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
-        options = copy.deepcopy(DEFAULT_INPUT1)
-        options[GET_ACTUALS] = False
-        entry = await async_init_integration(hass, options)
-        coodinator: SolcastUpdateCoordinator = entry.runtime_data.coordinator
-        solcast: SolcastApi = coodinator.solcast
-        advanced_options_with_aliases, _ = solcast.advanced_opt.advanced_options_with_aliases()
+        await set_presumed_dead(hass, entry, False)
+        assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
+        await hass.async_block_till_done()
 
-        async def wait():
-            for _ in range(2000):
-                freezer.tick(0.1)
-                await hass.async_block_till_done()
-
-        async def wait_for(text: str):
-            async with asyncio.timeout(300):
-                while text not in caplog.text:
-                    freezer.tick(0.01)
-                    await hass.async_block_till_done()
-
-        data_file = Path(f"{config_dir}/solcast-advanced.json")
+        option_flow = SolcastSolarOptionFlowHandler(entry)
+        option_flow.hass = hass
 
         caplog.clear()
-        data_file.write_text(json.dumps("   \r \r\n"), encoding="utf-8")
-        await wait()
-        assert "exists" in caplog.text
-        assert "is not valid JSON" not in caplog.text
-        assert "Advanced option proposed" not in caplog.text
-        assert "Advanced option set" not in caplog.text
-        assert "Advanced option default set" not in caplog.text
-        assert "JSONDecodeError" not in caplog.text
-        data_file.unlink()
-        await wait()
+        await option_flow.check_dead()
+        await hass.async_block_till_done()
 
-        caplog.clear()
-        data_file.write_text(json.dumps("[]"), encoding="utf-8")
-        await wait()
-        assert "Advanced options file invalid format, expected JSON `dict`" in caplog.text
-        data_file.unlink()
-        await wait()
+        assert "Integration presumed dead, reloading" not in caplog.text
+        assert "Integration not loaded during options update, reloading" in caplog.text
+        assert entry.state is ConfigEntryState.LOADED, "Config entry should be reloaded"
 
-        _LOGGER.debug("Testing advanced options 1")
-        data_file_1: dict[str, Any] = {
-            "api_raise_issues": True,
-            "automated_dampening_adaptive_model_configuration": False,
-            "automated_dampening_adaptive_model_exclude": [],
-            "automated_dampening_adaptive_model_minimum_history_days": 3,
-            "automated_dampening_minimum_matching_intervals": 2,
-            "automated_dampening_ignore_intervals": ["12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30"],
-            "automated_dampening_insignificant_factor": 0.95,
-            "automated_dampening_insignificant_factor_adjusted": 0.95,
-            "automated_dampening_no_delta_adjustment": False,
-            "automated_dampening_no_limiting_consistency": False,
-            "automated_dampening_model_days": 14,
-            "automated_dampening_generation_fetch_delay": 0,
-            "automated_dampening_generation_history_load_days": 7,
-            "automated_dampening_similar_peak": 0.90,
-            "automated_dampening_suppression_entity": "solcast_suppress_auto_dampening",
-            "entity_logging": True,  # The odd-man-out, detected as removed later and set to default
-            "estimated_actuals_fetch_delay": 0,
-            "estimated_actuals_log_ape_percentiles": [50],
-            "estimated_actuals_log_mape_breakdown": False,
-            "forecast_day_entities": 8,
-            "forecast_future_days": 14,
-            "forecast_history_max_days": 730,  # Intentionally using deprecated name to test aliasing
-            "reload_on_advanced_change": False,
-            "solcast_url": "https://api.solcast.com.au",
-            "trigger_on_api_available": "",
-            "trigger_on_api_unavailable": "",
-        }
-        caplog.clear()
-        data_file.write_text(json.dumps(data_file_1), encoding="utf-8")
-        await wait()
-        assert "Running task watchdog_advanced" in caplog.text
-        assert "Monitoring" in caplog.text
-        for option, value in data_file_1.items():
-            if value == advanced_options_with_aliases[option]["default"]:
-                assert f"Advanced option set {option}" not in caplog.text
-            else:
-                if advanced_options_with_aliases[option]["type"] in (ADVANCED_OPTION.FLOAT, ADVANCED_OPTION.INT):
-                    assert f"Advanced option proposed {option}: {value}" in caplog.text
-                assert f"Advanced option set {option}: {value}" in caplog.text
-        assert "Advanced option forecast_history_max_days is deprecated, please use history_max_days" in caplog.text
-        assert issue_registry.async_get_issue(DOMAIN, ISSUE_ADVANCED_DEPRECATED) is not None, "Issue ISSUE_ADVANCED_DEPRECATED should exist"
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
-        caplog.clear()
 
-        _LOGGER.debug("Testing advanced options 2")
-        data_file_2: dict[str, Any] = {
-            "api_raise_issues": False,
-            "automated_dampening_adaptive_model_configuration": 0,
-            "automated_dampening_adaptive_model_exclude": ["wrong", "wrong", "so wrong"],
-            "automated_dampening_adaptive_model_minimum_history_days": 0,
-            "automated_dampening_minimum_matching_generation": 0,
-            "automated_dampening_minimum_matching_intervals": 0,
-            "automated_dampening_ignore_intervals": ["24:00", "12:20", "13:00", "13:00", "14:00", "14:30", "15:00", "15:30"],
-            "automated_dampening_insignificant_factor": 1.1,
-            "automated_dampening_insignificant_factor_adjusted": 1.1,
-            "automated_dampening_no_delta_adjustment": "wrong_type",
-            "automated_dampening_model_days": 21,
-            "automated_dampening_generation_fetch_delay": -10,
-            "automated_dampening_generation_history_load_days": 22,
-            "automated_dampening_similar_peak": 1.1,
-            "automated_dampening_suppression_entity": 5,
-            "estimated_actuals_fetch_delay": 140,
-            "estimated_actuals_log_ape_percentiles": [10, 50, 10, "wrong_type", 0.5],
-            "forecast_day_entities": 16,
-            "forecast_future_days": 16,
-            "history_max_days": 10,
-            "granular_dampening_delta_adjustment": False,
-            "reload_on_advanced_change": True,
-            "unknown_option": True,
-            "solcast_url": "https://localhost",
-        }
-        data_file.write_text(json.dumps(data_file_2), encoding="utf-8")
-        await wait()
-        for option, value in data_file_1.items():
-            if option in ["reload_on_advanced_change", "solcast_url"]:
-                continue
-            if advanced_options_with_aliases.get(option) is None:
-                assert f"Unknown advanced option ignored: {option}" in caplog.text
-                issue = issue_registry.async_get_issue(DOMAIN, ISSUE_ADVANCED_PROBLEM)
-                if issue is not None:
-                    if issue.translation_placeholders is not None:
-                        assert "Unknown" in issue.translation_placeholders["errors"]
-                    else:
-                        pytest.fail("Expected advanced option issue translation placeholders not found")
-                else:
-                    pytest.fail("Expected unknown advanced option issue not found")
-            elif value != advanced_options_with_aliases.get(option, {}).get("default"):
-                if advanced_options_with_aliases[option]["type"] in (int, float):
-                    assert (
-                        f"{option}: {value} (must be {LEAST if 'matching' in option else advanced_options_with_aliases[option]['min']}-{advanced_options_with_aliases[option]['max']})"
-                        not in caplog.text
-                    )
-                elif advanced_options_with_aliases[option]["type"] is bool:
-                    assert f"{option}: {value} (must be bool)" not in caplog.text
+async def test_check_dead_skips_when_reload_in_progress(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test check_dead does not log presumed-dead or trigger reload while setup is in progress."""
 
-        assert "Removing advanced deprecation issue" in caplog.text
-        assert issue_registry.async_get_issue(DOMAIN, ISSUE_ADVANCED_DEPRECATED) is None, "Issue ISSUE_ADVANCED_DEPRECATED should not exist"
-        assert issue_registry.async_get_issue(DOMAIN, ISSUE_ADVANCED_PROBLEM) is not None, "Issue ISSUE_ADVANCED_PROBLEM should exist"
-        assert "Advanced option set api_raise_issues: False" in caplog.text
-        assert "Advanced option proposed reload_on_advanced_change: True" not in caplog.text
-        assert "Advanced option set reload_on_advanced_change: True" in caplog.text
-        assert "solcast_url: https://localhost" in caplog.text
-        assert "Invalid time in advanced option automated_dampening_ignore_intervals: 24:00" in caplog.text
-        assert "Invalid time in advanced option automated_dampening_ignore_intervals: 12:20" in caplog.text
-        assert "Duplicate time in advanced option automated_dampening_ignore_intervals: 13:00" in caplog.text
-        assert "Invalid int in advanced option estimated_actuals_log_ape_percentiles: wrong_type" in caplog.text
-        assert "Invalid int in advanced option estimated_actuals_log_ape_percentiles: 0.5" in caplog.text
-        assert "Duplicate int in advanced option estimated_actuals_log_ape_percentiles: 10" in caplog.text
-        for i in range(3):
-            assert f"Invalid entry in automated_dampening_adaptive_model_exclude at index {i}: expected dict, got str" in caplog.text
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
-        assert "Advanced options changed, restarting" in caplog.text
-        assert "Start is not stale" in caplog.text
+        await set_presumed_dead(hass, entry, True)
+        entry._state = ConfigEntryState.SETUP_IN_PROGRESS  # pyright: ignore[reportAttributeAccessIssue]
 
-        # Cause an additional error to check issue gets re-raised
-        data_file_2["automated_dampening_model_days"] = 99
-        data_file.write_text(json.dumps(data_file_2), encoding="utf-8")
-        await wait()
-        assert "automated_dampening_model_days: 99 (must be 2-21)" in caplog.text
-        issue = issue_registry.async_get_issue(DOMAIN, ISSUE_ADVANCED_PROBLEM)
-        assert issue is not None and issue.translation_placeholders is not None
-        assert "automated_dampening_model_days: 99" in issue.translation_placeholders["problems"]
-        assert "unknown_option" in issue.translation_placeholders["problems"]
+        option_flow = SolcastSolarOptionFlowHandler(entry)
+        option_flow.hass = hass
 
-        _LOGGER.debug("Testing advanced options revert to defaults")
-        data_file.write_text(json.dumps(data_file_1), encoding="utf-8")
-        await wait()
-        assert "Removing advanced problems issue" in caplog.text
-        assert issue_registry.async_get_issue(DOMAIN, ISSUE_ADVANCED_PROBLEM) is None, "Issue ISSUE_ADVANCED_PROBLEM should not exist"
+        caplog.set_level(logging.DEBUG)
+        with patch.object(hass.config_entries, "async_reload", wraps=hass.config_entries.async_reload) as reload_mock:
+            caplog.clear()
+            await option_flow.check_dead()
+            await hass.async_block_till_done()
 
-        caplog.clear()
+            assert "Integration presumed dead, reloading" not in caplog.text
+            reload_mock.assert_not_called()
 
-        _LOGGER.debug("Testing advanced options 3")
-        data_file_3: dict[str, Any] = {
-            "automated_dampening_adaptive_model_exclude": [
-                {"model": 2},
-                {"model": 3, "delta": 1},
-                {"model": 3, "delta": "hairy_one"},
-                {"model": 3, "delta": {"see": "this_one_coming?"}},
-                {"modell": 1, "delta": 1},
-                {"model": 1, "delta": 1, "gift_with_purchase": True},
-                {"bullshit": "value", "delta": "value", "so wrong": "value"},
-            ],
-            "automated_dampening_generation_fetch_delay": 40,
-            "estimated_actuals_fetch_delay": 30,
-            "forecast_future_days": 8,
-            "forecast_day_entities": 10,
-            "granular_dampening_delta_adjustment": True,
-            "automated_dampening_no_delta_adjustment": True,
-            "forecast_history_max_days": 365,
-        }
-        data_file.write_text(json.dumps(data_file_3), encoding="utf-8")
-        await wait()
-        assert "index 0:" not in caplog.text
-        assert "index 1:" not in caplog.text
-        for i in (2, 3):
-            assert (
-                f"Invalid value type in automated_dampening_adaptive_model_exclude entry at index {i}: key 'delta' must be an integer"
-                in caplog.text
-            )
-        for i in (4, 6):
-            assert f"Missing required keys in automated_dampening_adaptive_model_exclude entry at index {i}" in caplog.text
-        assert "Unknown keys in automated_dampening_adaptive_model_exclude entry at index 5:" in caplog.text
-        assert "Advanced option automated_dampening_generation_fetch_delay: 40 must be less than or equal" in caplog.text
-        assert "Advanced option estimated_actuals_fetch_delay: 30 must be greater than or equal" in caplog.text
-        assert "Advanced option forecast_day_entities: 10 must be less than or equal" in caplog.text
-        assert "Advanced option proposed forecast_future_days: 8" in caplog.text
-        assert "Advanced option set forecast_future_days: 8" in caplog.text
-        assert "Advanced option set history_max_days: 365" in caplog.text
-        assert "Granular dampening delta adjustment requires estimated actuals" in caplog.text
-        assert "Advanced option forecast_history_max_days is deprecated, please use history_max_days" in caplog.text
-        # assert (
-        #    "Advanced option granular_dampening_delta_adjustment: True can not be set with automated_dampening_no_delta_adjustment: True"
-        #    in caplog.text
-        # )
-        caplog.clear()
+        entry._state = ConfigEntryState.LOADED  # pyright: ignore[reportAttributeAccessIssue]
 
-        _LOGGER.debug("Testing advanced options configuration file removal")
-        data_file = data_file.rename(f"{config_dir}/solcast-advanced.bak")
-        await wait()
-        assert "Advanced option default set" in caplog.text
-        assert "Advanced options file deleted, no longer monitoring" in caplog.text
-        caplog.clear()
-        data_file = data_file.rename(f"{config_dir}/solcast-advanced.json")
-        await wait()
-        assert "Running task watchdog_advanced" in caplog.text
+    finally:
+        assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"
 
-        caplog.clear()
 
-        _LOGGER.debug("Testing advanced options 4")
-        requires = {
-            "automated_dampening_adaptive_model_configuration": [
-                {"option": "automated_dampening_adaptive_model_minimum_history_days", "value": 7},
-                {"option": "automated_dampening_adaptive_model_exclude", "value": [{"model": 1, "delta": 2}]},
-            ]
-        }
-        data_file_4: dict[str, Any] = {
-            "automated_dampening_adaptive_model_configuration": False,
-            **{option["option"]: option["value"] for options in requires.values() for option in options},
-        }
-        data_file.write_text(json.dumps(data_file_4), encoding="utf-8")
-        await wait()
-        for require, options in requires.items():
-            for option in options:
-                assert f"{option['option']} requires {require} to be set" in caplog.text
-        caplog.clear()
+async def test_check_dead_presumed_dead_branch(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test check_dead runs presumed-dead warning/clear branch when entry is not loaded."""
 
-        _LOGGER.debug("Testing advanced options invalid configuration")
-        data_file.write_text('{"option_1": "one", "option_2": "two",}', encoding="utf-8")  # trailing comma
-        await wait_for("Raise issue in 60 seconds")
-        assert "Advanced options file invalid format, expected JSON `dict`" in caplog.text
-        assert "Raise issue in 60 seconds" in caplog.text
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        assert entry.state is ConfigEntryState.LOADED, "Integration presumed dead after setup"
 
-        data_file_1["reload_on_advanced_change"] = True
-        data_file_1["forecast_day_entities"] = 14
-        data_file.write_text(json.dumps(data_file_1), encoding="utf-8")
-        await wait()
-        assert ADVANCED_INVALID_JSON_TASK not in solcast.tasks
+        await set_presumed_dead(hass, entry, True)
+        assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
+        await hass.async_block_till_done()
 
-        caplog.clear()
-        entity = "sensor.solcast_pv_forecast_forecast_day_13"
-        er.async_get(hass).async_update_entity(entity, disabled_by=None)
-        await wait_for("Reloading configuration entries because disabled_by changed")
-        await wait_for("Not adding entity Forecast Day 12 because it's disabled")
-        entity_state = hass.states.get(entity)
-        assert entity_state is not None, "Entity state should not be None"
-        assert entity_state.state == "42.552"
+        option_flow = SolcastSolarOptionFlowHandler(entry)
+        option_flow.hass = hass
 
-        await hass.config_entries.async_unload(entry.entry_id)
-        await wait()
-        assert f"Cancelling coordinator task {TASK_WATCHDOG_ADVANCED_FILE_CHANGE}" in caplog.text
+        with patch.object(hass.config_entries, "async_reload", return_value=True) as reload_mock:
+            caplog.clear()
+            await option_flow.check_dead()
+            await hass.async_block_till_done()
+
+            reload_mock.assert_called_once_with(entry.entry_id)
+
+        state = await get_state(hass, entry)
+        assert state.presumed_dead is False
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"

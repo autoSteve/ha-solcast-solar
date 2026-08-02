@@ -61,7 +61,7 @@ async def test_select_change_value(
         await hass.async_block_till_done()
 
         assert (
-            select_entity_id := entity_registry.async_get_entity_id(
+            select_entity_id := entity_registry.async_get_entity_id(  # noqa: RUF018
                 SELECT_DOMAIN,
                 DOMAIN,
                 "estimate_mode",
@@ -84,13 +84,11 @@ async def test_select_change_value(
         assert coordinator.solcast.options.key_estimate == resulting_state, (
             f"key_estimate should be {resulting_state!r}, got {coordinator.solcast.options.key_estimate!r}"
         )
-        assert hass.states.get(f"sensor.solcast_pv_forecast_{test_entity}").state == expected_value, (
+        assert hass.states.get(f"sensor.solcast_pv_forecast_{test_entity}").state == expected_value, (  # pyright: ignore[reportOptionalMemberAccess]
             f"Sensor {test_entity} state should be {expected_value!r} for mode {resulting_state}"
         )  # type: ignore[union-attr]
 
-        for _ in range(300):  # Extra time needed for refresh
-            await hass.async_block_till_done()
-            freezer.tick(0.1)
+        await hass.async_block_till_done(wait_background_tasks=True)
 
     finally:
         assert await async_cleanup_integration_tests(hass), "Integration test cleanup failed"

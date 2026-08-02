@@ -1,34 +1,40 @@
 """Test forecasts update retry mechanism."""
 
 import asyncio
-from datetime import timedelta
-import json
+from datetime import datetime as dt, timedelta
 import logging
-from pathlib import Path
 from typing import Any
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 from freezegun.api import FrozenDateTimeFactory
 import pytest
 
 from homeassistant.components.recorder import Recorder
 from homeassistant.components.solcast_solar.const import (
+    ADVANCED_LOG_UPDATE_FAILURE_ONLY,
+    ADVANCED_TRIGGER_ON_API_AVAILABLE,
+    ADVANCED_TRIGGER_ON_API_UNAVAILABLE,
     DOMAIN,
+    ISSUE_API_UNAVAILABLE,
+    LAST_UPDATED,
     SERVICE_FORCE_UPDATE_FORECASTS,
+    TASK_FORECASTS_FETCH_IMMEDIATE,
+    TASK_NEW_DAY_ACTUALS,
 )
-from homeassistant.components.solcast_solar.util import UpdateOutcome, UpdateResult
+from homeassistant.components.solcast_solar.enums import UpdateOutcome, UpdateResult
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.setup import async_setup_component
 
 from . import (
-    CONFIG_DISCRETE_NAME,
-    CONFIG_FOLDER_DISCRETE,
     DEFAULT_INPUT1,
     MOCK_BUSY,
     async_cleanup_integration_tests,
     async_init_integration,
     session_clear,
     session_set,
+    write_advanced_options,
 )
 
 
@@ -68,29 +74,45 @@ def _log_level_for(caplog: pytest.LogCaptureFixture, text: str) -> int:
     raise AssertionError(f"No log record found containing: {text!r}")
 
 
+async def _wait_for_log(
+    hass: HomeAssistant,
+    caplog: pytest.LogCaptureFixture,
+    freezer: FrozenDateTimeFactory,
+    text: str,
+    timeout: float = 10,
+) -> None:
+    """Wait for a log message while advancing frozen time."""
+
+    last_record = 0
+    async with asyncio.timeout(timeout):
+        while True:
+            records = caplog.records
+            if any(text in r.getMessage() for r in records[last_record:]):
+                return
+            last_record = len(records)
+            freezer.tick(0.1)
+            await hass.async_block_till_done()
+
+
 @pytest.mark.asyncio
 async def test_forecast_retry(
     recorder_mock: Recorder,
     hass: HomeAssistant,
     freezer: FrozenDateTimeFactory,
     caplog: pytest.LogCaptureFixture,
+    issue_registry: ir.IssueRegistry,
 ) -> None:
     """Test retry mechanism."""
 
     try:
         freezer.move_to("2025-01-11 00:00:00")  # A pending update will be queued for 00:00:09 UTC
 
-        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
-        if CONFIG_FOLDER_DISCRETE:
-            Path(config_dir).mkdir(parents=False, exist_ok=True)
-        Path(f"{config_dir}/solcast-advanced.json").write_text(
-            json.dumps(
-                {
-                    "trigger_on_api_unavailable": "Automation unavailable",
-                    "trigger_on_api_available": "Automation available",
-                }
-            ),
-            encoding="utf-8",
+        write_advanced_options(
+            hass.config.config_dir,
+            {
+                ADVANCED_TRIGGER_ON_API_UNAVAILABLE: "Automation unavailable",
+                ADVANCED_TRIGGER_ON_API_AVAILABLE: "Automation available",
+            },
         )
 
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
@@ -122,29 +144,25 @@ async def test_forecast_retry(
         session_set(MOCK_BUSY)
         caplog.clear()
 
-        solcast.data["last_updated"] -= timedelta(minutes=20)
+        solcast.data[LAST_UPDATED] -= timedelta(minutes=20)
         with mock.patch("homeassistant.components.solcast_solar.fetcher.Fetcher._sleep", new_callable=AsyncMockDoNothing):
-            async with asyncio.timeout(10):
-                while "Raise issue for api_unavailable" not in caplog.text:
-                    freezer.tick(0.1)
-                    await hass.async_block_till_done()
+            await _wait_for_log(hass, caplog, freezer, "Raise issue for api_unavailable")
 
         assert "API was tried 10 times, but all attempts failed" in caplog.text
         _occurs_in_log(caplog, "Call status 429/Try again later", 10)
         assert "Forecast has not been updated: 429/Try again later after 10 attempts, next auto update at" in caplog.text
         assert "Completed task pending_update_009" in caplog.text
         assert "Raise issue for api_unavailable" in caplog.text
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is not None, "Issue ISSUE_API_UNAVAILABLE should exist"
         await solcast.tasks_cancel()
         await coordinator.tasks_cancel()
 
         session_clear(MOCK_BUSY)
         caplog.clear()
         await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
-        async with asyncio.timeout(10):
-            while "Remove issue for api_unavailable" not in caplog.text:
-                freezer.tick(0.1)
-                await hass.async_block_till_done()
+        await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable", timeout=30)
         assert "Remove issue for api_unavailable" in caplog.text
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is None, "Issue ISSUE_API_UNAVAILABLE should be removed"
         await solcast.tasks_cancel()
         await coordinator.tasks_cancel()
 
@@ -168,18 +186,13 @@ async def test_log_update_failure_only_enabled(
     try:
         freezer.move_to("2025-01-11 00:00:00")
 
-        config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
-        if CONFIG_FOLDER_DISCRETE:
-            Path(config_dir).mkdir(parents=False, exist_ok=True)
-        Path(f"{config_dir}/solcast-advanced.json").write_text(
-            json.dumps(
-                {
-                    "trigger_on_api_unavailable": "Automation unavailable",
-                    "trigger_on_api_available": "Automation available",
-                    "log_update_failure_only": True,
-                }
-            ),
-            encoding="utf-8",
+        write_advanced_options(
+            hass.config.config_dir,
+            {
+                ADVANCED_TRIGGER_ON_API_UNAVAILABLE: "Automation unavailable",
+                ADVANCED_TRIGGER_ON_API_AVAILABLE: "Automation available",
+                ADVANCED_LOG_UPDATE_FAILURE_ONLY: True,
+            },
         )
 
         entry = await async_init_integration(hass, DEFAULT_INPUT1)
@@ -190,12 +203,9 @@ async def test_log_update_failure_only_enabled(
         caplog.clear()
         caplog.set_level(logging.DEBUG)
 
-        solcast.data["last_updated"] -= timedelta(minutes=20)
+        solcast.data[LAST_UPDATED] -= timedelta(minutes=20)
         with mock.patch("homeassistant.components.solcast_solar.fetcher.Fetcher._sleep", new_callable=AsyncMockDoNothing):
-            async with asyncio.timeout(10):
-                while "Raise issue for api_unavailable" not in caplog.text:
-                    freezer.tick(0.1)
-                    await hass.async_block_till_done()
+            await _wait_for_log(hass, caplog, freezer, "Raise issue for api_unavailable")
 
         # Retry-related messages must be logged at DEBUG (not WARNING).
         assert _log_level_for(caplog, "Call status 429/Try again later, pausing") == logging.DEBUG
@@ -245,6 +255,103 @@ async def test_forecast_abort_does_not_build_actuals(
             await coordinator._updater.forecast_update(completion="Completed task update")
 
         build_actual_data.assert_not_awaited()
+
+    finally:
+        await async_cleanup_integration_tests(hass)
+
+
+@pytest.mark.asyncio
+async def test_force_update_unload_cancels_update_task(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+) -> None:
+    """Ensure unload cancels an in-progress immediate forecast update task."""
+
+    entered = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def blocked_forecast_update(*_args: Any, **_kwargs: Any) -> None:
+        entered.set()
+        try:
+            await asyncio.Future()
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    try:
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        coordinator = entry.runtime_data.coordinator
+
+        with mock.patch.object(coordinator._updater, "forecast_update", side_effect=blocked_forecast_update):
+            await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=False)
+
+            async with asyncio.timeout(10):
+                while not entered.is_set() or TASK_FORECASTS_FETCH_IMMEDIATE not in coordinator.tasks:
+                    await hass.async_block_till_done()
+
+            assert await hass.config_entries.async_unload(entry.entry_id), "Config entry unload failed"
+            await hass.async_block_till_done()
+
+            assert TASK_FORECASTS_FETCH_IMMEDIATE not in coordinator.tasks
+            assert cancelled.is_set(), "Expected in-progress immediate task to be cancelled on unload"
+
+    finally:
+        await async_cleanup_integration_tests(hass)
+
+
+@pytest.mark.asyncio
+async def test_retry_recovery_then_schedule_deferred_actuals(
+    recorder_mock: Recorder,
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    caplog: pytest.LogCaptureFixture,
+    issue_registry: ir.IssueRegistry,
+) -> None:
+    """After retry failure and recovery, schedule estimated actuals when midnight window was missed."""
+
+    try:
+        freezer.move_to("2025-01-11 00:00:00")
+
+        write_advanced_options(
+            hass.config.config_dir,
+            {
+                ADVANCED_TRIGGER_ON_API_UNAVAILABLE: "Automation unavailable",
+                ADVANCED_TRIGGER_ON_API_AVAILABLE: "Automation available",
+            },
+        )
+
+        entry = await async_init_integration(hass, DEFAULT_INPUT1)
+        coordinator = entry.runtime_data.coordinator
+        solcast = coordinator.solcast
+
+        session_set(MOCK_BUSY)
+        caplog.clear()
+        solcast.data[LAST_UPDATED] -= timedelta(minutes=20)
+
+        with mock.patch("homeassistant.components.solcast_solar.fetcher.Fetcher._sleep", new_callable=AsyncMockDoNothing):
+            await _wait_for_log(hass, caplog, freezer, "Raise issue for api_unavailable")
+
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is not None
+
+        session_clear(MOCK_BUSY)
+        caplog.clear()
+        await hass.services.async_call(DOMAIN, SERVICE_FORCE_UPDATE_FORECASTS, {}, blocking=True)
+        await _wait_for_log(hass, caplog, freezer, "Remove issue for api_unavailable", timeout=30)
+        assert issue_registry.async_get_issue(DOMAIN, ISSUE_API_UNAVAILABLE) is None
+
+        freezer.move_to("2025-01-11 00:30:00")
+
+        # Emulate no estimated-actuals update yet today so scheduling path is exercised.
+        tz = ZoneInfo("Australia/Brisbane")
+        solcast.data_actuals[LAST_UPDATED] = dt(2025, 1, 10, 12, 0, 0, tzinfo=tz).astimezone(solcast.tz)
+
+        caplog.clear()
+        scheduled = await coordinator._updater.check_estimated_actuals_fetch()
+        assert scheduled is True
+        assert TASK_NEW_DAY_ACTUALS in coordinator.tasks
+        assert "Estimated actuals update window was missed, scheduling at" in caplog.text
+
+        await coordinator.tasks_cancel_specific(TASK_NEW_DAY_ACTUALS)
 
     finally:
         await async_cleanup_integration_tests(hass)

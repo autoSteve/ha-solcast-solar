@@ -5,11 +5,12 @@ import contextlib
 import copy
 from datetime import UTC, datetime as dt, timedelta
 from enum import Enum
+import json
 import logging
 from pathlib import Path
 import re
 from re import Pattern
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 from aiohttp import ClientConnectionError
@@ -26,6 +27,7 @@ from homeassistant.components.recorder.db_schema import (
     StatesMeta,
 )
 from homeassistant.components.sensor import SensorDeviceClass
+from homeassistant.components.solcast_solar import state as _cs
 from homeassistant.components.solcast_solar.const import (
     API_LIMIT,
     AUTO_DAMPEN,
@@ -42,19 +44,24 @@ from homeassistant.components.solcast_solar.const import (
     CONFIG_VERSION,
     CUSTOM_HOURS,
     DOMAIN,
+    ESTIMATE,
     EXCLUDE_SITES,
+    FORECASTS,
     GENERATION_ENTITIES,
     GET_ACTUALS,
     HARD_LIMIT_API,
     KEY_ESTIMATE,
+    PERIOD_START,
     SITE_DAMP,
     SITE_EXPORT_ENTITY,
     SITE_EXPORT_LIMIT,
+    SITE_INFO,
     USE_ACTUALS,
 )
 from homeassistant.components.solcast_solar.coordinator import SolcastUpdateCoordinator
+from homeassistant.components.solcast_solar.dates import DateTimeEncoder, JSONDecoder
 from homeassistant.components.solcast_solar.solcastapi import SolcastApi
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -169,8 +176,8 @@ MOCK_OVER_LIMIT = "return_429_over"
 
 MOCK_SESSION_CONFIG: dict[str, Any] = {
     "aioresponses": None,
-    "api_limit": int(min(DEFAULT_INPUT2[API_LIMIT].split(","))),
-    "api_used": dict.fromkeys(DEFAULT_INPUT2[CONF_API_KEY].split(","), 0),
+    "api_limit": int(min(cast(str, DEFAULT_INPUT2[API_LIMIT]).split(","))),
+    "api_used": dict.fromkeys(cast(str, DEFAULT_INPUT2[CONF_API_KEY]).split(","), 0),
     MOCK_ALTER_HISTORY: False,
     MOCK_BAD_REQUEST: False,
     MOCK_BUSY: False,
@@ -212,6 +219,57 @@ _LOGGER = logging.getLogger(__name__)
 simulated: SimulatedSolcast = SimulatedSolcast()
 
 
+def get_config_dir(config_dir: str | Path, create: bool = False) -> Path:
+    """Return the Solcast test config directory."""
+
+    base_path = Path(config_dir)
+    if CONFIG_FOLDER_DISCRETE and base_path.name != CONFIG_DISCRETE_NAME:
+        solcast_config_dir = base_path / CONFIG_DISCRETE_NAME
+    else:
+        solcast_config_dir = base_path
+    if create and CONFIG_FOLDER_DISCRETE:
+        solcast_config_dir.mkdir(parents=True, exist_ok=True)
+    return solcast_config_dir
+
+
+def get_advanced_options_file(config_dir: str | Path, create: bool = False) -> Path:
+    """Return the advanced options file path for Solcast tests."""
+
+    return get_config_dir(config_dir, create=create) / "solcast-advanced.json"
+
+
+def write_advanced_options(config_dir: str | Path, advanced_options: dict[str, Any]) -> Path:
+    """Write Solcast advanced options for tests and return the file path."""
+
+    advanced_file = get_advanced_options_file(config_dir, create=True)
+    advanced_file.write_text(json.dumps(advanced_options), encoding="utf-8")
+    return advanced_file
+
+
+def adjust_dampening_test_caches(config_dir: str | Path, undampened_factor: float = 0.85, actuals_factor: float = 0.91) -> None:
+    """Apply dampening test cache tweaks."""
+
+    config_path = get_config_dir(config_dir)
+
+    undampened_path = config_path / "solcast-undampened.json"
+    undampened = json.loads(undampened_path.read_text(encoding="utf-8"), cls=JSONDecoder)
+    for site in undampened[SITE_INFO].values():
+        for forecast in site[FORECASTS]:
+            forecast[ESTIMATE] *= undampened_factor
+    undampened_path.write_text(json.dumps(undampened, cls=DateTimeEncoder), encoding="utf-8")
+
+    actuals_path = config_path / "solcast-actuals.json"
+    actuals = json.loads(actuals_path.read_text(encoding="utf-8"), cls=JSONDecoder)
+    for site in actuals[SITE_INFO].values():
+        for forecast in site[FORECASTS]:
+            if (
+                forecast[PERIOD_START].astimezone(ZoneInfo("Australia/Brisbane")).hour == 10
+                and forecast[PERIOD_START].astimezone(ZoneInfo("Australia/Brisbane")).minute == 30
+            ):
+                forecast[ESTIMATE] *= actuals_factor
+    actuals_path.write_text(json.dumps(actuals, cls=DateTimeEncoder), encoding="utf-8")
+
+
 def verify_data_schema(data: dict[str, Any]) -> None:
     """Verify the schema of data sets."""
 
@@ -222,7 +280,7 @@ def verify_data_schema(data: dict[str, Any]) -> None:
         "last_attempt": {"type": dt},
         "auto_updated": {"type": int},
         "failure": {"type": dict, "members": ["last_24h", "last_7d", "last_14d"]},
-        "success": {"type": dict, "members": ["tracked", "forced"]},
+        "success": {"type": dict, "members": ["tracked", "forced", "actuals"]},
         "integration_version": {"type": str},
     }
 
@@ -328,7 +386,7 @@ async def _get_actuals(url: str, **kwargs: Any) -> CallbackResult:
 
 def session_reset_usage() -> None:
     """Reset the mock session config."""
-    MOCK_SESSION_CONFIG["api_used"] = dict.fromkeys(DEFAULT_INPUT2[CONF_API_KEY].split(","), 0)
+    MOCK_SESSION_CONFIG["api_used"] = dict.fromkeys(cast(str, DEFAULT_INPUT2[CONF_API_KEY]).split(","), 0)
 
 
 def session_set(setting: str, **kwargs: Any) -> None:
@@ -850,13 +908,37 @@ def no_error_or_exception(caplog: pytest.LogCaptureFixture) -> None:
     assert "Exception" not in caplog.text
 
 
+async def get_state(hass: HomeAssistant, entry: ConfigEntry):
+    """Return the current state object for a config entry (test helper)."""
+    return (await _cs.async_get(hass, entry.entry_id)).state
+
+
+async def set_presumed_dead(hass: HomeAssistant, entry: ConfigEntry, value: bool) -> None:
+    """Set or clear the presumed-dead flag on the persisted state (test helper)."""
+    store = await _cs.async_get(hass, entry.entry_id)
+    store.state.presumed_dead = value
+    await store.async_save()
+
+
+async def set_crash_time(hass: HomeAssistant, entry: ConfigEntry, time) -> None:
+    """Set the persisted crash time on the state (test helper)."""
+    store = await _cs.async_get(hass, entry.entry_id)
+    store.state.crash_time = time
+    await store.async_save()
+
+
+async def clear_state(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Clear all persisted state (test helper)."""
+    await (await _cs.async_get(hass, entry.entry_id)).async_clear()
+
+
 async def reload_integration(hass: HomeAssistant, entry: ConfigEntry) -> tuple[SolcastUpdateCoordinator | None, SolcastApi | None]:
     """Reload the integration."""
 
     _LOGGER.warning("Reloading integration")
     await hass.config_entries.async_reload(entry.entry_id)
     await hass.async_block_till_done()
-    if hass.data[DOMAIN].get(entry.entry_id):
+    if entry.state is ConfigEntryState.LOADED:
         try:
             return entry.runtime_data.coordinator, entry.runtime_data.coordinator.solcast
         except:  # noqa: E722
@@ -887,8 +969,13 @@ async def exec_update_actuals(
     if wait:
         await wait_for_update(hass, caplog, freezer)
         await solcast.tasks_cancel()
+        last_record = 0
         async with asyncio.timeout(1):
-            while "Task dampening model_automated took" not in caplog.text:
+            while True:
+                records = caplog.records
+                if any("Task dampening model_automated took" in r.getMessage() for r in records[last_record:]):
+                    break
+                last_record = len(records)
                 await hass.async_block_till_done()
     await hass.async_block_till_done()
 
@@ -896,19 +983,26 @@ async def exec_update_actuals(
 async def wait_for_update(hass: HomeAssistant, caplog: pytest.LogCaptureFixture, freezer: FrozenDateTimeFactory) -> None:
     """Wait for forecast update completion."""
 
+    needles = (
+        "Forecast update completed successfully",
+        "Saved estimated actual cache",
+        "Not requesting a solar forecast",
+        "aborting forecast update",
+        "update already in progress",
+        "pausing",
+        "Completed task update",
+        "Completed task force_update",
+        "ConfigEntryAuthFailed",
+    )
+    last_record = 0
     async with asyncio.timeout(300):
-        while (
-            "Forecast update completed successfully" not in caplog.text
-            and "Saved estimated actual cache" not in caplog.text
-            and "Not requesting a solar forecast" not in caplog.text
-            and "aborting forecast update" not in caplog.text
-            and "update already in progress" not in caplog.text
-            and "pausing" not in caplog.text
-            and "Completed task update" not in caplog.text
-            and "Completed task force_update" not in caplog.text
-            and "ConfigEntryAuthFailed" not in caplog.text
-        ):  # Wait for task to complete
-            freezer.tick(0.1)
+        while True:
+            records = caplog.records
+            for r in records[last_record:]:
+                if any(n in r.getMessage() for n in needles):
+                    return
+            last_record = len(records)
+            freezer.tick(1.0)
             await hass.async_block_till_done()
 
 
@@ -917,16 +1011,22 @@ async def wait_for_it(
 ) -> None:
     """Wait for a specific log message to appear."""
 
+    last_record = 0
+    tick_seconds = 5.0 if long_time else 1.0
     async with asyncio.timeout(300 if not long_time else 3000):
-        while wait_for not in caplog.text:  # Wait for task to complete
-            freezer.tick(0.1)
+        while True:
+            records = caplog.records
+            if any(wait_for in r.getMessage() for r in records[last_record:]):
+                return
+            last_record = len(records)
+            freezer.tick(tick_seconds)
             await hass.async_block_till_done()
 
 
 async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
-    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+    config_dir = get_config_dir(hass.config.config_dir)
 
     def list_files() -> list[str]:
         return [str(cache) for cache in Path(config_dir).glob("solcast*.json")]
@@ -946,16 +1046,41 @@ async def async_cleanup_integration_caches(hass: HomeAssistant, **kwargs: Any) -
     return True
 
 
+async def _async_cancel_tracked_solcast_tasks(entry: ConfigEntry) -> None:
+    """Cancel and await tracked Solcast API tasks during test cleanup."""
+
+    coordinator = getattr(entry.runtime_data, "coordinator", None)
+    if coordinator is None:
+        return
+
+    tracked_tasks = [task for task in coordinator.solcast.tasks.values() if isinstance(task, asyncio.Task)]
+    for task in tracked_tasks:
+        task.cancel()
+    if tracked_tasks:
+        await asyncio.gather(*tracked_tasks, return_exceptions=True)
+    coordinator.solcast.tasks.clear()
+
+
 async def async_cleanup_integration_tests(hass: HomeAssistant, **kwargs: Any) -> bool:
     """Clean up the Solcast Solar integration caches and session."""
 
-    config_dir = f"{hass.config.config_dir}/{CONFIG_DISCRETE_NAME}" if CONFIG_FOLDER_DISCRETE else hass.config.config_dir
+    config_dir = get_config_dir(hass.config.config_dir)
 
     def list_files() -> list[str]:
         return [str(cache) for cache in Path(config_dir).glob("solcast*.json")]
 
     try:
         leave_dir = False
+
+        loaded_entries = [entry for entry in hass.config_entries.async_entries(DOMAIN) if entry.state is ConfigEntryState.LOADED]
+        for entry in loaded_entries:
+            await _async_cancel_tracked_solcast_tasks(entry)
+            _LOGGER.debug("Unloading config entry during Solcast test cleanup: %s", entry.entry_id)
+            if not await hass.config_entries.async_unload(entry.entry_id):
+                _LOGGER.error("Error unloading Solcast config entry during test cleanup: %s", entry.entry_id)
+                return False
+        if loaded_entries:
+            await hass.async_block_till_done()
 
         for s in mock_session_default:  # Reset mock session settings
             if s != "aioresponses":

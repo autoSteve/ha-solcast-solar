@@ -219,7 +219,7 @@ class RequestMatch:
     async def build_response(self, url: URL, **kwargs: Any) -> ClientResponse | Exception:
         """Build the response."""
         if callable(self.callback):
-            if asyncio.iscoroutinefunction(self.callback):
+            if inspect.iscoroutinefunction(self.callback):
                 result = await self.callback(url, **kwargs)
             else:
                 result = self.callback(url, **kwargs)
