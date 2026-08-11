@@ -193,6 +193,7 @@ class RequestMatch:
             "traces": [],
             "loop": loop,
             "session": None,
+            "stream_writer": Mock(),
         }
 
         # We need to initialize headers manually

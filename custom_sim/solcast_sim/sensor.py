@@ -8,9 +8,8 @@ from zoneinfo import ZoneInfo
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.event import async_track_time_interval
-from homeassistant.helpers.sun import get_astral_location
 
 from .entities import build_entities
 from .guidance import (
@@ -43,6 +42,39 @@ _LOGGER = logging.getLogger(__name__)
 
 UPDATE_INTERVAL = timedelta(seconds=5)
 
+try:
+    from astral.sun import azimuth as _astral_azimuth, elevation as _astral_elevation
+
+    from homeassistant.helpers.sun import get_astral_observer
+
+    _USE_ASTRAL_OBSERVER = True
+except ImportError:  # pragma: no cover
+    from homeassistant.helpers.sun import get_astral_location
+
+    _USE_ASTRAL_OBSERVER = False
+
+    def _astral_elevation(loc: Any, ts: datetime) -> float:
+        return float(loc.solar_elevation(ts))
+
+    def _astral_azimuth(loc: Any, ts: datetime) -> float:
+        return float(loc.solar_azimuth(ts))
+
+
+class _AstralGeometry:
+    """Provide a location-like API across Astral helper variants."""
+
+    def __init__(self, observer_or_location: Any) -> None:
+        """Store the astral observer or legacy location object."""
+        self._observer_or_location = observer_or_location
+
+    def solar_elevation(self, ts: datetime, *_: Any) -> float:
+        """Return solar elevation for a timestamp."""
+        return float(_astral_elevation(self._observer_or_location, ts))
+
+    def solar_azimuth(self, ts: datetime, *_: Any) -> float:
+        """Return solar azimuth for a timestamp."""
+        return float(_astral_azimuth(self._observer_or_location, ts))
+
 
 def _describe_interval(interval: timedelta) -> str:
     """Return a plain-English cadence string for logs."""
@@ -59,7 +91,7 @@ def _describe_interval(interval: timedelta) -> str:
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up Solcast PV SimCity sensors from a config entry."""
     config = {**entry.data, **entry.options}
@@ -68,7 +100,9 @@ async def async_setup_entry(
     latitude = float(getattr(hass.config, "latitude", 0.0))
     longitude = float(getattr(hass.config, "longitude", 0.0))
     tz = ZoneInfo(str(getattr(hass.config, "time_zone", "UTC")))
-    astral_location, astral_elevation = get_astral_location(hass)
+    astral_geometry = _AstralGeometry(
+        get_astral_observer(hass) if _USE_ASTRAL_OBSERVER else get_astral_location(hass)[0]
+    )
     export_factor: float = float(config.get("export_factor", 1.0))
     export_limit_kw: float = float(config.get("export_limit_kw", 5.0))
     season: str = str(config.get("season", "auto"))
@@ -149,8 +183,8 @@ async def async_setup_entry(
         shade_azimuth_deg=shade_azimuth_deg,
         shade_opacity=shade_opacity,
         shade_density_profile=shade_density_profile,
-        astral_location=astral_location,
-        astral_elevation=astral_elevation,
+        astral_location=astral_geometry,
+        astral_elevation=astral_geometry,
         random_seed=random_seed,
         climate_monthly_cloud=climate_cloud_means,
         climate_monthly_cloud_std=climate_cloud_stds,

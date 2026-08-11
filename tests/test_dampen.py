@@ -20,6 +20,7 @@ import pytest
 
 from homeassistant.components.recorder import Recorder
 from homeassistant.components.sensor import SensorDeviceClass
+import homeassistant.components.solcast_solar.dampen as dampen_module
 from homeassistant.components.solcast_solar.config_flow import (
     SolcastSolarOptionFlowHandler,
 )
@@ -99,6 +100,29 @@ ZONE = ZoneInfo(ZONE_RAW)
 NOW = dt.now(ZONE)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _patch_astral_location_provider(monkeypatch: pytest.MonkeyPatch, loc: Any) -> None:
+    """Patch dampen astral providers for both observer and legacy environments."""
+    monkeypatch.setattr(
+        "homeassistant.components.solcast_solar.dampen._astral_elevation",
+        lambda astral_loc, when: astral_loc.solar_elevation(when),
+    )
+    monkeypatch.setattr(
+        "homeassistant.components.solcast_solar.dampen._astral_azimuth",
+        lambda astral_loc, when: astral_loc.solar_azimuth(when) if hasattr(astral_loc, "solar_azimuth") else 180.0,
+    )
+
+    if hasattr(dampen_module, "get_astral_observer"):
+        monkeypatch.setattr(
+            "homeassistant.components.solcast_solar.dampen.get_astral_observer",
+            lambda _hass: loc,
+        )
+    else:
+        monkeypatch.setattr(
+            "homeassistant.components.solcast_solar.dampen.get_astral_location",
+            lambda _hass: (loc, 0),
+        )
 
 
 async def test_auto_dampen(
@@ -864,17 +888,11 @@ def test_elevation_adjustment_ratio_near_horizon_returns_1(monkeypatch: pytest.M
     dampening.api = SimpleNamespace(hass=SimpleNamespace())  # type: ignore[attr-defined]
 
     # Past below horizon, target above
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc([2.0, 40.0]), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc([2.0, 40.0]))
     assert dampening.elevation_adjustment_ratio(NOW, NOW) == 1.0
 
     # Past above, target below horizon
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc([40.0, 2.0]), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc([40.0, 2.0]))
     assert dampening.elevation_adjustment_ratio(NOW, NOW) == 1.0
 
 
@@ -903,17 +921,11 @@ def test_elevation_adjustment_ratio_clamping_bounds(monkeypatch: pytest.MonkeyPa
     )  # type: ignore[attr-defined]
 
     # High target vs low past would give a large ratio -> clamped to 2.0
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc(10.0, 80.0), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc(10.0, 80.0))
     assert dampening.elevation_adjustment_ratio(NOW, NOW) == 2.0
 
     # Low target vs high past would give a tiny ratio -> clamped to 0.5
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc(80.0, 10.0), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc(80.0, 10.0))
     assert dampening.elevation_adjustment_ratio(NOW, NOW) == 0.5
 
 
@@ -940,10 +952,7 @@ def test_elevation_adjustment_ratio_uses_site_geometry(monkeypatch: pytest.Monke
         ],
     )  # type: ignore[attr-defined]
 
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc(), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc())
 
     base_ratio = math.sin(math.radians(55.0)) / math.sin(
         math.radians(35.0)
@@ -985,10 +994,7 @@ def test_elevation_adjustment_ratio_falls_back_when_all_sites_face_away(monkeypa
         sites=[{RESOURCE_ID: "a", SITE_ATTRIBUTE_TILT: 90, SITE_ATTRIBUTE_AZIMUTH: 270}],
     )  # type: ignore[attr-defined]
 
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc(), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc())
 
     base_ratio = math.sin(math.radians(55.0)) / math.sin(
         math.radians(35.0)
@@ -1017,10 +1023,7 @@ def test_elevation_adjustment_ratio_unclamped_value(monkeypatch: pytest.MonkeyPa
         sites=[{RESOURCE_ID: "south", SITE_ATTRIBUTE_TILT: 30.0, SITE_ATTRIBUTE_AZIMUTH: 180.0}],
     )  # type: ignore[attr-defined]
 
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc(), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc())
 
     # Single south-facing site, sun due south at both timestamps
     past_gain = math.sin(math.radians(35.0)) * math.cos(math.radians(30.0)) + math.cos(math.radians(35.0)) * math.sin(math.radians(30.0))
@@ -1061,10 +1064,7 @@ async def test_calculate_elevation_adjustment_applied(monkeypatch: pytest.Monkey
         def solar_azimuth(self, _when: dt) -> float:
             return 180.0
 
-    monkeypatch.setattr(
-        "homeassistant.components.solcast_solar.dampen.get_astral_location",
-        lambda _hass: (_Loc(), 0),
-    )
+    _patch_astral_location_provider(monkeypatch, _Loc())
 
     interval = 20
     timestamps = [

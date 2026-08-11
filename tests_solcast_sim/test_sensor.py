@@ -66,7 +66,7 @@ async def test_async_setup_entry_uses_cached_climate(
     fake_months = [{"mean": 0.4, "std": 0.1}] * 12
     fake_astral = SimpleNamespace()
 
-    monkeypatch.setattr(_sensor, "get_astral_location", lambda _hass: (fake_astral, fake_astral))
+    monkeypatch.setattr(_sensor, "get_astral_observer", lambda _hass: fake_astral)
     monkeypatch.setattr(_sensor, "_load_climate_cache", lambda *a: fake_months)
     monkeypatch.setattr(_sensor, "_async_write_guidance_file", AsyncMock())
     monkeypatch.setattr(_sensor, "_prime_model_from_restore_state", AsyncMock())
@@ -89,7 +89,7 @@ async def test_async_setup_entry_fetches_climate_on_cache_miss(
     fake_astral = SimpleNamespace()
     saved: list = []
 
-    monkeypatch.setattr(_sensor, "get_astral_location", lambda _hass: (fake_astral, fake_astral))
+    monkeypatch.setattr(_sensor, "get_astral_observer", lambda _hass: fake_astral)
     monkeypatch.setattr(_sensor, "_load_climate_cache", lambda *a: None)
     monkeypatch.setattr(_sensor, "_async_fetch_climate_normals", AsyncMock(return_value=fake_months))
     monkeypatch.setattr(_sensor, "_save_climate_cache", lambda *a: saved.append(a))
@@ -113,7 +113,7 @@ async def test_async_setup_entry_proceeds_without_climate(
 
     fake_astral = SimpleNamespace()
 
-    monkeypatch.setattr(_sensor, "get_astral_location", lambda _hass: (fake_astral, fake_astral))
+    monkeypatch.setattr(_sensor, "get_astral_observer", lambda _hass: fake_astral)
     monkeypatch.setattr(_sensor, "_load_climate_cache", lambda *a: None)
     monkeypatch.setattr(_sensor, "_async_fetch_climate_normals", AsyncMock(return_value=None))
     monkeypatch.setattr(_sensor, "_async_write_guidance_file", AsyncMock())
@@ -134,7 +134,7 @@ async def test_async_setup_entry_invalid_api_key_raises(
     entry = MockConfigEntry(domain="solcast_sim", data=config, options={}, version=6)
     entry.add_to_hass(hass)
     fake_astral = SimpleNamespace()
-    monkeypatch.setattr(_sensor, "get_astral_location", lambda _hass: (fake_astral, fake_astral))
+    monkeypatch.setattr(_sensor, "get_astral_observer", lambda _hass: fake_astral)
 
     with pytest.raises(ValueError, match="invalid api_key"):
         await _sensor.async_setup_entry(hass, entry, lambda _: None)
@@ -149,7 +149,7 @@ async def test_async_setup_entry_deduplicates_overlapping_sites(
     entry = MockConfigEntry(domain="solcast_sim", data=config, options={}, version=6)
     entry.add_to_hass(hass)
     fake_astral = SimpleNamespace()
-    monkeypatch.setattr(_sensor, "get_astral_location", lambda _hass: (fake_astral, fake_astral))
+    monkeypatch.setattr(_sensor, "get_astral_observer", lambda _hass: fake_astral)
     monkeypatch.setattr(
         _sensor,
         "API_KEY_SITES",
