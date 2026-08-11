@@ -1,25 +1,20 @@
 """Tests for the Solcast Solar diagnostics and system health."""
 
 import logging
-from typing import Any
 
 from freezegun.api import FrozenDateTimeFactory
 
 from homeassistant.components.recorder import Recorder
-from homeassistant.components.solcast_solar.const import TITLE
+from homeassistant.components.solcast_solar.const import DOMAIN
 from homeassistant.core import HomeAssistant
 from homeassistant.setup import async_setup_component
 
 from . import DEFAULT_INPUT1, async_cleanup_integration_tests, async_init_integration
+from tests.common import get_system_health_info
 
 _LOGGER = logging.getLogger(__name__)
 
-SYSTEM_HEALTH_DOMAIN = TITLE
-
-
-async def get_system_health_info(hass: HomeAssistant, domain: str) -> dict[str, Any]:
-    """Get system health info."""
-    return await hass.data["system_health"][domain].info_callback(hass)
+SYSTEM_HEALTH_DOMAIN = DOMAIN
 
 
 async def test_system_health(

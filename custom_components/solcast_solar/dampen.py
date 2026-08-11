@@ -196,18 +196,18 @@ def compute_energy_intervals(
         and len(sample_time) == len(sample_generation_time)
         and len(sample_time) == len(sample_timedelta)
     ):
-        for idx, (interval, kWh, report_time, time_delta) in enumerate(
+        for idx, (interval, kwh, report_time, time_delta) in enumerate(
             zip(sample_time, sample_generation, sample_generation_time, sample_timedelta, strict=True)
         ):
             is_excessive = False
             if interval != last_interval:
                 last_interval = interval
                 if uniform_increment:
-                    if round(kWh, 4) > upper:
+                    if round(kwh, 4) > upper:
                         is_excessive = True
                         ignored[interval] = True
-                elif time_delta > upper and kWh > 0.0003:
-                    if kWh > 0.14:
+                elif time_delta > upper and kwh > 0.0003:
+                    if kwh > 0.14:
                         is_excessive = True
                         ignored[interval] = True
                 if is_excessive:
@@ -220,20 +220,20 @@ def compute_energy_intervals(
                 prev_interval_start = delta_start.replace(minute=delta_start.minute // 30 * 30, second=0, microsecond=0)
 
                 if prev_report_time == period_start:
-                    generation_intervals[current_interval_start] += kWh
+                    generation_intervals[current_interval_start] += kwh
                     prev_report_time = report_time
                     continue
 
                 if report_time == period_end:
                     if prev_interval_start in generation_intervals:
-                        generation_intervals[prev_interval_start] += kWh
+                        generation_intervals[prev_interval_start] += kwh
                     prev_report_time = report_time
                     continue
 
-                if time_upper and time_delta > time_upper and kWh > 0.0003:
-                    generation_intervals[current_interval_start] += kWh
+                if time_upper and time_delta > time_upper and kwh > 0.0003:
+                    generation_intervals[current_interval_start] += kwh
                 elif prev_interval_start == current_interval_start:
-                    generation_intervals[interval] += kWh
+                    generation_intervals[interval] += kwh
                 else:
                     total_seconds = (delta_end - delta_start).total_seconds()
                     if total_seconds > 0:
@@ -251,9 +251,9 @@ def compute_energy_intervals(
 
                         for crossed_interval, proportion in intervals_crossed:
                             if crossed_interval in generation_intervals:
-                                generation_intervals[crossed_interval] += kWh * proportion
+                                generation_intervals[crossed_interval] += kwh * proportion
             elif not is_excessive and idx == 0:
-                generation_intervals[interval] += kWh
+                generation_intervals[interval] += kwh
 
             prev_report_time = report_time
 
