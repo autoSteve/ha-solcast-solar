@@ -22,12 +22,6 @@ from homeassistant.helpers import issue_registry as ir
 from tests.common import MockConfigEntry
 
 
-@pytest.fixture
-def ignore_translations_for_mock_domains() -> list[str]:
-    """Do not validate translations for the custom solcast_sim domain."""
-    return ["solcast_sim"]
-
-
 def test_get_api_key_from_entry_uses_data() -> None:
     """Return canonical key from entry.data."""
     entry = MockConfigEntry(domain="solcast_sim", data={"api_key": " 1 "}, options={})
