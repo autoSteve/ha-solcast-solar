@@ -233,8 +233,7 @@ class SimulationProfile:
     shade_distance_m: float
     shade_azimuth_deg: float
     shade_opacity: float
-    astral_location: Any
-    astral_elevation: Any
+    astral_geometry: Any
     random_seed: str
     shade_density_profile: tuple[float, float, float] = DEFAULT_SHADE_DENSITY_PROFILE
     climate_monthly_cloud: tuple[float, ...] | None = None
@@ -451,11 +450,11 @@ def seed_to_int(seed_material: str) -> int:
     return int.from_bytes(digest[:SHA256_SEED_BYTES], "big", signed=False)
 
 
-def solar_position_deg(now_local: datetime, astral_location: Any, astral_elevation: Any) -> tuple[float, float]:
+def solar_position_deg(now_local: datetime, astral_geometry: Any) -> tuple[float, float]:
     """Return (elevation_deg, azimuth_deg) for local time using Astral."""
     now_utc = now_local.astimezone(UTC)
-    elevation_deg = float(astral_location.solar_elevation(now_utc, astral_elevation))
-    azimuth_deg = float(astral_location.solar_azimuth(now_utc, astral_elevation))
+    elevation_deg = float(astral_geometry.solar_elevation(now_utc))
+    azimuth_deg = float(astral_geometry.solar_azimuth(now_utc))
     return elevation_deg, azimuth_deg
 
 
@@ -492,8 +491,7 @@ def shade_attenuation_factor(now_local: datetime, profile: SimulationProfile) ->
 
     elevation_deg, azimuth_deg = solar_position_deg(
         now_local,
-        profile.astral_location,
-        profile.astral_elevation,
+        profile.astral_geometry,
     )
     if elevation_deg <= 0.0:
         return 1.0

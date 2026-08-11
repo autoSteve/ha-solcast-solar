@@ -49,8 +49,7 @@ def _make_profile(shade_opacity: float = 0.0) -> SimulationProfile:
         shade_distance_m=15.0,
         shade_azimuth_deg=0.0,
         shade_opacity=shade_opacity,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
     )
 
@@ -302,8 +301,7 @@ def test_build_guidance_payload_high_variability_locale(monkeypatch: pytest.Monk
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
     )
     payload = guidance.build_guidance_payload(profile, ZoneInfo("UTC"), days=1)
@@ -411,8 +409,7 @@ async def test_async_write_guidance_file(hass: HomeAssistant) -> None:
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
     )
     with patch(

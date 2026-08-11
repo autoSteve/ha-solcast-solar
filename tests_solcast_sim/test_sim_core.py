@@ -49,8 +49,7 @@ def _build_profile(density_profile: tuple[float, float, float]) -> SimulationPro
         shade_distance_m=15.0,
         shade_azimuth_deg=0.0,
         shade_opacity=1.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
         shade_density_profile=density_profile,
     )
@@ -81,7 +80,7 @@ def test_canopy_density_ratio_increases_with_depth() -> None:
 
 def test_shade_attenuation_factor_responds_to_density_profile(monkeypatch: pytest.MonkeyPatch) -> None:
     """Denser canopy profiles should block more power for the same solar geometry."""
-    monkeypatch.setattr(sim_core, "solar_position_deg", lambda _now, _loc, _elev: (3.0, 0.0))
+    monkeypatch.setattr(sim_core, "solar_position_deg", lambda _now, _geometry: (3.0, 0.0))
 
     now_local = datetime(2026, 5, 10, 12, 0, tzinfo=UTC)
     fluffy_edges = _build_profile((0.20, 0.45, 0.80))
@@ -107,8 +106,7 @@ def _flat_profile(variability: float, seed: str = "testseed") -> SimulationProfi
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed=seed,
         shade_density_profile=(0.3, 0.8, 1.0),
     )
@@ -289,8 +287,7 @@ def _profile_with_climate_normals() -> SimulationProfile:
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
         climate_monthly_cloud=means,
         climate_monthly_cloud_std=stds,
@@ -320,8 +317,7 @@ def test_base_cloudiness_high_variability_locale() -> None:
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
     )
     mean, std = base_cloudiness_for_day(date(2026, 1, 15), "winter", profile)
@@ -343,8 +339,7 @@ def test_base_cloudiness_seasonal_fallback() -> None:
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="seed",
     )
     mean, std = base_cloudiness_for_day(date(2026, 6, 15), "winter", profile)
@@ -409,8 +404,7 @@ def _make_profile_for_battery() -> SimulationProfile:
         shade_distance_m=0.0,
         shade_azimuth_deg=0.0,
         shade_opacity=0.0,
-        astral_location=SimpleNamespace(),
-        astral_elevation=SimpleNamespace(),
+        astral_geometry=SimpleNamespace(),
         random_seed="batttest",
     )
 
@@ -594,14 +588,13 @@ def test_interpolate_piecewise_single_point() -> None:
 
 
 def test_solar_position_deg_calls_astral() -> None:
-    """solar_position_deg delegates to astral_location methods."""
+    """solar_position_deg delegates to astral geometry methods."""
     mock_loc = SimpleNamespace(
-        solar_elevation=lambda utc, elev: 30.0,
-        solar_azimuth=lambda utc, elev: 180.0,
+        solar_elevation=lambda utc: 30.0,
+        solar_azimuth=lambda utc: 180.0,
     )
-    mock_elev = SimpleNamespace()
     now_local = datetime(2026, 6, 1, 12, 0, tzinfo=ZoneInfo("UTC"))
-    elev, az = solar_position_deg(now_local, mock_loc, mock_elev)
+    elev, az = solar_position_deg(now_local, mock_loc)
     assert elev == pytest.approx(30.0)
     assert az == pytest.approx(180.0)
 

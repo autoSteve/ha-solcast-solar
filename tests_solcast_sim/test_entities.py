@@ -397,8 +397,7 @@ def _simple_profile() -> SimulationProfile:
         shade_distance_m=100.0,
         shade_azimuth_deg=0.0,
         shade_density_profile=(0.3, 0.8, 1.0),
-        astral_location=None,
-        astral_elevation=None,
+        astral_geometry=None,
         random_seed="test",
     )
 
