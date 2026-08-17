@@ -18,6 +18,7 @@ from aiohttp.client_reqrep import ClientResponse
 
 from homeassistant.exceptions import ConfigEntryError, ConfigEntryNotReady
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.util import dt as dt_util
 
 from . import entry_state
 from .const import (
@@ -532,7 +533,7 @@ class SitesCache:
                         for site, api_key in new_sites.items():
                             await self.api.fetcher.http_data_call(site=site, api_key=api_key, do_past_hours=168)
 
-                        _now = dt.now(UTC).replace(microsecond=0)
+                        _now = dt_util.now(UTC).replace(microsecond=0)
                         update: dict[str, Any] = {LAST_UPDATED: _now, LAST_ATTEMPT: _now, VERSION: JSON_VERSION}
                         self.api.data |= update
                         self.api.data_undampened |= update
@@ -789,7 +790,7 @@ class SitesCache:
         def list_matching_files(config_dir: Path, pattern: str) -> list[Path]:
             return sorted(path for path in config_dir.glob(pattern) if path.is_file())
 
-        backup_day = dt.now(UTC).strftime("%y%m%d")
+        backup_day = dt_util.now(UTC).strftime("%y%m%d")
         config_dir = Path(self.api.config_dir)
         cache_files = await self.api.hass.async_add_executor_job(list_matching_files, config_dir, "solcast*.json")
 

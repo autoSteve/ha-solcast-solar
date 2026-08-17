@@ -23,6 +23,7 @@ from homeassistant.const import ATTR_UNIT_OF_MEASUREMENT
 from homeassistant.core import State
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ADVANCED_AUTOMATED_DAMPENING_DELTA_ADJUSTMENT_MODEL,
@@ -1058,7 +1059,7 @@ class Dampening:
 
         # Trim, sort and serialise.
         self.data_generation = {
-            LAST_UPDATED: dt.now(UTC).replace(microsecond=0),
+            LAST_UPDATED: dt_util.now(UTC).replace(microsecond=0),
             GENERATION: sorted(
                 filter(
                     lambda generated: generated[PERIOD_START] >= self.api.dt_helper.day_start_utc(future=-22),
@@ -1199,7 +1200,7 @@ class Dampening:
             self.api.data_undampened[SITE_INFO].update({site: {FORECASTS: copy.deepcopy(forecasts_undampened)}})
 
         if apply_dampening:
-            self.api.data_undampened[LAST_UPDATED] = dt.now(UTC).replace(microsecond=0)
+            self.api.data_undampened[LAST_UPDATED] = dt_util.now(UTC).replace(microsecond=0)
             await self.api.sites_cache.serialise_data(self.api.data_undampened, self.api.filename_undampened)
 
         if apply_dampening:
@@ -1496,7 +1497,7 @@ class Dampening:
             dst_offset = (
                 1
                 if self.api.dt_helper.dst(
-                    dt.now(self.api.tz).replace(hour=interval // 2, minute=30 * (interval % 2), second=0, microsecond=0)
+                    dt_util.now(self.api.tz).replace(hour=interval // 2, minute=30 * (interval % 2), second=0, microsecond=0)
                 )
                 else 0
             )
@@ -1687,7 +1688,7 @@ class Dampening:
 
                 if (
                     record_adjustment
-                    and period_start.astimezone(self.api.tz).date() == dt.now(self.api.tz).date()
+                    and period_start.astimezone(self.api.tz).date() == dt_util.now(self.api.tz).date()
                     and round(factor, 3) != round(factor_pre_adjustment, 3)
                 ):
                     _LOGGER.debug(
