@@ -100,9 +100,7 @@ async def async_setup_entry(
     latitude = float(getattr(hass.config, "latitude", 0.0))
     longitude = float(getattr(hass.config, "longitude", 0.0))
     tz = ZoneInfo(str(getattr(hass.config, "time_zone", "UTC")))
-    astral_geometry = _AstralGeometry(
-        get_astral_observer(hass) if _USE_ASTRAL_OBSERVER else get_astral_location(hass)[0]
-    )
+    astral_geometry = _AstralGeometry(get_astral_observer(hass) if _USE_ASTRAL_OBSERVER else get_astral_location(hass)[0])
     export_factor: float = float(config.get("export_factor", 1.0))
     export_limit_kw: float = float(config.get("export_limit_kw", 5.0))
     season: str = str(config.get("season", "auto"))

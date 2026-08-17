@@ -21,6 +21,7 @@ from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ADVANCED_API_RAISE_ISSUES,
@@ -217,7 +218,7 @@ class Fetcher:
                 else set()
             )
 
-            oldest = (dt.now(self.api.tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)).astimezone(UTC)
+            oldest = (dt_util.now(self.api.tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)).astimezone(UTC)
 
             for estimate_actual in estimate_actuals:
                 period_start = dt.fromisoformat(estimate_actual[PERIOD_END]).astimezone(UTC).replace(second=0, microsecond=0) - timedelta(
@@ -262,7 +263,7 @@ class Fetcher:
         if status != _DataCallStatus.SUCCESS:
             self._log_failure("Update estimated actuals failed: %s", reason)
         else:
-            now = dt.now(UTC).replace(microsecond=0)
+            now = dt_util.now(UTC).replace(microsecond=0)
             self.api.data_actuals[LAST_UPDATED] = now
             self.api.data_actuals[LAST_ATTEMPT] = now
             self.api.data_actuals_dampened[LAST_UPDATED] = now
@@ -285,7 +286,7 @@ class Fetcher:
         Returns:
             UpdateResult: A typed outcome and a message.
         """
-        last_attempt = dt.now(UTC)
+        last_attempt = dt_util.now(UTC)
         status = ""
 
         def next_update():
@@ -294,7 +295,7 @@ class Fetcher:
             return ""
 
         if last_updated := self.api.last_updated:
-            if last_updated + timedelta(seconds=10) > dt.now(UTC):
+            if last_updated + timedelta(seconds=10) > dt_util.now(UTC):
                 status = f"Not requesting a solar forecast because time is within ten seconds of last update ({last_updated.astimezone(self.api.tz)})"
                 _LOGGER.warning(status)
                 if self._next_update is not None:
@@ -350,7 +351,7 @@ class Fetcher:
             self.api.loaded_data = True
 
             async def set_metadata_and_serialise(data: dict[str, Any]):
-                data[LAST_UPDATED] = dt.now(UTC).replace(microsecond=0)
+                data[LAST_UPDATED] = dt_util.now(UTC).replace(microsecond=0)
                 data[LAST_ATTEMPT] = last_attempt
                 # Set to divisions if auto update is enabled, but not forced, in which case set to 99999 (otherwise zero).
                 data[AUTO_UPDATED] = (
@@ -458,7 +459,7 @@ class Fetcher:
 
                 estimate_actuals: list[dict[str, Any]] = act_response.get(ESTIMATED_ACTUALS, [])
 
-                oldest = (dt.now(self.api.tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)).astimezone(UTC)
+                oldest = (dt_util.now(self.api.tz).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=7)).astimezone(UTC)
 
                 actuals: dict[dt, Any] = {}
                 for estimate_actual in estimate_actuals:
@@ -486,8 +487,8 @@ class Fetcher:
 
                 await self.sort_and_prune(site, self.api.data_actuals, self.api.advanced_options[ADVANCED_HISTORY_MAX_DAYS], actuals)
 
-                self.api.data_actuals[LAST_UPDATED] = dt.now(UTC).replace(microsecond=0)
-                self.api.data_actuals[LAST_ATTEMPT] = dt.now(UTC).replace(microsecond=0)
+                self.api.data_actuals[LAST_UPDATED] = dt_util.now(UTC).replace(microsecond=0)
+                self.api.data_actuals[LAST_ATTEMPT] = dt_util.now(UTC).replace(microsecond=0)
 
             # Fetch latest data.
 
@@ -562,7 +563,7 @@ class Fetcher:
                 failure
                 and (
                     self.api.data_undampened[SITE_INFO].get(site) is None
-                    or self.api.data_undampened[SITE_INFO][site][FORECASTS][0][PERIOD_START] > dt.now(UTC) - timedelta(hours=1)
+                    or self.api.data_undampened[SITE_INFO][site][FORECASTS][0][PERIOD_START] > dt_util.now(UTC) - timedelta(hours=1)
                 )
                 and issue_registry.async_get_issue(DOMAIN, ISSUE_RECORDS_MISSING_INITIAL) is None
             ):

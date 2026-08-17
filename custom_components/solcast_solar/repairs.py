@@ -60,11 +60,13 @@ class SolcastRepair(RepairsFlow):
 class RecordsMissingRepairFlow(SolcastRepair):
     """Handler to enable auto-update."""
 
+    # TODO: Ignore linter warning unless hacs.json specifies a minimum HA version of 2026.6.
     async def async_step_init(self, user_input: dict[str, str] | None = None) -> data_entry_flow.FlowResult:
         """Handle the init."""
 
         return await self.async_step_offer_auto()
 
+    # TODO: Ignore linter warning unless hacs.json specifies a minimum HA version of 2026.6.
     async def async_step_offer_auto(self, user_input: dict[str, str] | None = None) -> data_entry_flow.FlowResult:
         """Handle the offer to enable auto-update."""
 
