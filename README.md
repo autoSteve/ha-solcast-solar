@@ -12,9 +12,13 @@
 
 This custom component integrates the Solcast PV Forecast for hobbyists into Home Assistant (https://www.home-assistant.io).
 
-It allows visualisation of the solar forecast in the Energy dashboard, and supports flexible forecast dampening, the application of a hard limit for over-sized PV systems, a comprehensive set of sensor and configuration entities, along with sensor attributes containing full forecast detail to support automation and visualisation.
+It provides end-to-end solar forecast integration for the Energy dashboard, with a broad set of sensors, actions, configuration entities, and rich forecast attributes for advanced automations and visualisation.
 
-It is a mature integration with an active community, and responsive developers.
+It supports both manual and automated dampening to account for localised shading. In simple terms, dampening means scaling forecast values down for times of day when your system usually produces less than the raw Solcast forecast (for example due to trees, chimneys, nearby buildings, or terrain). For advanced users, automated dampening can also adapt the model it uses by examining error-rate data.
+
+It also supports hard-limit controls for over-sized PV systems where inverter output is capped.
+
+This is a mature, actively maintained integration with an engaged community and responsive developers.
 
 This integration is not created by, maintained, endorsed nor approved by Solcast.
 
@@ -75,25 +79,32 @@ This integration is not created by, maintained, endorsed nor approved by Solcast
 
 ## Key Solcast integration concepts
 
-The Solcast service produces a forecast of solar PV generation from today through to the end of up to thirteen days into the future. This is a total of up to fourteen days. The first seven of these day forecasts are exposed by the integration as a separate sensor, with the value being the total predicted solar generation for each day. Further forecasted days are not exposed by sensors, yet can be visualised on the Energy dashboard.
+The Solcast service provides a solar PV generation forecast from today through to up to thirteen days ahead (up to fourteen days total).
 
-Separate sensors are also available that contain the expected peak generation power, peak generation time, and various forecasts of next hour, 30 minutes, and more.
+The integration exposes the first seven forecast days as separate daily sensors, with each sensor value being the predicted daily total generation. Additional forecast days are not exposed as separate sensors, but can still be visualised in the Energy dashboard.
+
+Additional sensors are available for expected peak generation power, peak generation time, and shorter forecast windows such as the next 30 minutes and next hour.
 
 If multiple arrays exist on different roof orientations, these can be configured in your Solcast account as separate 'rooftop sites' with differing azimuth, tilt and peak generation, to a maximum of two sites for a free hobbyist account. These separate site forecasts are combined to form the integration sensor values and Energy dashboard forecast data.
 
-Three solar generation estimates are produced by Solcast for every half hour period of all forecasted days.
+For each 30-minute interval in the forecast period, Solcast provides three generation estimates.
 
-* 'central' or 50% or most likely to occur forecast is exposed as the `estimate` by the integration.
-* '10%' or 1 in 10 'worst case' forecast assuming more cloud coverage than expected, exposed as `estimate10`.
-* '90%' or 1 in 10 'best case' forecast assuming less cloud coverage than expected, exposed as `estimate90`.
+* 'central' (50%, most likely) forecast is exposed as `estimate`.
+* '10%' (roughly 1-in-10 worst case, typically more cloud than expected) forecast is exposed as `estimate10`.
+* '90%' (roughly 1-in-10 best case, typically less cloud than expected) forecast is exposed as `estimate90`.
 
-The detail of these different forecast estimates can be found in sensor attributes, which contain both 30-minute daily intervals, and calculated hourly intervals across the day. Separate attributes sum the available estimates or break things down by Solcast site. (This integration usually references a Solcast site by by its 'site resource ID', and this can be found at the Solcast site https://toolkit.solcast.com.au/)
+Detailed forecast values are available in sensor attributes, including both 30-minute intervals and calculated hourly intervals. Separate attributes provide summed totals and per-site breakdowns. (This integration usually references a Solcast site by its site resource ID, available from https://toolkit.solcast.com.au/.)
 
 The Energy dashboard in Home Assistant is populated with historical data that is provided by the integration, with data retained for up to two years. (Forecast history is not stored as Home Assistant statistics, rather is stored in a `json` cache file maintained by the integration.) History displayed can be past forecasts, or "estimated actual" data, selectable as a configuration option.
 
-Manipulation of forecasted values to account for predicable shading at times of the day is possible automatically, or by setting dampening factors for hourly or half-hourly periods. A "hard limit" may also be set for over-sized solar arrays where expected generation cannot exceed an inverter maximum rating. These two mechanisms are the only ways to manipulate the Solcast forecast data.
+Forecast values can be adjusted in two ways only:
 
-Solcast also produce historical estimated actual data. This is generally more accurate than a forecast because high resolution satellite imagery, weather and other climate observations (like water vapour and smog) are used to calculate the estimates. The integration automated dampening feature can make use of estimated actual data and compare it to generation history to provide a model of reduced forecasted generation to account for local shading. Estimated actual data can also be visualised on the Energy dashboard, whether automated dampening is used or not.
+* Dampening: reduce forecast values for times where predictable local effects (most commonly shading) regularly lower actual production.
+* Hard limit: cap forecast output where array size exceeds the inverter's maximum export/production capability.
+
+Solcast also provides historical estimated actual data. This is generally more accurate than a forecast because it is calculated using observed conditions (including high-resolution satellite imagery, weather, and atmospheric observations such as water vapour and smog).
+
+Automated dampening can use estimated actual data together with your generation history to model recurring under-performance (such as local shading). Estimated actual data can also be visualised on the Energy dashboard whether automated dampening is enabled or not.
 
 > [!NOTE]
 >
