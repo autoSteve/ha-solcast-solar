@@ -80,6 +80,7 @@ from . import (
 _LOGGER = logging.getLogger(__name__)
 
 
+@pytest.mark.timeout(120)
 async def test_adaptive_auto_dampen(  # noqa: C901
     recorder_mock: Recorder,
     hass: HomeAssistant,

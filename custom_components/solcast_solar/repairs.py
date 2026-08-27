@@ -60,13 +60,15 @@ class SolcastRepair(RepairsFlow):
 class RecordsMissingRepairFlow(SolcastRepair):
     """Handler to enable auto-update."""
 
-    # TODO: Ignore linter warning unless hacs.json specifies a minimum HA version of 2026.6.
+    # TODO: Remove the pylint suppression after minimum hacs.json HA version is raised to 2026.6+.
+    # When that happens, the return type hint needs to be RepairsFlowResult
+    # pylint: disable=home-assistant-return-type
     async def async_step_init(self, user_input: dict[str, str] | None = None) -> data_entry_flow.FlowResult:
         """Handle the init."""
 
         return await self.async_step_offer_auto()
 
-    # TODO: Ignore linter warning unless hacs.json specifies a minimum HA version of 2026.6.
+    # The return type hint will need to be RepairsFlowResult
     async def async_step_offer_auto(self, user_input: dict[str, str] | None = None) -> data_entry_flow.FlowResult:
         """Handle the offer to enable auto-update."""
 
