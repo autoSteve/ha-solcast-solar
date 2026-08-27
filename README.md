@@ -1497,6 +1497,12 @@ The code itself resides at `/config/custom_components/solcast_solar`, and removi
 
 Latest minor/patch releases.
 
+v4.6.2
+
+* Embrace Home Assistant dt_util by @autoSteve
+
+Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.6.1...v4.6.2
+
 v4.6.1
 
 * Fix a rare unique_id collision caused by a prior Oziee beta by @autoSteve
