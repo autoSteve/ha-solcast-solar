@@ -53,6 +53,7 @@ ADVANCED_GRANULAR_DAMPENING_DELTA_ADJUSTMENT: Final[str] = "granular_dampening_d
 ADVANCED_HISTORY_MAX_DAYS: Final[str] = "history_max_days"
 ADVANCED_LOG_UPDATE_FAILURE_ONLY: Final[str] = "log_update_failure_only"
 ADVANCED_RELOAD_ON_ADVANCED_CHANGE: Final[str] = "reload_on_advanced_change"
+ADVANCED_WATCH_FILES_POLL_INTERVAL: Final[str] = "watch_files_poll_interval"
 ADVANCED_SOLCAST_PORT: Final[str] = "solcast_port"
 ADVANCED_SOLCAST_URL: Final[str] = "solcast_url"
 ADVANCED_TRIGGER_ON_API_AVAILABLE: Final[str] = "trigger_on_api_available"
@@ -143,6 +144,7 @@ DEFAULT_GENERATION_HISTORY_LOAD_DAYS: Final[int] = 7  # Number of days of genera
 DEFAULT_GRANULAR_DAMPENING_DELTA_ADJUSTMENT: Final[bool] = False  # Whether to use delta adjustment for granular dampening
 DEFAULT_HISTORY_MAX: Final[int] = 730  # Maximum number of history days to keep
 DEFAULT_SOLCAST_PORT: Final[int] = 0  # Preserve the port embedded in the URL unless explicitly overridden
+DEFAULT_WATCH_FILES_POLL_INTERVAL: Final[float] = 1.0  # Polling interval (seconds) when watchfiles backend is unavailable
 DEFAULT_KEYS: Final[str] = "default_keys"
 DEFAULT_SOLCAST_HTTPS_URL: Final[str] = "https://api.solcast.com.au"
 DELAYED_RESTART_ON_CRASH: Final[int] = 15  # Minutes to delay restart after crash
@@ -569,6 +571,12 @@ ADVANCED_OPTIONS: Final[dict[str, dict[str, Any]]] = {
         OPTION_NOT_SET_IF: [ADVANCED_AUTOMATED_DAMPENING_NO_DELTA_ADJUSTMENT],
     },
     ADVANCED_RELOAD_ON_ADVANCED_CHANGE: {ADVANCED_TYPE: ADVANCED_OPTION.BOOL, DEFAULT: False},
+    ADVANCED_WATCH_FILES_POLL_INTERVAL: {
+        ADVANCED_TYPE: ADVANCED_OPTION.FLOAT,
+        MINIMUM: 0.1,
+        MAXIMUM: 60.0,
+        DEFAULT: DEFAULT_WATCH_FILES_POLL_INTERVAL,
+    },
     ADVANCED_SOLCAST_PORT: {ADVANCED_TYPE: ADVANCED_OPTION.INT, MINIMUM: 0, MAXIMUM: 65535, DEFAULT: DEFAULT_SOLCAST_PORT},
     ADVANCED_SOLCAST_URL: {ADVANCED_TYPE: ADVANCED_OPTION.STR, DEFAULT: DEFAULT_SOLCAST_HTTPS_URL},
     ADVANCED_TRIGGER_ON_API_AVAILABLE: {ADVANCED_TYPE: ADVANCED_OPTION.STR, DEFAULT: ""},

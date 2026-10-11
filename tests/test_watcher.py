@@ -1,15 +1,28 @@
 """Tests for Solcast file watcher behavior."""
 
+from threading import Event
 from typing import Any
 import unittest.mock
 
 import pytest
-from watchfiles import Change
 
-from homeassistant.components.solcast_solar.watch import FileWatcher
+from homeassistant.components.solcast_solar.const import (
+    ADVANCED_WATCH_FILES_POLL_INTERVAL,
+    DEFAULT_WATCH_FILES_POLL_INTERVAL,
+)
+from homeassistant.components.solcast_solar.watch import (
+    NATIVE_WATCH_AVAILABLE,
+    Change,
+    FileWatcher,
+    _mask_to_change,
+    awatch,
+)
+
+requires_native_watch = pytest.mark.skipif(not NATIVE_WATCH_AVAILABLE, reason="native inotify backend is not installed")
 
 
 @pytest.mark.asyncio
+@requires_native_watch
 async def test_watch_dampening_file_missing() -> None:
     """Ignore a missing dampening file while processing an update event."""
 
@@ -57,6 +70,30 @@ def test_watch_dir_non_discrete() -> None:
 
 
 @pytest.mark.asyncio
+async def test_setup_warns_when_watchfiles_unavailable() -> None:
+    """Log a warning when watchfiles is unavailable and fallback polling will be used."""
+
+    coordinator = unittest.mock.MagicMock()
+    coordinator.file_advanced = "/config/solcast_solar/solcast-advanced.json"
+    coordinator.file_dampening = "/config/solcast_solar/solcast-dampening.json"
+    coordinator.solcast = unittest.mock.MagicMock()
+    coordinator.solcast.options.auto_dampen = True
+
+    watcher = FileWatcher(coordinator)
+
+    with (
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.NATIVE_WATCH_AVAILABLE", False),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch._LOGGER.warning") as mock_warning,
+        unittest.mock.patch.object(watcher, "_start_managed_task") as start_task,
+    ):
+        await watcher.setup()
+
+    mock_warning.assert_called_once_with("inotify backend is not available, using polling fallback for file monitoring")
+    start_task.assert_called_once()
+
+
+@pytest.mark.asyncio
+@requires_native_watch
 async def test_watch_dampening_file_initial_change() -> None:
     """Process initial file change when watch starts with initial_change enabled."""
 
@@ -82,6 +119,7 @@ async def test_watch_dampening_file_initial_change() -> None:
 
 
 @pytest.mark.asyncio
+@requires_native_watch
 async def test_watch_dampening_file_recreated_then_deleted() -> None:
     """Continue monitoring when file is recreated, then stop on actual delete."""
 
@@ -114,6 +152,7 @@ async def test_watch_dampening_file_recreated_then_deleted() -> None:
 
 
 @pytest.mark.asyncio
+@requires_native_watch
 async def test_watch_dampening_file_rapid_churn() -> None:
     """Verify rapid modify/delete/recreate churn."""
 
@@ -156,6 +195,7 @@ async def test_watch_dampening_file_rapid_churn() -> None:
 
 
 @pytest.mark.asyncio
+@requires_native_watch
 async def test_watch_advanced_task_cancel_without_stop() -> None:
     """Cancel callback is called when advanced watcher exits without stop_event."""
 
@@ -219,3 +259,168 @@ def test_path_exists_oserror_returns_false() -> None:
 
     with unittest.mock.patch("homeassistant.components.solcast_solar.watch.Path.exists", side_effect=OSError):
         assert watcher._path_exists("/config/solcast_solar/solcast-dampening.json") is False
+
+
+def test_poll_interval_invalid_value_returns_default() -> None:
+    """Use default polling interval when advanced option is invalid."""
+
+    coordinator = unittest.mock.MagicMock()
+    coordinator.solcast = unittest.mock.MagicMock()
+    coordinator.solcast.advanced_options = {ADVANCED_WATCH_FILES_POLL_INTERVAL: 0}
+    watcher = FileWatcher(coordinator)
+
+    assert watcher._poll_interval() == DEFAULT_WATCH_FILES_POLL_INTERVAL
+
+
+@pytest.mark.asyncio
+async def test_watch_for_file_polling_fallback() -> None:
+    """Use polling fallback when watchfiles is unavailable."""
+
+    coordinator = unittest.mock.MagicMock()
+    coordinator.tasks = {}
+    coordinator.solcast = unittest.mock.MagicMock()
+    coordinator.solcast.advanced_options = {ADVANCED_WATCH_FILES_POLL_INTERVAL: 0.01}
+    watcher = FileWatcher(coordinator)
+
+    class OneShotStopEvent:
+        """Stop event that allows exactly one polling iteration."""
+
+        def __init__(self) -> None:
+            self._checks = 0
+
+        def is_set(self) -> bool:
+            self._checks += 1
+            return self._checks > 1
+
+    stop_event = OneShotStopEvent()
+
+    async def handler(initial_change: bool, handler_stop_event: Event) -> None:
+        return None
+
+    start_managed_task = unittest.mock.Mock()
+
+    sleep_mock = unittest.mock.AsyncMock()
+
+    with (
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.NATIVE_WATCH_AVAILABLE", False),
+        unittest.mock.patch.object(watcher, "_path_exists", side_effect=[False, True]),
+        unittest.mock.patch.object(watcher, "_start_managed_task", start_managed_task),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.asyncio.sleep", new=sleep_mock),
+    ):
+        await watcher.watch_for_file(
+            "watch_dampening",
+            "/config/solcast_solar/solcast-dampening.json",
+            handler,
+            process_on_add=True,
+            stop_event=stop_event,
+        )
+
+    sleep_mock.assert_awaited_once_with(0.01)
+    start_managed_task.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_watch_for_file_returns_when_watchfiles_stream_ends() -> None:
+    """Exit watch_for_file when the watchfiles async iterator completes."""
+
+    coordinator = unittest.mock.MagicMock()
+    coordinator.tasks = {}
+    watcher = FileWatcher(coordinator)
+
+    class FakeChange:
+        """Minimal change sentinel for watch_filter setup."""
+
+        added = "added"
+
+    async def empty_awatch(*args: Any, **kwargs: Any) -> Any:
+        if False:
+            yield
+
+    with (
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.NATIVE_WATCH_AVAILABLE", True),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.Change", FakeChange),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.awatch", empty_awatch),
+        unittest.mock.patch.object(watcher, "_path_exists", return_value=False),
+        unittest.mock.patch.object(watcher, "_start_managed_task") as start_managed_task,
+    ):
+        await watcher.watch_for_file(
+            "watch_dampening",
+            "/config/solcast_solar/solcast-dampening.json",
+            handler=unittest.mock.AsyncMock(),
+            process_on_add=True,
+            stop_event=Event(),
+        )
+
+    start_managed_task.assert_not_called()
+
+
+def test_mask_to_change_returns_none_without_mask() -> None:
+    """Return None when mask constants are unavailable."""
+
+    with unittest.mock.patch("homeassistant.components.solcast_solar.watch.Mask", None):
+        assert _mask_to_change(1) is None
+
+
+@pytest.mark.asyncio
+async def test_awatch_returns_when_native_backend_unavailable() -> None:
+    """Yield no events when inotify backend is unavailable."""
+
+    events: list[Any] = []
+
+    with (
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.Inotify", None),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.Mask", None),
+    ):
+        async for batch in awatch("/tmp"):
+            events.append(batch)
+
+    assert events == []
+
+
+@pytest.mark.asyncio
+async def test_watch_for_file_native_oserror_falls_back_to_polling() -> None:
+    """Fall back to polling when native watcher setup raises OSError."""
+
+    coordinator = unittest.mock.MagicMock()
+    coordinator.tasks = {}
+    coordinator.solcast = unittest.mock.MagicMock()
+    coordinator.solcast.advanced_options = {ADVANCED_WATCH_FILES_POLL_INTERVAL: 0.01}
+    watcher = FileWatcher(coordinator)
+
+    class OneShotStopEvent:
+        """Stop event that allows exactly one polling iteration."""
+
+        def __init__(self) -> None:
+            self._checks = 0
+
+        def is_set(self) -> bool:
+            self._checks += 1
+            return self._checks > 1
+
+    stop_event = OneShotStopEvent()
+
+    async def handler(initial_change: bool, handler_stop_event: Event) -> None:
+        return None
+
+    async def broken_awatch(*args: Any, **kwargs: Any) -> Any:
+        raise OSError
+        yield
+
+    start_managed_task = unittest.mock.Mock()
+
+    with (
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.NATIVE_WATCH_AVAILABLE", True),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.awatch", broken_awatch),
+        unittest.mock.patch.object(watcher, "_path_exists", side_effect=[False, True]),
+        unittest.mock.patch.object(watcher, "_start_managed_task", start_managed_task),
+        unittest.mock.patch("homeassistant.components.solcast_solar.watch.asyncio.sleep", new=unittest.mock.AsyncMock()),
+    ):
+        await watcher.watch_for_file(
+            "watch_dampening",
+            "/config/solcast_solar/solcast-dampening.json",
+            handler,
+            process_on_add=True,
+            stop_event=stop_event,
+        )
+
+    start_managed_task.assert_called_once()
