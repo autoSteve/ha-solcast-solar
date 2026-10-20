@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """Cron-driven Solcast proxy; resource reads never collect data.
 
-Requires Flask, croniter, cryptography and isodate. Both connections always use
-HTTPS; upstream certificate validation is disabled, and the proxy always uses
-an ad-hoc certificate. Accounts are learned from caller API keys on discovery
-or resource requests. Collection starts at the next UTC cron occurrence. State is in
-memory and lost on restart. Smaller horizons are sliced locally; larger ones
-return available data with x-proxy-hours-truncated, without extra API calls.
+Connections always use HTTPS; upstream certificate validation is disabled, and
+the proxy uses an ad-hoc certificate. Accounts are learned from caller API keys
+on discovery or resource requests. Collection starts at the next UTC cron
+occurrence. State is in memory and lost on restart.
 """
 
 import argparse
@@ -26,15 +24,15 @@ from typing import Any
 from urllib import error as urllib_error, request as urllib_request
 from urllib.parse import urlencode
 
-from croniter import croniter
+from cronsim import CronSim, CronSimError
 from flask import Flask, Response, jsonify, request
 import isodate
 
 DEFAULT_PORT = 8443
 DEFAULT_SOLCAST_PORT = 443
 DEFAULT_SOLCAST_HOST = "127.0.0.1"
-FORECAST_REQUEST_HOURS = 400
-ACTUALS_REQUEST_HOURS = 300
+FORECAST_REQUEST_HOURS = 336
+ACTUALS_REQUEST_HOURS = 168
 PROXY_NAME = "solcast-proxy"
 PROXY_VERSION = "2.0"
 PROXY_SCHEDULES = {
@@ -186,7 +184,11 @@ class SolcastProxy:
     ) -> None:
         """Configure collection without making network calls."""
         for expression in (forecast_cron, actuals_cron):
-            if len(expression.split()) != 5 or not croniter.is_valid(expression):
+            if len(expression.split()) != 5:
+                raise ValueError("Schedules must be valid five-field cron expressions")
+            try:
+                CronSim(expression, datetime.datetime(2020, 1, 1, tzinfo=datetime.UTC))
+            except CronSimError:
                 raise ValueError("Schedules must be valid five-field cron expressions")
         if min(max_attempts, retry_backoff) < 1:
             raise ValueError("Retry settings must be positive")
@@ -208,7 +210,12 @@ class SolcastProxy:
 
     def next_cron(self, kind: str, now: datetime.datetime) -> datetime.datetime:
         """Find the next strictly future UTC occurrence."""
-        return croniter(self.schedules[kind]["cron"], now.astimezone(datetime.UTC)).get_next(datetime.datetime)
+        return next(
+            CronSim(
+                self.schedules[kind]["cron"],
+                now.astimezone(datetime.UTC) + datetime.timedelta(seconds=1),
+            )
+        )
 
     def collection_hours(self, record: Resource) -> int:
         """Request beyond both platform limits and let upstream cap the data."""
