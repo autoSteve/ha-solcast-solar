@@ -218,7 +218,7 @@ def test_cron_collects_all_sites_and_kinds_independently(proxy: ProxyHarness) ->
     assert proxy.resource_calls("forecasts") == [
         (
             f"/rooftop_sites/{site}/forecasts",
-            {"format": ["json"], "api_key": [API_KEY], "hours": ["400"]},
+            {"format": ["json"], "api_key": [API_KEY], "hours": ["336"]},
         )
         for site in (SITE_ID, OTHER_SITE_ID)
     ]
@@ -228,10 +228,10 @@ def test_cron_collects_all_sites_and_kinds_independently(proxy: ProxyHarness) ->
     proxy.clock[0] = _next_collection_time("forecasts")
     proxy.simulator.run_pending()
     assert [query["hours"] for _, query in proxy.resource_calls("forecasts")] == [
-        ["400"],
-        ["400"],
-        ["400"],
-        ["400"],
+        ["336"],
+        ["336"],
+        ["336"],
+        ["336"],
     ]
     proxy.clock[0] = ACTUALS_AT
     proxy.simulator.run_pending()
@@ -239,7 +239,7 @@ def test_cron_collects_all_sites_and_kinds_independently(proxy: ProxyHarness) ->
     assert proxy.resource_calls("estimated_actuals") == [
         (
             f"/rooftop_sites/{site}/estimated_actuals",
-            {"format": ["json"], "api_key": [API_KEY], "hours": ["300"]},
+            {"format": ["json"], "api_key": [API_KEY], "hours": ["168"]},
         )
         for site in (SITE_ID, OTHER_SITE_ID)
     ]
@@ -247,7 +247,7 @@ def test_cron_collects_all_sites_and_kinds_independently(proxy: ProxyHarness) ->
     assert len(proxy.resource_calls("estimated_actuals")) == 2
     proxy.clock[0] = _next_collection_time("estimated_actuals")
     proxy.simulator.run_pending()
-    assert [query["hours"] for _, query in proxy.resource_calls("estimated_actuals")] == [["300"]] * 4
+    assert [query["hours"] for _, query in proxy.resource_calls("estimated_actuals")] == [["168"]] * 4
 
 
 @pytest.mark.parametrize("kind", KINDS)
@@ -551,7 +551,7 @@ def test_single_actuals_interval_reports_one_cache_hour(proxy: ProxyHarness, int
     assert response.headers["x-proxy-cache-hours"] == "1"
     assert response.headers["x-proxy-hours-truncated"] == "true"
     assert proxy.simulator.status()["resources"][SITE_ID]["estimated_actuals"]["cacheHours"] == 1
-    assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["300"]
+    assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["168"]
     assert proxy.calls == calls
 
 
@@ -621,7 +621,7 @@ def test_actuals_cache_hours_use_valid_history_span(
     assert response.headers["x-proxy-hours-truncated"] == "true"
     assert _header_time(response, "x-proxy-last-success-at") == proxy.clock[0]
     assert proxy.simulator.status()["resources"][SITE_ID]["estimated_actuals"]["cacheHours"] == expected_hours
-    assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["300"]
+    assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["168"]
     assert proxy.calls == calls
 
 
@@ -685,7 +685,7 @@ def test_actuals_truncation_uses_exact_aged_history_span(proxy: ProxyHarness, el
     assert proxy.calls == calls
 
 
-def test_actuals_retry_keeps_300_hours_without_relabeling_success(
+def test_actuals_retry_keeps_168_hours_without_relabeling_success(
     proxy: ProxyHarness,
 ) -> None:
     """Retries retain successful history coverage until new actuals arrive."""
@@ -731,7 +731,7 @@ def test_actuals_retry_keeps_300_hours_without_relabeling_success(
         assert recovered.get_json() == {"estimated_actuals": fresh}
         assert recovered.headers["x-proxy-cache-hours"] == "2"
         assert recovered.headers["x-proxy-hours-truncated"] == "true"
-        assert [query["hours"] for _, query in proxy.resource_calls("estimated_actuals")] == [["300"]] * 4
+        assert [query["hours"] for _, query in proxy.resource_calls("estimated_actuals")] == [["168"]] * 4
 
 
 def test_actuals_hours_trim_lower_exclusive_upper_inclusive(
@@ -779,8 +779,8 @@ def test_oversized_actuals_hours_serve_cache_without_collection(
     proxy.clock[0] = _next_collection_time(kind)
     proxy.simulator.run_pending()
     assert [query["hours"] for _, query in proxy.resource_calls(kind)] == [
-        ["300"],
-        ["300"],
+        ["168"],
+        ["168"],
     ]
     assert proxy.simulator.resources[(API_KEY, SITE_ID, kind)].hours == 0
 
@@ -842,12 +842,12 @@ def test_status_reports_resources_and_never_exposes_keys(proxy: ProxyHarness, st
 def test_first_actuals_read_keeps_static_collection_hours(
     proxy: ProxyHarness,
 ) -> None:
-    """Actuals collect 300 hours even before the first consumer request."""
+    """Actuals collect 168 hours even before the first consumer request."""
     proxy.discover()
     kind = "estimated_actuals"
     proxy.clock[0] = _collection_time(kind)
     proxy.simulator.run_pending()
-    assert proxy.resource_calls(kind)[0][1]["hours"] == ["300"]
+    assert proxy.resource_calls(kind)[0][1]["hours"] == ["168"]
     calls = list(proxy.calls)
     response = proxy.read(kind, hours=48)
     assert response.status_code == 200
@@ -857,7 +857,7 @@ def test_first_actuals_read_keeps_static_collection_hours(
     assert proxy.calls == calls
     proxy.clock[0] = _next_collection_time(kind)
     proxy.simulator.run_pending()
-    assert proxy.resource_calls(kind)[-1][1]["hours"] == ["300"]
+    assert proxy.resource_calls(kind)[-1][1]["hours"] == ["168"]
     assert proxy.read(kind, hours=48).headers["x-proxy-cache-hours"] == "0"
 
 
@@ -876,7 +876,7 @@ def test_missing_cache_reports_zero_coverage(proxy: ProxyHarness, kind: str, req
     assert proxy.resource_calls(kind) == []
     proxy.clock[0] = _collection_time(kind)
     proxy.simulator.run_pending()
-    horizon = {"forecasts": "400", "estimated_actuals": "300"}[kind]
+    horizon = {"forecasts": "336", "estimated_actuals": "168"}[kind]
     assert proxy.resource_calls(kind)[0][1]["hours"] == [horizon]
     empty = proxy.read(kind, hours=requested_hours)
     assert empty.status_code == 200
@@ -905,7 +905,7 @@ def test_forecast_consumers_share_upstream_capped_cache(proxy: ProxyHarness, ups
     proxy.queue(f"/rooftop_sites/{SITE_ID}/forecasts", payload=payload)
     proxy.clock[0] = FORECAST_AT
     proxy.simulator.run_pending()
-    assert proxy.resource_calls("forecasts")[0][1]["hours"] == ["400"]
+    assert proxy.resource_calls("forecasts")[0][1]["hours"] == ["336"]
     calls = list(proxy.calls)
     short = proxy.read("forecasts", hours=2)
     assert short.get_json() == {
@@ -926,7 +926,7 @@ def test_forecast_consumers_share_upstream_capped_cache(proxy: ProxyHarness, ups
     assert proxy.calls == calls
     proxy.clock[0] = _next_collection_time("forecasts")
     proxy.simulator.run_pending()
-    assert proxy.resource_calls("forecasts")[-1][1]["hours"] == ["400"]
+    assert proxy.resource_calls("forecasts")[-1][1]["hours"] == ["336"]
 
 
 @pytest.mark.parametrize("upstream_hours", [168, 48])
@@ -950,7 +950,7 @@ def test_actuals_consumers_share_upstream_capped_cache(proxy: ProxyHarness, upst
     proxy.queue(f"/rooftop_sites/{SITE_ID}/estimated_actuals", payload=payload)
     proxy.clock[0] = ACTUALS_AT
     proxy.simulator.run_pending()
-    assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["300"]
+    assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["168"]
     calls = list(proxy.calls)
     short = proxy.read("estimated_actuals", hours=2)
     assert short.get_json() == {
@@ -975,7 +975,7 @@ def test_actuals_consumers_share_upstream_capped_cache(proxy: ProxyHarness, upst
     assert proxy.calls == calls
     proxy.clock[0] = _next_collection_time("estimated_actuals")
     proxy.simulator.run_pending()
-    assert proxy.resource_calls("estimated_actuals")[-1][1]["hours"] == ["300"]
+    assert proxy.resource_calls("estimated_actuals")[-1][1]["hours"] == ["168"]
 
 
 @pytest.mark.parametrize("kind", KINDS)
@@ -1001,7 +1001,7 @@ def test_missing_coverage_stays_zero_without_fetch(proxy: ProxyHarness, kind: st
     ],
 )
 def test_forecast_collection_is_constant_across_clock_boundaries(proxy: ProxyHarness, boundary: datetime) -> None:
-    """Scheduled requests remain 400 hours across UTC days and DST dates."""
+    """Scheduled requests remain 336 hours across UTC days and DST dates."""
     proxy.clock[0] = boundary - timedelta(minutes=2)
     proxy.simulator = proxy.module.SolcastProxy(
         fetch=proxy.fetch,
@@ -1018,7 +1018,7 @@ def test_forecast_collection_is_constant_across_clock_boundaries(proxy: ProxyHar
         proxy.simulator.run_pending()
         proxy.clock[0] += timedelta(minutes=1)
         proxy.simulator.run_pending()
-        assert [query["hours"] for _, query in proxy.resource_calls("forecasts")] == [["400"]] * 3
+        assert [query["hours"] for _, query in proxy.resource_calls("forecasts")] == [["336"]] * 3
         assert proxy.read("forecasts", hours=2).headers["x-proxy-cache-hours"] == "0"
 
 
@@ -1066,7 +1066,7 @@ def test_forecast_cache_hours_use_valid_coverage_at_completion(
     assert response.get_json() == {"forecasts": [valid][:expected_rows]}
     assert _header_time(response, "x-proxy-last-success-at") == proxy.clock[0]
     assert proxy.simulator.status()["resources"][SITE_ID]["forecasts"]["cacheHours"] == expected_hours
-    assert proxy.resource_calls("forecasts")[0][1]["hours"] == ["400"]
+    assert proxy.resource_calls("forecasts")[0][1]["hours"] == ["336"]
 
 
 def test_forecast_truncation_uses_exact_aged_coverage(proxy: ProxyHarness) -> None:
@@ -1091,7 +1091,7 @@ def test_forecast_truncation_uses_exact_aged_coverage(proxy: ProxyHarness) -> No
     assert proxy.calls == calls
 
 
-def test_forecast_retry_keeps_400_hours_without_relabeling_success(
+def test_forecast_retry_keeps_336_hours_without_relabeling_success(
     proxy: ProxyHarness,
 ) -> None:
     """Retries crossing an hour retain successful coverage until a new success."""
@@ -1125,7 +1125,7 @@ def test_forecast_retry_keeps_400_hours_without_relabeling_success(
         assert proxy.clock[0] == datetime(2026, 9, 6, 8, 0, 5, tzinfo=UTC)
         proxy.queue(f"/rooftop_sites/{SITE_ID}/forecasts", 429)
         proxy.simulator.run_pending()
-        assert proxy.resource_calls("forecasts")[-1][1]["hours"] == ["400"]
+        assert proxy.resource_calls("forecasts")[-1][1]["hours"] == ["336"]
         failed_again = proxy.read("forecasts", hours=2)
         assert failed_again.headers["x-proxy-cache-hours"] == "3"
         assert proxy.simulator.resources[(API_KEY, SITE_ID, "forecasts")].hours == 3
@@ -1145,10 +1145,10 @@ def test_forecast_retry_keeps_400_hours_without_relabeling_success(
         assert recovered.headers["x-proxy-cache-hours"] == "2"
         assert recovered.headers["x-proxy-hours-truncated"] == "true"
         assert [query["hours"] for _, query in proxy.resource_calls("forecasts")] == [
-            ["400"],
-            ["400"],
-            ["400"],
-            ["400"],
+            ["336"],
+            ["336"],
+            ["336"],
+            ["336"],
         ]
 
 
@@ -1179,12 +1179,12 @@ def test_custom_schedules_horizons_backoff_and_jitter(proxy: ProxyHarness) -> No
         assert proxy.read("forecasts", hours=96).headers["x-proxy-last-fetch-status"] == "give_up"
         assert len(proxy.resource_calls("forecasts")) == 2
         assert [query["hours"] for _, query in proxy.resource_calls("forecasts")] == [
-            ["400"],
-            ["400"],
+            ["336"],
+            ["336"],
         ]
         proxy.clock[0] = datetime(2026, 9, 6, 8, tzinfo=UTC)
         proxy.simulator.run_pending()
-        assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["300"]
+        assert proxy.resource_calls("estimated_actuals")[0][1]["hours"] == ["168"]
 
 
 def test_parser_accepts_ports_and_schedules(
@@ -1336,7 +1336,7 @@ def test_repeated_429_matches_integration_backoff(proxy: ProxyHarness, kind: str
     assert response.headers["x-proxy-give-up"] == "true"
     assert response.headers["x-proxy-retries-used"] == "9"
     assert len(proxy.resource_calls(kind)) == 10
-    horizon = {"forecasts": "400", "estimated_actuals": "300"}[kind]
+    horizon = {"forecasts": "336", "estimated_actuals": "168"}[kind]
     assert [query["hours"] for _, query in proxy.resource_calls(kind)] == [[horizon]] * 10
     assert (proxy.clock[0] - start).total_seconds() == 675 + jitter * 9
     assert _header_time(response, "x-proxy-next-attempt-at") == _next_collection_time(kind)
@@ -1466,7 +1466,7 @@ def test_resource_first_learns_caller_key_and_multiple_sites(proxy: ProxyHarness
     assert proxy.calls == []
     proxy.clock[0] = _collection_time(kind)
     proxy.simulator.run_pending()
-    horizon = {"forecasts": "400", "estimated_actuals": "300"}[kind]
+    horizon = {"forecasts": "336", "estimated_actuals": "168"}[kind]
     assert proxy.resource_calls(kind) == [
         (
             f"/rooftop_sites/{site}/{kind}",

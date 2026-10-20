@@ -184,7 +184,7 @@ def test_route_actuals_guidance_is_not_padded(
 
 @pytest.mark.parametrize(
     ("kind", "maximum", "collection_hours"),
-    [(FORECASTS, 336, 400), (ESTIMATED_ACTUALS, 168, 300)],
+    [(FORECASTS, 336, 336), (ESTIMATED_ACTUALS, 168, 168)],
 )
 def test_proxy_collects_capped_wsgi_data(
     bounded_route_module: ModuleType,

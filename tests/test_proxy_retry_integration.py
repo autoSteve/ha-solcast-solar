@@ -68,7 +68,7 @@ class ProxyRetryHarness:
         if path == "/rooftop_sites":
             return self.module.UpstreamResponse(200, {"sites": [{RESOURCE_ID: self.site}]})
         assert path == f"/rooftop_sites/{self.site}/{self.kind}"
-        expected_hours = {FORECASTS: 400, ESTIMATED_ACTUALS: 300}[self.kind]
+        expected_hours = {FORECASTS: 336, ESTIMATED_ACTUALS: 168}[self.kind]
         assert query["hours"] == [str(expected_hours)]
         self.upstream_calls.append(self.clock)
         if self.responses:

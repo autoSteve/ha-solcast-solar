@@ -7,12 +7,12 @@ This is a Solcast proxy. Site discovery is pass-through; forecast and actuals co
 Install the standalone dependencies using requirements_proxy.txt in this directory. Start the existing WSGI simulator on its usual HTTPS port, then start the proxy from the repository present root, for example:
 
 ```sh
-python3 tests/components/solcast_solar/proxy.py --solcast-port 443 --port 8443
+python3 tests/components/solcast_solar/proxy.py --solcast-port 8443 --port 9443
 ```
 
 Or run it against the Solcast API at api.solcast.com.au using real API keys.
 
-Point the integration's `solcast_url` advanced option at `https://127.0.0.1` and `solcast_port` at `8443`, with its normal account key (`1` in this example). No API keys are supplied at startup. They are learned from the caller's `api_key` query parameter, including multiple accounts:
+Point the integration's `solcast_url` advanced option at `https://127.0.0.1` and `solcast_port` at `9443` for the proxy. No API keys are supplied at startup. They are learned from the caller's `api_key` query parameter, including multiple accounts:
 
 - `/rooftop_sites` forwards the key unchanged to the upstream discovery call and registers the returned sites for scheduled collection.
 - If forecasts or actuals are the first request, the key and requested site are registered locally for both collection schedules. Additional sites can be registered this way until live discovery supplies the account's site list.
@@ -23,17 +23,19 @@ The upstream defaults to `127.0.0.1` for local testing. To target the real Solca
 
 Both connections always use HTTPS. Upstream certificate and hostname validation are always disabled, matching the integrations behavior. The proxy always creates an ad-hoc self-signed TLS certificate. There are no certificate arguments or plaintext HTTP options.
 
+Getting things cranked up initially may require a Solcast integration reload to ask for the sites data.
+
 ## Collection and consumer parameters
 
 Defaults are forecasts at `55 2,7,12,17 * * *` and estimated actuals at
 `45 22 * * *`, strictly UTC with no DST adjustment. `--forecast-cron` and
 `--actuals-cron` accept five-field cron expressions. For quick proxy testing, both may be set to `* * * * *`. The first caller request registers the next scheduled occurrence; startup makes no upstream requests. Registration does not spend forecast or actuals quota to bootstrap immediately. Until collection succeeds, resource reads return 503 with collection headers.
 
-Every scheduled fetch sends the correct account's `api_key`, `format=json`, and `hours`. Forecasts always request `hours=400`, including retries. Solcast caps the response at the account/platform's available horizon (at most roughly 336 hours), without padding or an error for the oversised request. The proxy does not reconstruct the integration's local midnight, future-day setting, or DST rules. There are no forecast-hours, actuals-hours, or timezone CLI settings. The integration remains responsible for choosing its own requested hours.
+Every scheduled fetch sends the correct account's `api_key`, `format=json`, and `hours`. Forecasts always request `hours=336`, including retries. Requests above 336 hours are invalid and can return HTTP 400. An account may return a shorter available horizon without padding. The proxy does not reconstruct the integration's local midnight, future-day setting, or DST rules. There are no forecast-hours, actuals-hours, or timezone CLI settings. The integration remains responsible for choosing its own requested hours.
 
-Estimated actuals always request `hours=300`, including retries. Solcast caps returned history at the account's available limit, never exceeding 168 hours, without padding. Consumer hours do not alter either collection horizon. Each account/site/resource has an independent cache and retry state. Repeated discovery does not reset its schedule or trigger another collection.
+Estimated actuals always request `hours=168`, including retries. For the legacy hobbyist API used here, Solcast caps returned history at the account's available limit, never exceeding 168 hours, without padding. Consumer hours do not alter either collection horizon. Each account/site/resource has an independent cache and retry state. Repeated discovery does not reset its schedule or trigger another collection.
 
-Consumer `hours` must be a positive integer. Smaller requests are trimmed using the current UTC time: overlapping forecast intervals, or actual period ends in `(now - hours, now]`. Other Solcast fields are preserved. Larger requests get the available cached data with `x-proxy-hours-truncated: true`, plus `x-proxy-requested-hours` and `x-proxy-cache-hours`. For successful forecast collections, cache hours measure the returned coverage to the latest valid `period_end`, rounded up to whole hours, not the oversised 400-hour request. An empty forecast response has zero coverage. Truncation uses the exact returned endpoint and current time, so account-specific caps and aging are reflected. Before any successful collection, cache hours are zero. For actuals, cache hours measure the span from the earliest returned interval's start to the latest interval's end, rounded up. Truncation uses the unrounded span minus cache age, not the oversised 300-hour request. Cache age reduces available coverage; the proxy never fabricates or pads missing data.
+Consumer `hours` must be a positive integer. Smaller requests are trimmed using the current UTC time: overlapping forecast intervals, or actual period ends in `(now - hours, now]`. Other Solcast fields are preserved. Larger requests get the available cached data with `x-proxy-hours-truncated: true`, plus `x-proxy-requested-hours` and `x-proxy-cache-hours`. For successful forecast collections, cache hours measure the returned coverage to the latest valid `period_end`, rounded up to whole hours, not the requested 336 hours. An empty forecast response has zero coverage. Truncation uses the exact returned endpoint and current time, so account-specific caps and aging are reflected. Before any successful collection, cache hours are zero. For actuals, cache hours measure the span from the earliest returned interval's start to the latest interval's end, rounded up. Truncation uses the unrounded span minus cache age, not the 168-hour collection request. Cache age reduces available coverage; the proxy never fabricates or pads missing data.
 
 ## Retries and resource response headers
 
@@ -41,7 +43,7 @@ Transient upstream failures (including empty-body 429, 5xx, and network errors) 
 
 Last-good data survives all failures. However, when the latest upstream result is 429, resource reads also return 429, including after that collection cycle gives up. Load-shedding responses use JSON `null`, which the current integration recognises as retryable. Daily-quota responses retain Solcast's `response_status.error_code: TooManyRequests` payload instead, so the integration does not mistake quota exhaustion for temporary load shedding. Successful collection restores normal 200 responses. Other failures can still serve retained data; without any good cache they return 503.
 
-This deliberately avoids hiding upstream load shedding behind a cached 200. The integration's ten attempts (initial request plus nine retries), using `15 * attempt + jitter(0..14)` second delays, total 675–801 seconds of waiting. The proxy uses the same approach, with its fifteen-minute collection deadline starting before the first upstream request. Network time counts against that deadline. Integration requests do not trigger additional upstream attempts or wait for the proxy; its existing 900-second task limit remains unchanged. Ten consecutive load-shedding responses allow the integration to raise its existing non-fixable API-unavailable warning; later success clears it. Headers and status additionally describe the proxy's collection state:
+This deliberately avoids hiding upstream load shedding behind a cached 200. The integration's ten attempts (initial request plus nine retries), using `15 * attempt + jitter(0..14)` second delays, total 675–801 seconds of waiting. The proxy uses the same approach, with its fifteen-minute collection deadline starting before the first upstream request. Network time counts. Integration requests do not trigger additional upstream attempts or wait for the proxy; its existing 900-second task limit remains unchanged. Ten consecutive load-shedding responses allow the integration to raise its existing non-fixable API-unavailable warning; later success clears it. Headers and status additionally describe the proxy's collection state:
 
 | Header | Meaning |
 | --- | --- |
@@ -70,4 +72,4 @@ Consumer reads never move these timestamps or increment failures. Status is avai
 
 Consumers can follow cron slightly later should they understand the response headers, inspect the resource's next-attempt header during retries, and stop on `x-proxy-halted`. The five-second offset is nominal, not a guarantee that slow upstream collection has finished; consumers must inspect collection state.
 
-All caches are in memory. The Flask development server is presently for local testing, not production hosting.
+All caches are in memory and not persisted at this stage.
