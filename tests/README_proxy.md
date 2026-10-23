@@ -19,9 +19,13 @@ Point the integration's `solcast_url` advanced option at `https://127.0.0.1` and
 - A resource-first request with no cached data returns 503 and the next cron timestamp. It does not make an upstream discovery or quota-bearing data call. The upstream validates the key/site during scheduled collection; permanent failures are then reported via the resource headers.
 - Subsequent consumers using the same key/site share the cache. Scheduled fetches use exactly that caller-provided key, never a proxy-owned credential.
 
-The upstream defaults to `127.0.0.1` for local testing. To target the real Solcast API instead, use `--solcast-host api.solcast.com.au` with the default upstream port of 443 and the caller's real account key.
+The upstream defaults to `api.solcast.com.au` on port 443.
 
-Both connections always use HTTPS. Upstream certificate and hostname validation are always disabled, matching the integrations behavior. The proxy always creates an ad-hoc self-signed TLS certificate. There are no certificate arguments or plaintext HTTP options.
+Both connections always use HTTPS. Upstream certificate and hostname validation are enabled by default. For local simulator testing with self-signed certificates, use `--solcast-host 127.0.0.1 --solcast-port 8443 --no-verify`.
+
+The proxy always creates an ad-hoc self-signed TLS certificate for its own listener.
+
+The Solcast integration has advanced option `ssl_verify` for its configured Solcast URL. The default is `true` (certificate and hostname verification enabled), with `false` available as an explicit opt-out when users knowingly accept that risk.
 
 Getting things cranked up initially may require a Solcast integration reload to ask for the sites data.
 

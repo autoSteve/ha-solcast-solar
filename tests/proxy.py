@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Cron-driven Solcast proxy; resource reads never collect data.
 
-Connections always use HTTPS; upstream certificate validation is disabled, and
-the proxy uses an ad-hoc certificate. Accounts are learned from caller API keys
+Connections always use HTTPS; upstream certificate validation is enabled by
+default, and the proxy uses an ad-hoc certificate. Accounts are learned from
+caller API keys
 on discovery or resource requests. Collection starts at the next UTC cron
 occurrence. State is in memory and lost on restart.
 """
@@ -14,10 +15,12 @@ import copy
 from dataclasses import dataclass, field
 import datetime
 from email.utils import parsedate_to_datetime
+import http.client
 import json
 import logging
 import math
 import random
+import re
 import ssl
 import threading
 from typing import Any
@@ -30,7 +33,7 @@ import isodate
 
 DEFAULT_PORT = 8443
 DEFAULT_SOLCAST_PORT = 443
-DEFAULT_SOLCAST_HOST = "127.0.0.1"
+DEFAULT_SOLCAST_HOST = "api.solcast.com.au"
 FORECAST_REQUEST_HOURS = 336
 ACTUALS_REQUEST_HOURS = 168
 PROXY_NAME = "solcast-proxy"
@@ -47,6 +50,13 @@ PROXY_SCHEDULES = {
 }
 app = Flask(__name__)
 _LOGGER = logging.getLogger(__name__)
+_API_KEY_PATTERN = re.compile(r"(api_key=)([^&\s\"']+)")
+
+
+def _redact_api_key_query(value: str) -> str:
+    """Keep last six chars of api_key query values."""
+
+    return _API_KEY_PATTERN.sub(lambda match: f"{match.group(1)}******{match.group(2)[-6:]}", value)
 
 
 def _utc_now() -> datetime.datetime:
@@ -62,6 +72,24 @@ def _iso_utc(value: datetime.datetime | None) -> str:
 def _timestamp_ms(value: datetime.datetime | None) -> int | None:
     """Format a status-report timestamp."""
     return int(value.timestamp() * 1000) if value else None
+
+
+class _WerkzeugLogFilter(logging.Filter):
+    """Suppress startup noise and redact API keys in Werkzeug access logs."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Return False to suppress a record, or True to allow it (possibly modified)."""
+        msg = record.getMessage()
+        if msg.startswith("WARNING: This is a development server.") or " * Running on http" in msg or "Press CTRL+C to quit" in msg:
+            return False
+        if isinstance(record.args, tuple) and len(record.args) >= 2:
+            with suppress(IndexError, TypeError):
+                request_line = str(record.args[0])
+                status = str(record.args[1])
+                if "HTTP/" in request_line and status.isdigit():
+                    record.msg = 'Request: "%s" -> %s'
+                    record.args = (_redact_api_key_query(request_line), status)
+        return True
 
 
 @dataclass
@@ -147,22 +175,29 @@ def _fetch_upstream(path: str, query_string: str = "", timeout: float = 30) -> U
     if query_string:
         url += f"?{query_string}"
     outgoing = urllib_request.Request(url, headers={"User-Agent": f"{PROXY_NAME}/{PROXY_VERSION}"})
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    verify_upstream_ssl = app.config.get("VERIFY_UPSTREAM_SSL", True)
+    if verify_upstream_ssl:
+        context = ssl.create_default_context()
+    else:
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
     try:
         with urllib_request.urlopen(outgoing, timeout=timeout, context=context) as response:
             data = response.read()
             payload = json.loads(data.decode("utf-8")) if data else None
             return UpstreamResponse(response.status, payload, headers=dict(response.headers.items()))
     except urllib_error.HTTPError as err:
-        decoded = err.read().decode("utf-8", errors="replace")
+        try:
+            decoded = err.read().decode("utf-8", errors="replace")
+        except (http.client.HTTPException, OSError) as read_err:
+            return UpstreamResponse(502, detail=type(read_err).__name__)
         try:
             payload = json.loads(decoded) if decoded else None
         except json.JSONDecodeError:
             payload = None
         return UpstreamResponse(err.code, payload, decoded, dict(err.headers.items()) if err.headers else {})
-    except (urllib_error.URLError, TimeoutError, OSError) as err:
+    except (urllib_error.URLError, TimeoutError, OSError, http.client.HTTPException) as err:
         # Exception messages can contain the full URL, including credentials.
         return UpstreamResponse(502, detail=type(err).__name__)
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -210,12 +245,7 @@ class SolcastProxy:
 
     def next_cron(self, kind: str, now: datetime.datetime) -> datetime.datetime:
         """Find the next strictly future UTC occurrence."""
-        return next(
-            CronSim(
-                self.schedules[kind]["cron"],
-                now.astimezone(datetime.UTC) + datetime.timedelta(seconds=1),
-            )
-        )
+        return next(CronSim(self.schedules[kind]["cron"], now.astimezone(datetime.UTC)))
 
     def collection_hours(self, record: Resource) -> int:
         """Request beyond both platform limits and let upstream cap the data."""
@@ -296,6 +326,12 @@ class SolcastProxy:
                         record.cycle_started_at = self.now()
                     assert record.cycle_started_at is not None
                     remaining = 900 - (self.now() - record.cycle_started_at).total_seconds()
+                    if remaining <= 0:
+                        record.retrying = False
+                        record.give_up = True
+                        record.attempt_result = "give_up"
+                        record.next_attempt_at = self.next_cron(record.kind, self.now())
+                        continue
                     hours = self.collection_hours(record)
                 query = urlencode({"format": "json", "api_key": record.api_key, "hours": hours})
                 path = f"/rooftop_sites/{record.site}/{record.kind}"
@@ -594,6 +630,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--solcast-host", default=DEFAULT_SOLCAST_HOST)
     parser.add_argument("--solcast-port", type=int, default=DEFAULT_SOLCAST_PORT)
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Disable TLS certificate verification for the upstream Solcast host.",
+    )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--forecast-cron", default=PROXY_SCHEDULES["forecasts"]["cron"])
@@ -609,6 +650,7 @@ def main(argv: list[str] | None = None) -> None:
     app.config.update(
         SOLCAST_HOST=args.solcast_host,
         SOLCAST_PORT=args.solcast_port,
+        VERIFY_UPSTREAM_SSL=not args.no_verify,
     )
     try:
         configured_proxy = SolcastProxy(
@@ -618,7 +660,13 @@ def main(argv: list[str] | None = None) -> None:
     except ValueError as err:
         parser.error(str(err))
     app.extensions["solcast_proxy"] = configured_proxy
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s.%(msecs)03d %(levelname)s [%(name)s:%(filename)s] %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        force=True,
+    )
+    logging.getLogger("werkzeug").addFilter(_WerkzeugLogFilter())
     configured_proxy.start()
     try:
         app.run(
