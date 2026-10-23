@@ -21,6 +21,7 @@ from flask.testing import FlaskClient
 
 from homeassistant.components.recorder import Recorder
 from homeassistant.components.solcast_solar.const import (
+    ADVANCED_SSL_VERIFY,
     API_KEY,
     DOMAIN,
     ESTIMATED_ACTUALS,
@@ -95,7 +96,7 @@ class ProxyRetryHarness:
     ) -> MagicMock:
         """Expose Flask response status and bodies through the aiohttp interface."""
         assert params == {"format": "json", API_KEY: self.api_key, "hours": 48}
-        assert ssl is False
+        assert ssl is self.fetcher.api.advanced_options[ADVANCED_SSL_VERIFY]
         response = self.client.get(urlsplit(url).path, query_string=params)
         payload = response.get_json()
         self.polls.append((self.clock, response.status_code, payload))

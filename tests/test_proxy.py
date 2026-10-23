@@ -1210,6 +1210,7 @@ def test_parser_accepts_ports_and_schedules(
     expected = {
         "solcast_host": "upstream.example",
         "solcast_port": 8443,
+        "no_verify": False,
         "host": "0.0.0.0",
         "port": 9443,
         "forecast_cron": "5 * * * *",
@@ -1227,6 +1228,13 @@ def test_parser_schedule_defaults(proxy: ProxyHarness) -> None:
     assert not hasattr(args, "actuals_hours")
     assert args.forecast_cron == FORECAST_CRON
     assert args.actuals_cron == ACTUALS_CRON
+    assert args.no_verify is False
+
+
+def test_parser_accepts_no_verify_opt_out(proxy: ProxyHarness) -> None:
+    """CLI allows explicit upstream certificate verification opt-out."""
+    args = proxy.module.build_parser().parse_args(["--no-verify"])
+    assert args.no_verify is True
 
 
 @pytest.mark.parametrize("option", ["forecast_hours", "actuals_hours", "timezone"])
@@ -1272,14 +1280,32 @@ def test_transport_preserves_success_payload_and_headers(proxy: ProxyHarness) ->
     assert {key.lower(): value for key, value in result.headers.items()}["retry-after"] == "5"
     request = urlopen.call_args.args[0]
     context = urlopen.call_args.kwargs["context"]
-    assert context.verify_mode == ssl.CERT_NONE
-    assert context.check_hostname is False
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname is True
     assert urlsplit(request.full_url).scheme == "https"
     assert urlsplit(request.full_url).path == "/rooftop_sites"
     assert parse_qs(urlsplit(request.full_url).query) == {
         "format": ["json"],
         "api_key": [API_KEY],
     }
+
+
+def test_transport_disables_ssl_verification_when_opted_out(proxy: ProxyHarness) -> None:
+    """Explicit opt-out disables upstream certificate and hostname checks."""
+    upstream = MagicMock()
+    upstream.status = 200
+    upstream.read.return_value = b'{}'
+    upstream.headers = {}
+    upstream.__enter__.return_value = upstream
+    proxy.module.app.config["VERIFY_UPSTREAM_SSL"] = False
+    try:
+        with patch.object(proxy.module.urllib_request, "urlopen", return_value=upstream) as urlopen:
+            proxy.module._fetch_upstream("/rooftop_sites", "format=json")
+    finally:
+        proxy.module.app.config["VERIFY_UPSTREAM_SSL"] = True
+    context = urlopen.call_args.kwargs["context"]
+    assert context.verify_mode == ssl.CERT_NONE
+    assert context.check_hostname is False
 
 
 def test_transport_maps_network_error_to_retryable_502(proxy: ProxyHarness) -> None:
