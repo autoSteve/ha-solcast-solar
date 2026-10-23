@@ -1,3 +1,4 @@
+@ -0,0 +1,89 @@
 # Scheduled Solcast proxy
 
 This is a Solcast proxy. Site discovery is pass-through; forecast and actuals consumer reads never touch the upstream API, including when the cache is empty.
@@ -26,6 +27,16 @@ Both connections always use HTTPS. Upstream certificate and hostname validation 
 The proxy always creates an ad-hoc self-signed TLS certificate for its own listener.
 
 The Solcast integration has advanced option `ssl_verify` for its configured Solcast URL. The default is `true` (certificate and hostname verification enabled), with `false` available as an explicit opt-out when users knowingly accept that risk.
+
+Set it in `config/solcast_solar/solcast-advanced.json` (or `config/solcast-advanced.json` when not using a discrete folder), for example:
+
+```json
+{
+	"solcast_url": "https://127.0.0.1",
+	"solcast_port": 9443,
+	"ssl_verify": false
+}
+```
 
 Getting things cranked up initially may require a Solcast integration reload to ask for the sites data.
 
