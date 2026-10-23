@@ -1294,7 +1294,7 @@ def test_transport_disables_ssl_verification_when_opted_out(proxy: ProxyHarness)
     """Explicit opt-out disables upstream certificate and hostname checks."""
     upstream = MagicMock()
     upstream.status = 200
-    upstream.read.return_value = b'{}'
+    upstream.read.return_value = b"{}"
     upstream.headers = {}
     upstream.__enter__.return_value = upstream
     proxy.module.app.config["VERIFY_UPSTREAM_SSL"] = False
@@ -1416,6 +1416,49 @@ def test_late_worker_does_not_resume_an_expired_retry_cycle(
     assert response.headers["x-proxy-last-fetch-status"] == "give_up"
     assert _header_time(response, "x-proxy-next-attempt-at") == _next_collection_time("forecasts")
     assert len(proxy.resource_calls("forecasts")) == 1
+
+
+def test_paused_retry_expiry_keeps_already_due_cycle(proxy: ProxyHarness) -> None:
+    """Paused retry expiry should not skip a cron occurrence that is already due."""
+    proxy.discover()
+    path = f"/rooftop_sites/{SITE_ID}/estimated_actuals"
+    proxy.queue(path, 429)
+    proxy.clock[0] = ACTUALS_AT
+    proxy.simulator.run_pending()
+    # Worker remains paused well past the cycle deadline.
+    proxy.clock[0] = ACTUALS_AT + timedelta(days=1, minutes=10)
+    proxy.simulator.run_pending()
+    response = proxy.read("estimated_actuals")
+    assert response.headers["x-proxy-last-fetch-status"] == "clean_success"
+    assert len(proxy.resource_calls("estimated_actuals")) == 2
+
+
+def test_cycle_cutoff_is_anchored_to_cycle_start(proxy: ProxyHarness) -> None:
+    """Retry cutoff compares against the cycle's original cron boundary."""
+    proxy.simulator.schedules["forecasts"]["cron"] = "* * * * *"
+    proxy.discover()
+    path = f"/rooftop_sites/{SITE_ID}/forecasts"
+    proxy.queue(path, 429, headers={"Retry-After": "20"})
+    proxy.clock[0] = datetime(2026, 9, 6, 7, 55, 50, tzinfo=UTC)
+    proxy.simulator.run_pending()
+    response = proxy.read("forecasts")
+    assert response.headers["x-proxy-last-fetch-status"] == "give_up"
+    # Retry-After reaches 07:56:10, so the next cron at/after cooldown is 07:57.
+    assert _header_time(response, "x-proxy-next-attempt-at") == datetime(2026, 9, 6, 7, 57, tzinfo=UTC)
+
+
+def test_retry_after_cooldown_is_preserved_across_cycles(proxy: ProxyHarness) -> None:
+    """A give-up caused by Retry-After keeps the upstream not-before constraint."""
+    proxy.simulator.schedules["forecasts"]["cron"] = "* * * * *"
+    proxy.discover()
+    path = f"/rooftop_sites/{SITE_ID}/forecasts"
+    proxy.queue(path, 429, headers={"Retry-After": "120"})
+    proxy.clock[0] = datetime(2026, 9, 6, 7, 55, 50, tzinfo=UTC)
+    proxy.simulator.run_pending()
+    response = proxy.read("forecasts")
+    assert response.headers["x-proxy-last-fetch-status"] == "give_up"
+    # Next cron at or after retry_at (07:57:50) is 07:58.
+    assert _header_time(response, "x-proxy-next-attempt-at") == datetime(2026, 9, 6, 7, 58, tzinfo=UTC)
 
 
 def test_background_scheduler_collects_without_a_consumer_read(

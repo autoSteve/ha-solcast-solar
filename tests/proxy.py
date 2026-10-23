@@ -247,6 +247,10 @@ class SolcastProxy:
         """Find the next strictly future UTC occurrence."""
         return next(CronSim(self.schedules[kind]["cron"], now.astimezone(datetime.UTC)))
 
+    def next_cron_at_or_after(self, kind: str, when: datetime.datetime) -> datetime.datetime:
+        """First UTC occurrence at or after a time."""
+        return self.next_cron(kind, when.astimezone(datetime.UTC) - datetime.timedelta(microseconds=1))
+
     def collection_hours(self, record: Resource) -> int:
         """Request beyond both platform limits and let upstream cap the data."""
         if record.kind == "forecasts":
@@ -308,7 +312,7 @@ class SolcastProxy:
                     record.retrying = False
                     record.give_up = True
                     record.attempt_result = "give_up"
-                    record.next_attempt_at = self.next_cron(record.kind, now)
+                    record.next_attempt_at = self.next_cron(record.kind, record.cycle_started_at)
             due = [
                 record
                 for record in self.resources.values()
@@ -330,7 +334,7 @@ class SolcastProxy:
                         record.retrying = False
                         record.give_up = True
                         record.attempt_result = "give_up"
-                        record.next_attempt_at = self.next_cron(record.kind, self.now())
+                        record.next_attempt_at = self.next_cron(record.kind, record.cycle_started_at)
                         continue
                     hours = self.collection_hours(record)
                 query = urlencode({"format": "json", "api_key": record.api_key, "hours": hours})
@@ -361,10 +365,13 @@ class SolcastProxy:
             for key, value in result.headers.items()
             if key.lower() == "retry-after" or key.lower().startswith(("x-ratelimit", "ratelimit"))
         }
-        record.next_attempt_at = self.next_cron(record.kind, now)
+        assert record.cycle_started_at is not None
+        next_cycle_at = self.next_cron(record.kind, record.cycle_started_at)
+        cycle_cutoff_at = min(next_cycle_at, record.cycle_started_at + datetime.timedelta(minutes=15))
         record.give_up = False
         record.retrying = False
         if result.status == 200 and valid_payload:
+            record.next_attempt_at = next_cycle_at
             if record.kind == "forecasts":
                 record.forecast_end = self._forecast_end(result.payload[record.kind])
                 record.hours = (
@@ -383,6 +390,7 @@ class SolcastProxy:
         if result.status == 429 and isinstance(response_status, dict) and response_status.get("error_code") == "TooManyRequests":
             record.attempt_result = "budget_exhausted"
             record.give_up = True
+            record.next_attempt_at = next_cycle_at
             return
         if 400 <= result.status < 500 and result.status not in (408, 425, 429):
             record.attempt_result = "permanent_error"
@@ -393,6 +401,7 @@ class SolcastProxy:
         if record.attempts >= self.max_attempts:
             record.attempt_result = "give_up"
             record.give_up = True
+            record.next_attempt_at = next_cycle_at
             return
         delay = record.attempts * self.retry_backoff + self.jitter()
         retry_after = next(
@@ -409,13 +418,10 @@ class SolcastProxy:
                         int((parsedate_to_datetime(retry_after) - now).total_seconds()),
                     )
         retry_at = now + datetime.timedelta(seconds=delay)
-        assert record.cycle_started_at is not None
-        if retry_at >= min(
-            record.next_attempt_at,
-            record.cycle_started_at + datetime.timedelta(minutes=15),
-        ):
+        if retry_at >= cycle_cutoff_at:
             record.attempt_result = "give_up"
             record.give_up = True
+            record.next_attempt_at = self.next_cron_at_or_after(record.kind, retry_at)
             return
         record.next_attempt_at = retry_at
         record.retrying = True
