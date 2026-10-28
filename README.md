@@ -1510,6 +1510,7 @@ Latest minor/patch releases.
 v4.6.3
 
 * Add SSL verify by default by @autoSteve
+* Fix momentary power sensors dropping to 0 W in the afternoon when today's forecast starts after midnight by @Bascht74
 * Fix the sun elevation adjustment of automated dampening swapping east and west facing sites by @Bascht74
 * Fix automated dampening models 1, 2 and 3 applying the sun elevation adjustment to pairs that already share their sun geometry by @Bascht74
 * Add a model switch margin for adaptive dampening by @Bascht74
