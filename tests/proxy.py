@@ -224,7 +224,7 @@ class SolcastProxy:
             try:
                 CronSim(expression, datetime.datetime(2020, 1, 1, tzinfo=datetime.UTC))
             except CronSimError:
-                raise ValueError("Schedules must be valid five-field cron expressions")
+                raise ValueError("Schedules must be valid five-field cron expressions") from None
         if min(max_attempts, retry_backoff) < 1:
             raise ValueError("Retry settings must be positive")
         self.fetch = fetch or _fetch_upstream
@@ -244,7 +244,7 @@ class SolcastProxy:
         self.thread: threading.Thread | None = None
 
     def next_cron(self, kind: str, now: datetime.datetime) -> datetime.datetime:
-        """Find the next strictly future UTC occurrence."""
+        """Find the next future UTC occurrence."""
         return next(CronSim(self.schedules[kind]["cron"], now.astimezone(datetime.UTC)))
 
     def next_cron_at_or_after(self, kind: str, when: datetime.datetime) -> datetime.datetime:
@@ -252,13 +252,13 @@ class SolcastProxy:
         return self.next_cron(kind, when.astimezone(datetime.UTC) - datetime.timedelta(microseconds=1))
 
     def collection_hours(self, record: Resource) -> int:
-        """Request beyond both platform limits and let upstream cap the data."""
+        """Request max collection hours."""
         if record.kind == "forecasts":
             return FORECAST_REQUEST_HOURS
         return ACTUALS_REQUEST_HOURS
 
     def discovery_headers(self) -> dict[str, str]:
-        """Advertise a versioned scheduling contract for future consumers."""
+        """Advertise scheduling for consumers."""
         return {
             "x-solcast-proxy": "true",
             "x-proxy-name": PROXY_NAME,
