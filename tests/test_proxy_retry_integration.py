@@ -17,10 +17,7 @@ import pytest
 
 pytest.importorskip("flask", reason="Flask is required for proxy integration tests")
 
-from flask.testing import FlaskClient
-
-from homeassistant.components.recorder import Recorder
-from homeassistant.components.solcast_solar.const import (
+from custom_components.solcast_solar.const import (
     ADVANCED_SSL_VERIFY,
     API_KEY,
     DOMAIN,
@@ -29,7 +26,10 @@ from homeassistant.components.solcast_solar.const import (
     ISSUE_API_UNAVAILABLE,
     RESOURCE_ID,
 )
-from homeassistant.components.solcast_solar.fetcher import Fetcher
+from custom_components.solcast_solar.fetcher import Fetcher
+from flask.testing import FlaskClient
+
+from homeassistant.components.recorder import Recorder
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import issue_registry as ir
 
