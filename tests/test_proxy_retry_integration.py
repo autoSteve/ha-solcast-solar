@@ -208,7 +208,7 @@ async def proxy_retry(
         monkeypatch.setattr(solcast, "aiohttp_session", session)
         monkeypatch.setattr(solcast.fetcher, "_sleep", harness.sleep)
         monkeypatch.setattr(
-            "homeassistant.components.solcast_solar.fetcher.random.randrange",
+            "custom_components.solcast_solar.fetcher.random.randrange",
             Mock(return_value=14),
         )
         yield harness
