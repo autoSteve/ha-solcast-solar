@@ -4,7 +4,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 ![GitHub Release](https://img.shields.io/github/v/release/BJReplay/ha-solcast-solar?style=for-the-badge)
 [![hacs_downloads](https://img.shields.io/github/downloads/BJReplay/ha-solcast-solar/latest/total?style=for-the-badge)](https://github.com/BJReplay/ha-solcast-solar/releases/latest)
-![GitHub License](https://img.shields.io/github/license/BJReplay/ha-solcast-solar?style=for-the-badge)
+![GitHub License](https://img.shields.io/github/license/BJReplay/ha-solcast-solar?style=for-the-badge&color=brightgreen)
 [![Tests](https://img.shields.io/github/actions/workflow/status/BJReplay/ha-solcast-solar/pytest.yml?branch=main&label=tests&style=for-the-badge)](https://github.com/BJReplay/ha-solcast-solar/actions/workflows/pytest.yml)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/BJReplay/ha-solcast-solar?style=for-the-badge)
 ![Maintenance](https://img.shields.io/maintenance/yes/2026?style=for-the-badge)
@@ -1507,6 +1507,8 @@ v4.6.3
 * Add a model switch margin for adaptive dampening by @Bascht74
 * Fix Dublin dampening intervals shifted by one hour when the system time zone database marks summer as +1 hour by @Bascht74
 * Fix false missing forecast data warnings and repair issues around summer time changes by @Bascht74
+* Speed up building the forecast data by @RaHehl 
+* Watch files with inotify instead of watchfiles by @RaHehl
 
 Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.6.2...v4.6.3
 
