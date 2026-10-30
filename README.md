@@ -4,7 +4,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Default-orange.svg?style=for-the-badge)](https://github.com/custom-components/hacs)
 ![GitHub Release](https://img.shields.io/github/v/release/BJReplay/ha-solcast-solar?style=for-the-badge)
 [![hacs_downloads](https://img.shields.io/github/downloads/BJReplay/ha-solcast-solar/latest/total?style=for-the-badge)](https://github.com/BJReplay/ha-solcast-solar/releases/latest)
-![GitHub License](https://img.shields.io/github/license/BJReplay/ha-solcast-solar?style=for-the-badge)
+![GitHub License](https://img.shields.io/github/license/BJReplay/ha-solcast-solar?style=for-the-badge&color=brightgreen)
 [![Tests](https://img.shields.io/github/actions/workflow/status/BJReplay/ha-solcast-solar/pytest.yml?branch=main&label=tests&style=for-the-badge)](https://github.com/BJReplay/ha-solcast-solar/actions/workflows/pytest.yml)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/BJReplay/ha-solcast-solar?style=for-the-badge)
 ![Maintenance](https://img.shields.io/maintenance/yes/2026?style=for-the-badge)
@@ -1069,7 +1069,7 @@ data:
 
 If a site resource ID is not specified, and 24 dampening values are given then granular dampening will be removed, and the overall configured hourly dampening will apply to all sites. (Granular dampening may also be disabled using the integration `CONFIGURE` dialogue.)
 
-The action need not be called. Rather, the file itself may be updated directly and if created or modified will be read and used. Create/update/delete operations for this file are monitored, and resulting changes to the dampened forecast will be reflected in less than one second after the file operation occurs.
+The action need not be called. Rather, the file itself may be updated directly and if created or modified will be read and used. Create/update/delete operations for this file are monitored. Changes to the dampened forecast follow as soon as the file is written, and a deletion is acted on after one second, so a save that deletes and rewrites the file is not taken as a removal. Changes made by another computer to a network share holding the Home Assistant configuration, or from the Windows side of Docker Desktop, are not seen until the integration is reloaded.
 
 If granular dampening is configured for a single site in a multi-site set up then that dampening will only apply to the forecasts for that site. Other sites will not be dampened.
 
@@ -1413,7 +1413,6 @@ series:
 * Altering hard limit will alter recorded forecast history. This is currently by design and may not change.
 * Any zero-length integration JSON files will be removed on startup [(see below)](#removal-of-zero-length-files)
 * Sample sites (if set up in your Solcast dashboard) will be included in your forecasts retrieved by this integration and returned to Home Assistant [(see below)](#sample-sites)
-* PiHole adblocker (or other adblockers) may block `files.pythonhosted.org` required to download components for this (and other) integrations [(see below)](#watchfile-dependency-download-error)
 
 ### Removal of zero-length files
 
@@ -1432,14 +1431,6 @@ Expect API usage issues, which will clear within 24 hours.
 If you see sample sites (such as these) [<img src="https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/SampleSites.png">](https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/SampleSites.png) remove them from your Solcast dashboard.
 
 If you don't remove sample sites from your Solcast dashboard, you may not be able to configure the integration - you may receive an `Error Exception in __sites_data(): 'azimuth' for API key` during configuration: [<img src="https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/SampleSitesException.png">](https://github.com/BJReplay/ha-solcast-solar/blob/main/.github/SCREENSHOTS/SampleSitesException.png)
-
-### Watchfile dependency download error
-
-This integration requires `watchfiles` which is not part of the standard Home Assistant install, so is downloaded when the first integration that needs it is installed.  Dependencies such as watchfiles are downloaded from `files.pythonhosted.org`, and this may be blocked by adblockers such as PiHole, resulting in the inability to set up this integration.
-
-If you receive an error attempting to install this integration - or after updating Home Assistant - that says `Setup failed for custom integration 'solcast_solar': Requirements for solcast_solar not found: ['watchfiles>=1.0.0']` then you have run into this error.
-
-You should consider adding `files.pythonhosted.org` to your adblocker's whitelist, or using a different DNS server for Home Assistant, or at least consider temporarily disabling your adblocker.
 
 ## Troubleshooting
 
@@ -1516,6 +1507,8 @@ v4.6.3
 * Add a model switch margin for adaptive dampening by @Bascht74
 * Fix Dublin dampening intervals shifted by one hour when the system time zone database marks summer as +1 hour by @Bascht74
 * Fix false missing forecast data warnings and repair issues around summer time changes by @Bascht74
+* Speed up building the forecast data by @RaHehl 
+* Watch files with inotify instead of watchfiles by @RaHehl
 
 Full Changelog: https://github.com/BJReplay/ha-solcast-solar/compare/v4.6.2...v4.6.3
 
